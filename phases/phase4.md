@@ -1,30 +1,27 @@
 # Phase 4: Algebraic Loss Functionals & Information Metrics (OACE / $\mathcal{L}_{1/8}$)
 
-## 1. Objective & Research Scope
-Eliminate the natural logarithm $\ln(x)$ and Shannon entropy from neural training objectives. Formulate, formally verify, and benchmark the **Optimal Algebraic Cross-Entropy (OACE / $\mathcal{L}_{1/8}$)** and the **Algebraic Divergence (AD)**:
-- Prove strict proper scoring rule behavior without transcendentals.
-- Demonstrate hardware-optimal backward evaluation via 3 successive $\operatorname{rsqrt}$ operations.
-- Establish that OACE eliminates logarithmic gradient explosion near simplex boundaries while preserving Fisher information curvature.
+## 1. Objective, Scientific Hypothesis & Competing Models
+Eliminate the natural logarithm $\ln(x)$ and Shannon entropy from neural training objectives:
+$$\textbf{"Can an algebraic divergence train neural distributions without logarithmic gradient poles?"}$$
+
+### Competing Hypotheses:
+- **$H_1$ (Algebraic Hypothesis):** The Optimal Algebraic Cross-Entropy $\mathcal{L}_{1/8}(p_k) = 8(p_k^{-1/8} - 1)$ evaluated via 3 sequential hardware $\operatorname{rsqrt}$ operations is a strictly proper scoring rule that eliminates the infinite gradient singularity of cross-entropy near simplex boundaries ($p \to 0$), matches the Riemannian Fisher information metric of KL divergence, and stabilizes gradient descent under extreme label noise.
+- **$H_0$ (Transcendental Baseline Hypothesis):** The logarithmic cross-entropy $\mathcal{L}_{\text{CE}} = -\ln p$ is uniquely derived from maximum likelihood; any algebraic replacement will distort prediction calibration, suffer from slow convergence, or fail on multi-class language modeling.
 
 ---
 
 ## 2. Mathematical Formulations & Zero-Transcendental Constraints
 
 ### 2.1 The $\alpha$-Algebraic Cross-Entropy Family
-For probability distribution $\mathbf{p} \in \operatorname{int}\Delta^{K-1}$ and one-hot target $\mathbf{y} \in \Delta^{K-1}$, the $\alpha$-ACE family is defined for $\alpha \in (0, 1]$ as:
-$$\mathcal{L}_\alpha(\mathbf{p}, \mathbf{y}) \coloneqq \sum_{i=1}^K \left[ \frac{y_i}{\alpha} \left( p_i^{-\alpha} - 1 \right) + \frac{1 - \alpha}{\alpha} \left( p_i^\alpha - 1 \right) \right]$$
-
-### 2.2 Canonical Octo-Algebraic Cross-Entropy ($\mathcal{L}_{1/8}$)
-Setting $\alpha = 1/8$ matches the octic sharpening $n = 8$ of A-Softmax. For target index $k$ ($y_k = 1$):
+For probability distribution $\mathbf{p} \in \operatorname{int}\Delta^{K-1}$ and target index $k$:
 $$\mathcal{L}_{1/8}(p_k) = 8\left( p_k^{-1/8} - 1 \right)$$
-Evaluation of $p_k^{-1/8} = \operatorname{rsqrt}_3(p_k)$ proceeds via exactly 3 hardware square-root/rsqrt operations:
+Evaluation proceeds strictly via 3 hardware square-root/rsqrt operations:
 $$z_1 = \operatorname{rsqrt}(p_k) = p_k^{-1/2}, \quad z_2 = \operatorname{rsqrt}(z_1^{-1}) = p_k^{-1/4}, \quad z_3 = \operatorname{rsqrt}(z_2^{-1}) = p_k^{-1/8}$$
 with zero log calls.
 
-### 2.3 Pearson $\chi^2$ Divergence Equivalence
-For $\alpha = 1$, the algebraic loss reduces to the Pearson $\chi^2$ divergence:
-$$\mathcal{L}_1(\mathbf{p}, \mathbf{y}) = \sum_{i=1}^K \frac{(y_i - p_i)^2}{p_i} = \sum_{i=1}^K \left( \frac{y_i^2}{p_i} - 2y_i + p_i \right)$$
-which provides a strictly positive, convex Riemannian metric on the probability simplex.
+### 2.2 Gradient Boundedness & Fisher Curvature
+- **Gradient:** $\frac{d}{dp_k}\mathcal{L}_{1/8} = -p_k^{-9/8}$, with magnitude at $p = 10^{-7}$ bounded by $1.78 \times 10^8$ (algebraic growth vs. infinite logarithmic pole).
+- **Pearson $\chi^2$ Equivalence:** For target distribution $\mathbf{y}$, the algebraic divergence $D_A(\mathbf{y} \| \mathbf{p}) = \sum \frac{y_i^2}{p_i} - 1$ is non-negative and convex, with Hessian $H(D_A)|_{\mathbf{p}=\mathbf{y}} = 2 H(D_{\text{KL}})|_{\mathbf{p}=\mathbf{y}}$.
 
 ---
 
@@ -41,34 +38,36 @@ The agent must compile `formal/AlgebraicTheory/Loss.lean` with zero errors under
 
 ---
 
-## 4. Mathematical Analysis & Python Verification Gate
+## 4. Deep Empirical & Monte Carlo Simulation Gate
 
-The agent must execute the loss verification in `analysis/verify_algebraic_primitives.py`:
+The agent must execute the Phase 4 test suite in `analysis/verify_algebraic_primitives.py`:
 
-| Metric | Target Value | Tolerance / Bound |
+| Evaluation Dimension | Experimental Protocol | Success Criterion / Bound |
 | :--- | :--- | :--- |
-| **Monotonicity Check** | $\frac{\partial \mathcal{L}_{1/8}}{\partial p_k} < 0$ for $p_k \in (0, 1)$ | Verified across $10^5$ samples |
-| **Gradient Magnitude at $p_k = 0.01$** | $|\nabla_{p_k} \mathcal{L}_{1/8}|$ | $\approx 1.77 \times 10^2$ (vs. Cross-Entropy: $1.00 \times 10^2$) |
-| **Minimum Value** | $\min_{p_k \in (0, 1]} \mathcal{L}_{1/8}(p_k)$ | Exactly $0.0$ at $p_k = 1.0$ |
-| **Zero Transcendental Audit** | Grep of loss implementation for `log`, `log_softmax` | Exactly $0$ occurrences |
+| **Monte Carlo Label Noise Stress Test** | $10^5$ trials under symmetric label noise $\epsilon \in [0.0, 0.3]$ | Gradient variance $\operatorname{Var}(\nabla \mathcal{L}_{1/8}) \le 0.50 \times \operatorname{Var}(\nabla \mathcal{L}_{\text{CE}})$ |
+| **Simplex Boundary Stability** | Evaluate gradient across $p_k \in [10^{-7}, 1 - 10^{-7}]$ | Zero NaNs, zero Infs, bounded gradient |
+| **Fisher Information Ratio** | Hessian ratio $H(D_A) / H(D_{\text{KL}})$ at $p = y$ | Exactly $[2.0, 2.0, \dots, 2.0]$ |
+| **Strict Propriety & Monotonicity** | Verify $\frac{\partial \mathcal{L}_{1/8}}{\partial p_k} < 0$ across $10^5$ samples | Monotonically decreasing on $(0, 1]$ |
+| **Minimum Value** | Evaluate $\min_{p_k \in (0, 1]} \mathcal{L}_{1/8}(p_k)$ | Exactly $0.000000$ at $p_k = 1.0$ |
+| **Zero Transcendental Audit** | Grep of loss module for `log`, `ln`, `cross_entropy` | Exactly $0$ occurrences |
 
 ---
 
-## 5. Failure Modes & Self-Correction Playbook
+## 5. Autonomous Failure Ledger & Self-Correction Playbook
 
-- **Symptom: Gradient overflow when $p_k \to 0$:**
-  *Root Cause:* Zero probability prediction causes division by zero in $p_k^{-1/8}$.
-  *Correction:* The A-Softmax attention sink $\Omega > 0$ and AVN pre-bounding mathematically guarantee a non-zero lower bound:
-  $$p_{\min} \geq \frac{\kappa_8(-B)}{K \kappa_8(B) + \Omega} > 0$$
-  If standalone logits are passed, clamp probability input at $p_{\text{floor}} = 10^{-7}$ using purely algebraic clamping.
-- **Symptom: Training loss plateaus too early:**
-  *Root Cause:* Scaling factor in $\mathcal{L}_{1/8}$ too small relative to learning rate.
-  *Correction:* Scale the loss by a constant factor $\gamma = 2.0$ to calibrate gradient step norms against standard cross-entropy.
+- **Symptom: Gradient overflow when probability approaches zero ($p_k \to 0$):**
+  - *Root Cause:* Division by zero in unconstrained probability logits.
+  - *Correction:* Apply algebraic floor clamping $p_{\text{floor}} = 10^{-7}$ or verify that A-Softmax attention sink $\Omega > 0$ provides a strictly positive mathematical lower bound.
+- **Symptom: Optimization step size too small relative to standard CE:**
+  - *Root Cause:* Constant scale factor mismatch in $\mathcal{L}_{1/8}$.
+  - *Correction:* Scale OACE loss by rational calibration factor $\gamma = 2.0$.
 
 ---
 
 ## 6. Passing Gate Checklist
 - [ ] `formal/AlgebraicTheory/Loss.lean` compiles with 0 errors via `lake build`.
-- [ ] OACE monotonicity and non-negativity verified numerically across $(0, 1]$.
-- [ ] Three-step $\operatorname{rsqrt}$ implementation verified against float64 reference.
-- [ ] Zero log calls verified in loss module.
+- [ ] $10^5$-trial Monte Carlo label noise simulation proves $\le 50\%$ gradient variance vs. Cross-Entropy.
+- [ ] Simplex boundary evaluation confirms zero gradient singularities at $p_k = 10^{-7}$.
+- [ ] Fisher information equivalence ratio is identically $2.0$.
+- [ ] OACE loss strictly proper, monotonic, and zero at $p_k = 1.0$.
+- [ ] Zero log calls verified in loss codebase.

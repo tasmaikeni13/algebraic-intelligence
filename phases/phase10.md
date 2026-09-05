@@ -4,7 +4,7 @@
 Synthesize the complete mathematical formulations, machine-checked Lean 4 proofs, hardware-fused ROCm/HIP benchmarks, and scaled multi-seed empirical pretraining results into a formal, publication-ready research paper:
 $$\textbf{"The Algebraic Stack: Can Algebra and Algebra Alone Give Rise to Intelligence?"}$$
 
-Prepare the open-source release package, reproduction artifacts, open model weights (125M and 350M checkpoints across all seeds), and publication-ready figures for conference / journal submission (NeurIPS / ICML / ICLR / JMLR).
+Prepare the open-source release package, reproduction artifacts, open model weights (125M and 350M checkpoints across all seeds), and publication-ready figures for top-tier conference / journal submission (NeurIPS / ICML / ICLR / JMLR).
 
 ---
 
@@ -19,7 +19,7 @@ Prepare the open-source release package, reproduction artifacts, open model weig
    - Analytical theorems: global 2-Lipschitz Jacobian bounds, universal algebraic approximation, and Pearson $\chi^2$ divergence equivalence.
 3. **Machine-Checked Formal Verification in Lean 4:**
    - Detailed walkthrough of the 6 Lean 4 modules in `AlgebraicTheory`.
-   - Discussion of automated tactics (`field_simp`, `ring`, `linear_combination`) and verification guarantees.
+   - Discussion of automated tactics (`field_simp`, `ring`, `linear_combination`, `omega`) and formal verification guarantees.
 4. **Hardware Kernels & CDNA3 Execution (AMD Instinct MI300X):**
    - Architectural analysis of Algebraic FlashAttention (AFA) vs. FlashAttention-2 on AMD Instinct MI300X (192 GB HBM3, CDNA3 `gfx942`).
    - Wave64 register reuse, LDS utilization, and elimination of inter-tile log-sum-exp scaling barriers.

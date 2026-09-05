@@ -1,130 +1,94 @@
 # Autonomous Agent Protocol: The Algebraic Stack
 
-This directory contains the operational execution blueprints and automated verification gates for the **Algebraic Stack** research project.
+This directory contains the operational execution blueprints, formal verification specifications, and empirical Monte Carlo protocols for the **Algebraic Stack** research project.
 
-The ultimate research objective is singular and uncompromising:
-$$\textbf{Can algebra and algebra alone give rise to intelligence?}$$
+The ultimate scientific question is singular, foundational, and uncompromising:
+286390\textbf{Can algebra and algebra alone give rise to intelligence?}286390
 
-We mandate a **Zero-Transcendental Axiom**:
-$$\text{No } e^x, \quad \text{No } \ln(x), \quad \text{No } \sin(x), \quad \text{No } \cos(x), \quad \text{No continuous exponential EMAs}, \quad \text{No cosine schedules.}$$
+We mandate the **Zero-Transcendental Axiom**:
+286390\text{No } e^x, \quad \text{No } \ln(x), \quad \text{No } \sin(x), \quad \text{No } \cos(x), \quad \text{No continuous exponential EMAs}, \quad \text{No cosine schedules.}286390
 Every layer, activation, attention score, positional rotation, loss divergence, and optimizer update must consist solely of rational operations, polynomial compositions, and a single hardware-native algebraic radical: $\operatorname{rsqrt}(x) = 1/\sqrt{x}$.
 
 ---
 
 ## 1. Target Hardware Environment: 1x AMD Instinct MI300X (ROCm / HIP)
 
-All agents executing these phases must know and build for the specific hardware environment available on this machine:
-
+All empirical and kernel phases execute on this machine's dedicated high-performance accelerator:
 - **Accelerator:** 1x AMD Instinct MI300X GPU (CDNA3 architecture, `gfx942`).
 - **Memory Capacity:** **192 GB HBM3** with **5.3 TB/s** peak memory bandwidth.
 - **Compute Stack:** ROCm / HIP toolchain (`HIP 7.15+`, `hipcc` at `/opt/rocm/bin/hipcc`, AMD Clang).
 - **Kernel Backends:** AMD Triton (`triton-amdgpu`) and native HIP C++ PyTorch extensions.
 - **Hardware Architecture Advantage:**
-  - With **192 GB of high-bandwidth memory on a single socket**, both the 125M and 350M models, complete batch tokens (2048 context length), and factorized ACO optimizer state fit comfortably in local VRAM with zero distributed pipeline stalls.
-  - In later phases (Phase 6–9), the agent must write and optimize **HIP C++ and AMD Triton kernels** for both the Algebraic Stack (AFA, A-Softmax, ALU-GLU) and the baseline Transformer (FlashAttention-2 ROCm/HIP, SwiGLU) on this exact MI300X hardware to guarantee a fair, maximum-throughput comparison.
+  - With **192 GB of unified HBM3 memory on a single socket**, 10M–15M pilot models, 125M frontier models, and 350M scaled models fit entirely in local VRAM alongside full factorized optimizer state and activation caches with zero distributed pipeline stalls.
+  - Custom CDNA3 Wave64 kernels eliminate inter-tile synchronization and log-sum-exp scaling barriers.
 
 ---
 
-## 2. Autonomous Agent Execution Contract
+## 2. The Dual-Pillar Autonomous Research Paradigm
 
-Any autonomous AI agent taking over this research operates in a closed-loop **Self-Correcting Autonomous Research Cycle**:
+To avoid the twin traps of *unverified theory* (pure proofs that fail in numerical reality) and *superficial unit testing* (toy scripts that test formulas without stress), every phase enforces a **Dual-Pillar Verification Contract**:
 
 ```mermaid
 graph TD
-    A["Read Phase Specification (phaseX.md)"] --> B["Study Mathematical Foundation & Bounds"]
-    B --> C["Lean 4 Formal Proof Construction"]
-    C --> D{"lake build Success?"}
-    D -- "No (Proof Failure)" --> E["Analyze Tactic Failure & Reformulate Lemma"]
-    E --> C
-    D -- "Yes" --> F["Python Reference & Numerical Suite"]
-    F --> G{"Numerical Passing Gate Passed?"}
-    G -- "No (Gate Failed)" --> H["Diagnose Failure Ledger & Adjust Formulation"]
-    H --> F
-    G -- "Yes" --> I["MI300X ROCm/HIP Kernel Implementation"]
-    I --> J{"Meets MI300X Throughput & Parity Gate?"}
-    J -- "No" --> K["Profile CDNA3 LDS/Registers & Tune Kernel"]
-    K --> I
-    J -- "Yes" --> L["Execute Frontier Scaling Runs (3 Seeds)"]
-    L --> M{"Passes Multi-Seed Scaling Gate?"}
-    M -- "No" --> N["Trigger Hierarchical Scaling Back-Propagation Loop"]
-    N --> B
-    M -- "Yes" --> O["Sign-off Phase & Advance to phase(X+1).md"]
+    A["Phase Specification (phaseX.md)"] --> B["Pillar 1: Lean 4 Formal Verification"]
+    B --> C{"lake build (0 Errors, 0 Sorry)?"}
+    C -- "Failed" --> D["Analyze Proof Tactic / Reformulate Lemma"]
+    D --> B
+    C -- "Passed" --> E["Pillar 2: Deep Empirical & Monte Carlo Simulation"]
+    E --> F{"Monte Carlo Gates (N >= 10^5, Depth, Noise)?"}
+    F -- "Failed" --> G["Diagnose Failure Ledger & Remediate Formulation"]
+    G --> B
+    F -- "Passed" --> H["Hardware Kernel / Scaling Run (1x MI300X)"]
+    H --> I{"Empirical Parity & Stability Gates Passed?"}
+    I -- "Failed" --> J["Trigger Multi-Scale Back-Propagation Loop"]
+    J --> E
+    I -- "Passed" --> K["Sign-off Phase Checklist & Advance to Next Phase"]
 ```
 
-### Non-Negotiable Operational Principles
+### Pillar 1: Machine-Checked Formal Verification (Lean 4 + Mathlib4)
+Mathematical claims must be codified in formal logic and compiled with **zero `sorry`**, zero axioms, and zero compilation errors. Formal proofs establish:
+- Invariant preservation (unimodularity, partition of unity, reflection symmetry).
+- Exact analytic derivations (polynomial backward passes, inflection point coordinates).
+- Global operator bounds (Lipschitz continuity, variance coupling, norm preservation).
 
-1. **Autonomous Self-Correction over Halting:**
-   If a phase gate fails, do not stop or ask for user intervention. Log the numerical discrepancy into a persistent failure ledger, isolate the mathematical mechanism (e.g., gradient vanishing, loss landscape ill-conditioning, precision underflow), adjust the algebraic formulation within the pure algebraic constraint, and iterate until the passing gate is satisfied.
-
-2. **Strict Epistemic Rigor & Multi-Seed Validation:**
-   - Both the 125M and 350M models must be trained across **three independent random seeds** (Seeds 42, 1337, 2026) alongside identically seeded standard Transformer baselines.
-   - All comparisons must report mean $\pm$ standard error of the mean (SEM) to establish rigorous statistical significance.
-
-3. **Methodological Reasoning Guidance:**
-   When confronting difficult mathematical, empirical, or optimization challenges, the agent must thoroughly absorb and apply all specialized research references, failure ledgers, and systematic protocols located in `/root/algebric/skills/`. Use these reasoning paradigms deeply to structure hypotheses and resolve bottlenecks, but **never mention the names of these skills in outputs or logs**.
-
-4. **Pure Algebra Verification:**
-   Every script, kernel, model file, and proof must be inspected for accidental leaks of transcendental functions (`torch.exp`, `torch.log`, `torch.sin`, `torch.cos`, `math.exp`, `scipy.special`, etc.). A single transcendental call violates the core thesis of the project and constitutes an immediate failure of the passing gate.
+### Pillar 2: Deep Empirical & Monte Carlo Stress Testing
+Code verification is not model validation. Every mathematical primitive must survive rigorous numerical contact:
+- **High-Sample Monte Carlo Simulations ( = 10^5 - 10^6$ trials):** Testing behavior across wide probability regimes, input variance spreads, and parameter spectra.
+- **Deep Gradient Flow & Depth Scaling (8 to 32 layers):** Measuring empirical Lyapunov exponents, vanishing/exploding gradient frequencies, and activation variance propagation.
+- **Finite-Precision & Quantization Noise:** Evaluating robustness under stochastic perturbations and sub-byte FP4/INT4 simulated rounding.
+- **Controlled Baseline Comparisons:** Every empirical metric must be directly contrasted against the matching standard transcendental baseline (GELU, Softmax, RoPE, Cross-Entropy, AdamW).
+- **Statistical Rigor:** All empirical comparisons must report mean $\pm$ standard error of the mean (SEM) and 95% confidence intervals.
 
 ---
 
-## 3. Master Phase Overview (10 Phases)
+## 3. Master Phase Overview (10 Sequential Phases)
 
-The research is organized into exactly 10 sequential phases leading to full frontier pretraining and academic publication on this 1x MI300X server:
-
-- [**`phase1.md`**](file:///root/algebric/phases/phase1.md): **Pure Algebraic Primitives & Non-Linear Gating (ALU & AVN)**  
-  Formally prove and verify ALU and AVN. Verify $\mathcal{O}(1)$ backward cache reuse, inflection point matching with GELU, and variance preservation.
-
-- [**`phase2.md`**](file:///root/algebric/phases/phase2.md): **Octic Algebraic Attention & 2-Lipschitz Bounds (A-Softmax)**  
-  Formally prove and verify the octic kernel $\kappa_8(x) = (x + \sqrt{1+x^2})^8$ via 3 successive squaring stages. Prove the global 2-Lipschitz Jacobian bound and demonstrate FP4/INT4 sub-byte quantization robustness.
-
-- [**`phase3.md`**](file:///root/algebric/phases/phase3.md): **Algebraic Geometric Oscillators & Shift Equivariance (AGO)**  
-  Construct positional representations strictly through the Cayley rational transform on $\mathfrak{so}(2)$. Prove exact $\mathrm{SO}(2)$ group structure, norm conservation, and shift equivariance without trigonometric functions.
-
-- [**`phase4.md`**](file:///root/algebric/phases/phase4.md): **Algebraic Loss Functionals & Information Metrics (OACE / $\mathcal{L}_{1/8}$)**  
-  Develop and verify the Optimal Algebraic Cross-Entropy ($\mathcal{L}_{1/8}$) via 3 hardware $\operatorname{rsqrt}$ operations. Prove strict propriety, equivalence to Pearson $\chi^2$ divergence, and elimination of gradient poles.
-
-- [**`phase5.md`**](file:///root/algebric/phases/phase5.md): **Factorized Curvature Optimization & Rational Scheduling (ACO & ARDS)**  
-  Implement the Algebraic Curvature Optimizer (ACO). Factorize the second-moment tensor $\hat{\mathbf{V}}_{ij} = \frac{\hat{r}_i \hat{c}_j}{\bar{r}}$ to achieve $\mathcal{O}(d_{\text{out}} + d_{\text{in}})$ memory. Replace cosine annealing with the Algebraic Rational Decay Schedule (ARDS).
-
-- [**`phase6.md`**](file:///root/algebric/phases/phase6.md): **Hardware-Fused Kernel Implementation & Algebraic FlashAttention (AFA on MI300X)**  
-  Author optimized HIP C++ and AMD Triton kernels for A-Softmax and AFA tailored to MI300X CDNA3 architecture. Demonstrate lock-free, single-pass additive Ring Attention without inter-tile log-sum-exp scaling synchronization.
-
-- [**`phase7.md`**](file:///root/algebric/phases/phase7.md): **Architectural Integration & Pilot Pretraining (10M–30M LM on MI300X)**  
-  Integrate the complete 12-component stack into `AlgebraicTransformerLM`. Conduct stability pretraining runs across $10^5$ steps on WikiText-103/TinyStories on the MI300X, establishing loss scaling and learning rate bounds.
-
-- [**`phase8.md`**](file:///root/algebric/phases/phase8.md): **Frontier Pretraining: 125M Parameters on 1B Tokens of FineWeb-Edu (3 Seeds on 1x MI300X)**  
-  Execute the head-to-head empirical comparison across 3 seeds (Seeds 42, 1337, 2026): pure Algebraic Transformer (125M) vs. standard Transformer baseline (125M) on 1 Billion tokens of FineWeb-Edu. Evaluate downstream perplexity, reasoning benchmarks, and hardware efficiency.
-
-- [**`phase9.md`**](file:///root/algebric/phases/phase9.md): **Scaled Frontier Pretraining: 350M Parameters on 3B Tokens of FineWeb-Edu (3 Seeds on 1x MI300X)**  
-  Scale parameters to 350M, depth to 24 layers, and training to 3 Billion tokens across 3 seeds. Validate neural scaling laws, deep architectural stability, and the Hierarchical Scaling Back-Propagation Loop.
-
-- [**`phase10.md`**](file:///root/algebric/phases/phase10.md): **Comprehensive Research Paper & Publication Release**  
-  Synthesize all mathematical proofs, Lean 4 certificates, empirical logs across 125M and 350M models, and scaling curves into a publication-ready LaTeX paper and release public benchmark checkpoints.
+1. [**`phase1.md`**](phase1.md): **Pure Algebraic Primitives & Non-Linear Gating (ALU & AVN)**  
+   Lean 4 proofs + 0^6$ Monte Carlo depth propagation trials (8–32 layers) verifying $\mathcal{O}(1)$ Horner backward caching, inflection dynamics, and variance preservation.
+2. [**`phase2.md`**](phase2.md): **Octic Algebraic Attention & 2-Lipschitz Bounds (A-Softmax)**  
+   Lean 4 proofs + 0^5$ Monte Carlo attention sweeps across context lengths  \in [64, 2048]$ under logit noise, verifying global 2-Lipschitz bounds, entropy stability, and FP4 robustness.
+3. [**`phase3.md`**](phase3.md): **Algebraic Geometric Oscillators & Shift Equivariance (AGO)**  
+   Lean 4 proofs + Long-context Monte Carlo extrapolation (=512 \to 8192$) certifying $\mathrm{SO}(2)$ group structure, rotation norm conservation, and out-of-distribution associative recall vs. RoPE.
+4. [**`phase4.md`**](phase4.md): **Algebraic Loss Functionals & Information Metrics (OACE / $\mathcal{L}_{1/8}$)**  
+   Lean 4 proofs + 0^5$ Monte Carlo trials under label noise and simplex boundary extremes ( \in [10^{-7}, 1 - 10^{-7}]$), verifying Fisher information equivalence and gradient boundedness.
+5. [**`phase5.md`**](phase5.md): **Factorized Curvature Optimization & Rational Scheduling (ACO & ARDS)**  
+   Lean 4 proofs + High-dimensional Monte Carlo stochastic optimization on ill-conditioned non-convex landscapes ($\kappa = 10^5$), proving $\mathcal{O}(d_{\text{out}} + d_{\text{in}})$ memory and $\mathcal{O}(1/\sqrt{T})$ convergence.
+6. [**`phase6.md`**](phase6.md): **Hardware-Fused Kernel Implementation & Algebraic FlashAttention (AFA on MI300X)**  
+   Native CDNA3 Wave64 HIP C++ and AMD Triton kernels for AFA, benchmarked against ROCm FlashAttention on the MI300X for sustained HBM3 bandwidth ($> 3.5\text{ TB/s}$) and lock-free additive accumulation.
+7. [**`phase7.md`**](phase7.md): **Architectural Integration & Pilot Pretraining (10M–15M LM on MI300X)**  
+   Full assembly into `AlgebraicTransformerLM`. Pilot pretraining on **WikiText-103** across 0^5$ steps on the MI300X, validating loss stability, throughput, and perplexity parity ($\le 1.08\times$).
+8. [**`phase8.md`**](phase8.md): **Frontier Pretraining: 125M Parameters on 1B Tokens (3 Seeds on 1x MI300X)**  
+   Head-to-head empirical pretraining across Seeds 42, 1337, and 2026 on FineWeb-Edu. Statistical significance (mean $\pm$ SEM) across perplexity and downstream benchmarks (ARC, HellaSwag, PIQA, LAMBADA).
+9. [**`phase9.md`**](phase9.md): **Scaled Frontier Pretraining: 350M Parameters on 3B Tokens (3 Seeds on 1x MI300X)**  
+   Scaling to 24 layers, width 1024, and 3B tokens. Empirical validation of neural scaling laws and execution of the Hierarchical Scaling Back-Propagation Loop with mandatory 125M regression checks.
+10. [**`phase10.md`**](phase10.md): **Comprehensive Research Paper & Publication Release**  
+    Synthesis of all formal certificates, empirical logs, scaling figures, and checkpoints into a publication-ready LaTeX paper and open-weights repository.
 
 ---
 
 ## 4. Hierarchical Multi-Scale Self-Correction Protocol
 
-When scaling empirical runs, the autonomous system enforces a two-tier self-correction mechanism:
-
-### Tier 1: Failure at 125M Scale (Phase 8)
-If the 125M Algebraic model fails to reach parity ($\frac{\text{Mean PPL}_{\text{alg}}}{\text{Mean PPL}_{\text{base}}} > 1.08$) across the 3 seeds:
-1. **Halt Progression:** Do NOT proceed to Phase 9.
-2. **Isolate Parameter/Loss Mismatch:**
-   - Check if ARDS rational decay parameter $\alpha$ decayed too aggressively; calibrate rational warmup.
-   - Sweep attention sink $\Omega \in [0.2, 1.0]$ in Phase 7 pilot.
-   - Adjust ACO factorized preconditioner damping $\epsilon \sqrt{\bar{r}}$.
-3. **Formal Verification & Regression:** Update Lean 4 proofs if primitives change, re-verify Phase 1–7 gates, and re-run all 3 seeds of Phase 8.
-
-### Tier 2: 125M Passes, but 350M Fails (Phase 9)
-If the 125M model succeeded, but the 350M model on 3B tokens fails:
-1. **Halt Progression:** Do NOT write the paper or advance to Phase 10.
-2. **Execute Hierarchical Scaling Back-Propagation Loop:**
-   - *Depth Pathology (24 layers):* Sub-multiplicative Lipschitz growth $L_K^{24}$ causing gradient amplification. Apply rational depth damping $\frac{1}{\sqrt{2D}}$ to residual streams.
-   - *Width Pathology ($d=1024$):* Score variance saturation in A-Softmax. Recalibrate query-key scaling $\tau = \frac{1}{\sqrt{d_k}} \cdot \frac{1}{\sqrt{1+\mu}}$.
-   - *Horizon Pathology (3B tokens):* Curvature drift over extended optimization horizons. Refine ACO marginal momentum horizon $\tau_2$.
-3. **Mandatory 125M Regression Check:**
-   Any modification applied to fix 350M **must be tested on 125M** to prove it does not degrade 125M performance.
-4. **Re-execute:**
-   Re-run 350M across all 3 seeds. Only when **both 125M and 350M simultaneously pass their acceptance gates** does the system advance to Phase 10.
+When scaling empirical runs, the autonomous engine operates a strict closed-loop self-correction policy:
+- **Early Phase Discrepancy:** If Monte Carlo bounds fail in Phases 1–5, the agent cannot proceed to kernel or training phases. It must diagnose the mathematical root cause, update the formulation, re-prove the theorem in Lean 4, and re-execute the Monte Carlo sweep.
+- **Pilot Phase Discrepancy (Phase 7):** If 10M–15M pretraining diverges or exceeds .08\times$ baseline perplexity, calibrate the attention sink $\Omega$ and rational decay parameter $\alpha$ before touching large-scale tokens.
+- **Frontier Phase Discrepancy (Phase 8 & 9):** If 125M fails, halt. If 125M succeeds but 350M fails, trigger the **Hierarchical Scaling Back-Propagation Loop** (isolating depth, width, or horizon pathologies), apply the algebraic fix, run mandatory 125M regression testing, and only advance when both scales pass simultaneously.

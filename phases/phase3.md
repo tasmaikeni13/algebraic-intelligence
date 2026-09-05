@@ -1,27 +1,26 @@
 # Phase 3: Algebraic Geometric Oscillators & Shift Equivariance (AGO)
 
-## 1. Objective & Research Scope
-Eliminate all trigonometric functions ($\sin, \cos$) from Transformer positional representations. Formulate, formally verify, and benchmark **Algebraic Geometric Oscillators (AGO)**:
-- Generate exact orthogonal 2D rotation matrices in $\mathrm{SO}(2)$ using the **rational Cayley transform** of a static skew-symmetric generator $\mathbf{A} \in \mathfrak{so}(2)$.
-- Prove strict shift equivariance: $\langle \mathbf{R}_m \mathbf{q}, \mathbf{R}_n \mathbf{k} \rangle = f(\mathbf{q}, \mathbf{k}, n - m)$ without transcendental series.
-- Demonstrate $\mathcal{O}(1)$ autoregressive token generation via cached matrix-vector recurrence.
+## 1. Objective, Scientific Hypothesis & Competing Models
+Eliminate all trigonometric functions ($\sin, \cos$) and continuous complex exponentials from Transformer positional encodings:
+$$\textbf{"Can rational Cayley rotations provide exact shift equivariance and long-context length generalization?"}$$
+
+### Competing Hypotheses:
+- **$H_1$ (Algebraic Hypothesis):** The birational Cayley transform on $\mathfrak{so}(2)$ yields purely rational orthogonal matrices $\mathbf{R}(w_k) = \frac{1}{1 + w_k^2}\begin{pmatrix} 1 - w_k^2 & -2w_k \\ 2w_k & 1 - w_k^2 \end{pmatrix}$ that conserve Euclidean norms $\|\mathbf{R}(w)\mathbf{v}\| = \|\mathbf{v}\|$, maintain exact group closure with $\det = 1$, provide strict relative shift equivariance $\langle\mathbf{R}_m \mathbf{q}, \mathbf{R}_n \mathbf{k}\rangle = f(n - m)$, and permit $\mathcal{O}(1)$ autoregressive recurrence without trigonometric series.
+- **$H_0$ (Transcendental Baseline Hypothesis):** Transcendental harmonic frequencies (sinusoids / RoPE) are indispensable for rotary positional encoding; rational mappings will suffer from cumulative numerical drift, frequency aliasing, or failure on out-of-distribution sequence lengths.
 
 ---
 
 ## 2. Mathematical Formulations & Zero-Transcendental Constraints
 
 ### 2.1 The Birational Cayley Transform on $\mathfrak{so}(2)$
-For channel pair $k \in \{0, \dots, d/2 - 1\}$, define the rational frequency parameter $w_k \in \mathbb{Q}^+$. The Cayley transform yields the purely rational rotation matrix:
+For channel pair $k \in \{0, \dots, d/2 - 1\}$, define the rational frequency parameter $w_k \in (0, 1]$:
 $$\mathbf{R}(w_k) = (\mathbf{I} - w_k \mathbf{J})(\mathbf{I} + w_k \mathbf{J})^{-1} = \frac{1}{1 + w_k^2} \begin{pmatrix} 1 - w_k^2 & -2w_k \\ 2w_k & 1 - w_k^2 \end{pmatrix}$$
 where $\mathbf{J} = \begin{pmatrix} 0 & -1 \\ 1 & 0 \end{pmatrix}$.
 
-### 2.2 Shift Equivariance & Orthogonality
-Because $\mathbf{R}(w_k)$ is a strictly orthogonal matrix in $\mathrm{SO}(2)$:
-1. Unimodularity: $\det(\mathbf{R}(w_k)) = \frac{(1 - w_k^2)^2 + (2w_k)^2}{(1 + w_k^2)^2} = \frac{1 + 2w_k^2 + w_k^4}{(1 + w_k^2)^2} = 1$.
-2. Norm Invariance: $\|\mathbf{R}(w_k) \mathbf{v}\|_2 = \|\mathbf{v}\|_2$ for all $\mathbf{v} \in \mathbb{R}^2$.
-3. Gram Product Identity:
-   $$\mathbf{R}(w_k)^m \cdot \mathbf{R}(w_k)^n = \mathbf{R}(w_k)^{m+n}, \quad (\mathbf{R}(w_k)^m)^\top \mathbf{R}(w_k)^n = \mathbf{R}(w_k)^{n-m}$$
-Thus, attention scores depend strictly on relative token distance $(n - m)$.
+### 2.2 Invariant Properties
+1. **Unimodularity:** $\det(\mathbf{R}(w_k)) = \frac{(1 - w_k^2)^2 + (2w_k)^2}{(1 + w_k^2)^2} = 1$ strictly.
+2. **Norm Conservation:** $\|\mathbf{R}(w_k) \mathbf{v}\|_2 = \|\mathbf{v}\|_2$ for all $\mathbf{v} \in \mathbb{R}^2$.
+3. **Shift Equivariance:** $\mathbf{R}(w_k)^m \cdot \mathbf{R}(w_k)^n = \mathbf{R}(w_k)^{m+n}$ and $(\mathbf{R}(w_k)^m)^\top \mathbf{R}(w_k)^n = \mathbf{R}(w_k)^{n-m}$.
 
 ---
 
@@ -32,51 +31,48 @@ The agent must compile `formal/AlgebraicTheory/Cayley.lean` with zero errors und
 1. `cayley_pythagorean_identity`:
    $$\forall w \in \mathbb{R}, \quad (1 - w^2)^2 + (2w)^2 = (1 + w^2)^2$$
 2. `cayley_col1_norm_sq` & `cayley_col2_norm_sq`:
-   Columns of $\mathbf{R}(w)$ have exact Euclidean norm $1$:
-   $$\left(\frac{1 - w^2}{1 + w^2}\right)^2 + \left(\frac{2w}{1 + w^2}\right)^2 = 1$$
+   Exact unit norm preservation for columns: $((1-w^2)/(1+w^2))^2 + (2w/(1+w^2))^2 = 1$.
 3. `cayley_dot_product_zero`:
-   Orthogonality of column vectors $\mathbf{c}_1 \cdot \mathbf{c}_2 = 0$.
+   Orthogonality of rotation column vectors $\mathbf{c}_1 \cdot \mathbf{c}_2 = 0$.
 4. `cayley_det_one`:
-   $$\det(\mathbf{R}(w)) = 1 \quad (\text{exact } \mathrm{SO}(2) \text{ membership})$$
-5. `cayley_norm_preserving`:
-   Invariance of 2D Euclidean norm: $\|\mathbf{R}(w) \mathbf{v}\|^2 = \|\mathbf{v}\|^2$.
+   Strict unimodularity $\det(\mathbf{R}(w)) = 1$, certifying $\mathrm{SO}(2)$ Lie group membership.
+5. `cayley_norm_preserving` & `cayley_rational_norm_preserving`:
+   Invariance of 2D Euclidean norm: $\|\mathbf{R}(w) \mathbf{v}\|_2 = \|\mathbf{v}\|_2$.
 
 ---
 
-## 4. Mathematical Analysis & Python Verification Gate
+## 4. Deep Empirical & Monte Carlo Simulation Gate
 
-The agent must execute the AGO verification in `analysis/verify_algebraic_primitives.py`:
+The agent must execute the Phase 3 verification suite in `analysis/verify_algebraic_primitives.py`:
 
-| Metric | Target Value | Tolerance / Bound |
+| Evaluation Dimension | Experimental Protocol | Success Criterion / Bound |
 | :--- | :--- | :--- |
-| **Cayley Determinant Error** | $|\det(\mathbf{R}(w)) - 1.0|$ | $\leq 1.0 \times 10^{-15}$ |
-| **Column Orthogonality Error** | $|\mathbf{c}_1 \cdot \mathbf{c}_2|$ | $\leq 1.0 \times 10^{-15}$ |
-| **Shift Equivariance Error** | $\|\mathbf{R}_m^\top \mathbf{R}_n - \mathbf{R}_{n-m}\|_\infty$ | $\leq 1.0 \times 10^{-6}$ |
-| **Norm Conservation Error** | $\left|\|\mathbf{R}(w)\mathbf{v}\|_2 - \|\mathbf{v}\|_2\right|$ | $\leq 1.0 \times 10^{-7}$ |
-| **Zero Transcendental Audit** | Grep of AGO implementation for `sin`, `cos` | Exactly $0$ occurrences |
+| **Long-Context Shift Equivariance** | All position pairs $(m, n) \le 4096$, measure $\|\mathbf{R}_m^\top \mathbf{R}_n - \mathbf{R}_{n-m}\|_\infty$ | $\leq 1.0 \times 10^{-6}$ |
+| **Relative Attention Dot Product Error** | $10^5$ random query/key pairs across context $L \in [128, 4096]$ | $\leq 1.0 \times 10^{-6}$ |
+| **Cumulative Norm Conservation Drift** | Sequence lengths $m \in [1, 8192]$, measure $|\|\mathbf{R}^m \mathbf{v}\|_2 - \|\mathbf{v}\|_2|$ | $\leq 1.0 \times 10^{-6}$ |
+| **Cayley Determinant Error** | $10^5$ frequency samples $w \in [10^{-5}, 10^2]$, measure $|\det(\mathbf{R}(w)) - 1.0|$ | $\leq 1.0 \times 10^{-15}$ |
+| **Column Orthogonality Error** | Inner product $|\mathbf{c}_1 \cdot \mathbf{c}_2|$ across $10^5$ samples | $\leq 1.0 \times 10^{-15}$ |
+| **Associative Recall on Out-of-Dist Context** | Train on $L=256$, test on $L=1024$ and $L=2048$ | Retrieval accuracy $\ge 95.0\%$ |
+| **Zero Trigonometric Audit** | Grep of AGO module for `sin`, `cos` | Exactly $0$ occurrences |
 
 ---
 
-## 5. Failure Modes & Self-Correction Playbook
+## 5. Autonomous Failure Ledger & Self-Correction Playbook
 
-- **Symptom: Numerical drift in sequence positions $m > 1000$:**
-  *Root Cause:* Repeated sequential multiplication of float32 rotation matrices accumulates rounding error $\epsilon \cdot m$.
-  *Correction:* Precompute powers $\mathbf{R}^m$ in float64 using binary exponentiation, or parameterize positions via the rational addition formula on angles:
-  $$w_{m+1} = \frac{w_m + w_1}{1 - w_m w_1}$$
-  and evaluate $\mathbf{R}(w_m)$ directly.
-- **Symptom: High frequency channel aliasing:**
-  *Root Cause:* Choice of $w_k$ frequencies growing too large ($w \to \infty$).
-  *Correction:* Bound the rational frequency spectrum by setting $w_k = \frac{1}{\beta^{2k/d}}$ where $\beta$ is a rational base (e.g., $10000$), ensuring $w_k \in (0, 1]$.
+- **Symptom: Cumulative numerical drift at sequence lengths $m > 2048$:**
+  - *Root Cause:* Repeated FP32 matrix multiplications accumulate precision roundoff.
+  - *Correction:* Precompute powers $\mathbf{R}^m$ in float64 using binary exponentiation or angle-addition rational recurrence: $w_{m+1} = \frac{w_m + w_1}{1 - w_m w_1}$.
+- **Symptom: High-frequency channel aliasing:**
+  - *Root Cause:* Frequency parameters $w_k$ growing unbounded.
+  - *Correction:* Bound the geometric progression: $w_k = 10000^{-2k/d} \in (0, 1]$.
 
 ---
 
 ## 6. Passing Gate Checklist
-- [x] `formal/AlgebraicTheory/Cayley.lean` compiles with 0 errors via `lake build`.
-- [x] Shift equivariance error is bounded below $10^{-6}$:
-  - Matrix equivariance error $\|\mathbf{R}_m^\top \mathbf{R}_n - \mathbf{R}_{n-m}\|_\infty = 5.96 \times 10^{-8} \leq 1.0 \times 10^{-6}$ [PASSED]
-  - Relative attention dot product error: $4.77 \times 10^{-7} \leq 1.0 \times 10^{-6}$ [PASSED]
-- [x] Determinant is verified to be identically $1.0$:
-  - Determinant error $|\det(\mathbf{R}(w)) - 1.0| = 4.44 \times 10^{-16} \leq 1.0 \times 10^{-15}$ [PASSED]
-  - Column orthogonality error $|\mathbf{c}_1 \cdot \mathbf{c}_2| = 0.00 \times 10^0 \leq 1.0 \times 10^{-15}$ [PASSED]
-  - Norm conservation error $|\|\mathbf{R}(w)\mathbf{v}\|_2 - \|\mathbf{v}\|_2| = 8.88 \times 10^{-16} \leq 1.0 \times 10^{-7}$ [PASSED]
-- [x] Zero trigonometric calls verified in code (AST & regex: 0 occurrences of `sin`, `cos`).
+- [ ] `formal/AlgebraicTheory/Cayley.lean` compiles with 0 errors via `lake build`.
+- [ ] Matrix shift equivariance error $\le 1.0 \times 10^{-6}$ across context length 4096.
+- [ ] Cumulative rotation norm drift $\le 1.0 \times 10^{-6}$ up to $m = 8192$.
+- [ ] Determinant is verified to be identically $1.0$ (error $\le 1.0 \times 10^{-15}$).
+- [ ] Column orthogonality error $\le 1.0 \times 10^{-15}$.
+- [ ] Out-of-distribution associative recall reaches $\ge 95\%$ accuracy.
+- [ ] Zero trigonometric calls verified in code.

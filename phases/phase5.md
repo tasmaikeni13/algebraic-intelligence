@@ -1,31 +1,29 @@
 # Phase 5: Factorized Curvature Optimization & Rational Scheduling (ACO & ARDS)
 
-## 1. Objective & Research Scope
-Eliminate all continuous exponential moving averages ($\beta_1^t, \beta_2^t$) and transcendental cosine annealing schedules from neural optimization. Formulate, formally verify, and benchmark the **Algebraic Curvature Optimizer (ACO)** and the **Algebraic Rational Decay Schedule (ARDS)**:
-- Achieve second-order natural gradient curvature preconditioning while compressing second-moment optimizer memory from $\mathcal{O}(d_{\text{out}} \cdot d_{\text{in}})$ to $\mathcal{O}(d_{\text{out}} + d_{\text{in}})$ in HBM.
-- Establish convergence rates of $\mathcal{O}(1/\sqrt{T})$ on non-convex landscapes using rational learning rate schedules.
+## 1. Objective, Scientific Hypothesis & Competing Models
+Eliminate all continuous exponential moving averages ($\beta_1^t, \beta_2^t$) and transcendental cosine schedules from neural optimization:
+$$\textbf{"Can factorized curvature preconditioning achieve second-order natural gradient convergence in O(d) memory?"}$$
+
+### Competing Hypotheses:
+- **$H_1$ (Algebraic Hypothesis):** Factorizing the second-moment tensor into row and column marginal projections $\hat{\mathbf{V}}_{ij} = \frac{\hat{r}_i \hat{c}_j}{\bar{r}}$ reconstructs Kronecker Fisher curvature, compresses second-moment optimizer memory from $\mathcal{O}(d_{\text{out}} \cdot d_{\text{in}})$ to $\mathcal{O}(d_{\text{out}} + d_{\text{in}})$, and achieves $\mathcal{O}(1/\sqrt{T})$ convergence when paired with the Algebraic Rational Decay Schedule (ARDS) $\eta_t = \eta_0 / \sqrt{1 + \alpha t^2}$.
+- **$H_0$ (Transcendental Baseline Hypothesis):** Dense coordinate-wise second moments (AdamW) and cosine annealing are essential for adaptive learning rates; factorized marginals induce destructive cross-talk across gradient coordinates, leading to divergence on ill-conditioned loss surfaces.
 
 ---
 
 ## 2. Mathematical Formulations & Zero-Transcendental Constraints
 
 ### 2.1 Pure Rational Momentum
-For gradient matrix $\mathbf{G}_t \in \mathbb{R}^{d_{\text{out}} \times d_{\text{in}}}$ and rational momentum horizon $\tau_1 \in \mathbb{N}$:
 $$\mathbf{M}_t = \left(1 - \frac{1}{\tau_1}\right) \mathbf{M}_{t-1} + \frac{1}{\tau_1} \mathbf{G}_t$$
 
 ### 2.2 Factorized Curvature Preconditioner
-Instead of storing the dense $d_{\text{out}} \times d_{\text{in}}$ matrix of squared gradients, accumulate only the row and column marginal projections:
 $$\mathbf{r}_t = \left(1 - \frac{1}{\tau_2}\right) \mathbf{r}_{t-1} + \frac{1}{\tau_2} \left( \frac{1}{d_{\text{in}}} \sum_{j=1}^{d_{\text{in}}} \mathbf{G}_{t, \cdot j}^{\odot 2} \right)$$
 $$\mathbf{c}_t = \left(1 - \frac{1}{\tau_2}\right) \mathbf{c}_{t-1} + \frac{1}{\tau_2} \left( \frac{1}{d_{\text{out}}} \sum_{i=1}^{d_{\text{out}}} \mathbf{G}_{ti, \cdot}^{\odot 2} \right)$$
-With scalar trace mean $\bar{r}_t = \frac{1}{d_{\text{out}}}\sum_{i=1}^{d_{\text{out}}} r_{t, i}$, the reconstructed second-moment curvature tensor is:
-$$\hat{\mathbf{V}}_{t, ij} = \frac{\hat{r}_{t, i} \cdot \hat{c}_{t, j}}{\bar{r}_t}$$
-Preconditioned gradient steps are evaluated on-the-fly without materializing $\hat{\mathbf{V}}$ in HBM:
-$$\mathbf{U}_{t, ij} = \frac{\hat{\mathbf{M}}_{t, ij}}{\sqrt{\hat{r}_{t, i} \hat{c}_{t, j} / \bar{r}_t} + \epsilon} = \frac{\hat{\mathbf{M}}_{t, ij} \cdot \sqrt{\bar{r}_t}}{\sqrt{\hat{r}_{t, i}} \cdot \sqrt{\hat{c}_{t, j}} + \epsilon \sqrt{\bar{r}_t}}$$
+With scalar trace normalizer $\bar{r}_t = \frac{1}{d_{\text{out}}}\sum r_{t, i}$, the update step is:
+$$\mathbf{U}_{t, ij} = \frac{\hat{\mathbf{M}}_{t, ij} \cdot \sqrt{\bar{r}_t}}{\sqrt{\hat{r}_{t, i}} \cdot \sqrt{\hat{c}_{t, j}} + \epsilon \sqrt{\bar{r}_t}}$$
+Memory complexity: stores only $(d_{\text{out}} + d_{\text{in}})$ floats for curvature instead of $d_{\text{out}} \cdot d_{\text{in}}$.
 
 ### 2.3 Algebraic Rational Decay Schedule (ARDS)
-Replace transcendental cosine decay $\eta_t = \frac{\eta_0}{2}(1 + \cos(\pi t / T))$ with the rational decay schedule:
 $$\eta_t = \eta_0 \cdot \operatorname{rsqrt}\left(1 + \alpha t^2\right) = \frac{\eta_0}{\sqrt{1 + \alpha t^2}}$$
-where $\alpha = \frac{(\eta_0 / \eta_{\min})^2 - 1}{T^2}$, ensuring exact boundary matching $\eta_T = \eta_{\min}$ with zero transcendental evaluations.
 
 ---
 
@@ -34,42 +32,43 @@ where $\alpha = \frac{(\eta_0 / \eta_{\min})^2 - 1}{T^2}$, ensuring exact bounda
 The agent must compile `formal/AlgebraicTheory/Curvature.lean` with zero errors under `lake build`:
 
 1. `factorized_rank1_recovery`:
-   For any rank-1 curvature matrix $\mathbf{V} = \mathbf{a} \mathbf{b}^\top$ with $\bar{a} = \frac{1}{m}\sum a_i$ and $\bar{b} = \frac{1}{n}\sum b_j$:
    $$\forall i, j, \quad \frac{(a_i \bar{b})(b_j \bar{a})}{\bar{a}\bar{b}} = a_i b_j$$
 2. `debiasing_identity`:
-   Exact recovery of un-biased polynomial moment $\frac{v_t}{1 - \beta^t}$.
+   Exact polynomial moment debiasing $\frac{v_t}{1 - \beta^t}$.
 3. `decoupled_weight_decay_step`:
-   Decoupled algebraic parameter update invariance: $W_{t+1} = W_t(1 - \lambda \eta_t) - \eta_t \mathbf{P}_t^{-1} \mathbf{M}_t$.
+   Decoupled algebraic parameter update invariance.
 
 ---
 
-## 4. Mathematical Analysis & Python Verification Gate
+## 4. Deep Empirical & Monte Carlo Simulation Gate
 
-The agent must execute `analysis/verify_algebraic_primitives.py` and `analysis/benchmark_algebraic_vs_transcendental.py`:
+The agent must execute the Phase 5 test suite in `analysis/verify_algebraic_primitives.py` and `analysis/benchmark_algebraic_vs_transcendental.py`:
 
-| Metric | Target Value | Tolerance / Bound |
+| Evaluation Dimension | Experimental Protocol | Success Criterion / Bound |
 | :--- | :--- | :--- |
-| **Ill-Conditioned Quadratic Loss** | $\frac{1}{2} \mathbf{x}^\top \mathbf{H} \mathbf{x}$ ($\kappa = 1000$) | Reaches $\leq 1.0 \times 10^{-6}$ in 200 steps |
-| **Memory Compression Ratio** | $\frac{\text{Memory}(\text{AdamW})}{\text{Memory}(\text{ACO})}$ at $4096 \times 4096$ | $\geq 2.0\times$ (Total), $\geq 2048\times$ (Second Moment) |
-| **Memory Compression Ratio** | at $8192 \times 8192$ | $\geq 4096\times$ (Second Moment) |
-| **ARDS Schedule Range** | $\eta_0 \to \eta_T$ | Exactly monotonically decreasing |
-| **Zero Transcendental Audit** | Grep of ACO for `exp`, `log`, `cos` | Exactly $0$ occurrences |
+| **Ill-Conditioned Optimization Sweep** | $10^4$ trials on quadratic surfaces with condition number $\kappa \in [10^2, 10^6]$ | Final loss reduction $> 99.99\%$ in 300 steps |
+| **Non-Convex Surface Benchmarks** | Rosenbrock & Rastrigin benchmarks with stochastic noise $\sigma = 0.5$ | Converges within $5\%$ of AdamW final loss |
+| **Memory Compression at Scale** | Measure optimizer state in bytes at matrix dimensions $4096$ and $8192$ | $\ge 1024\times$ (at $4096$) and $\ge 2048\times$ (at $8192$) curvature compression |
+| **ARDS Schedule Monotonicity** | Sample schedule across $t \in [0, 10^5]$ steps | Strictly monotonic decay with $\mathcal{O}(1/\sqrt{T})$ asymptotic rate |
+| **Zero Transcendental Audit** | Grep of ACO codebase for `exp`, `log`, `cos` | Exactly $0$ occurrences |
 
 ---
 
-## 5. Failure Modes & Self-Correction Playbook
+## 5. Autonomous Failure Ledger & Self-Correction Playbook
 
-- **Symptom: Optimization oscillates or diverges on anisotropic gradients:**
-  *Root Cause:* Preconditioner units mismatched due to omitting the scalar trace normalizer $\bar{r}_t$.
-  *Correction:* Ensure the normalization factor $\bar{r} = \operatorname{mean}(\mathbf{r})$ is included so that $\frac{r_i c_j}{\bar{r}}$ has units $[units]^2$, matching the gradient square dimension.
-- **Symptom: Momentum vanishes on long training horizons:**
-  *Root Cause:* Numerical underflow in continuous accumulation $(1 - 1/\tau)^t$.
-  *Correction:* Use rational integer accumulation with polynomial debiasing $1 - (1 - 1/\tau_1)^t$.
+- **Symptom: Preconditioner ill-conditioning on dormant/sparse feature columns:**
+  - *Root Cause:* Near-zero marginal entries in $\mathbf{c}_j$.
+  - *Correction:* Add algebraic diagonal damping: $\hat{\mathbf{V}}_{ij} \leftarrow \hat{\mathbf{V}}_{ij} + \epsilon \bar{r}$.
+- **Symptom: Optimization oscillates under large batch sizes:**
+  - *Root Cause:* Momentum horizon $\tau_1$ too small relative to batch gradient variance.
+  - *Correction:* Scale rational momentum horizon $\tau_1 = \tau_0 \cdot \sqrt{B / B_{\text{ref}}}$.
 
 ---
 
 ## 6. Passing Gate Checklist
 - [ ] `formal/AlgebraicTheory/Curvature.lean` compiles with 0 errors via `lake build`.
-- [ ] Quadratic benchmark with $\kappa = 1000$ converges from $> 80,000$ to $0.000000$.
-- [ ] Memory footprint verifies $\mathcal{O}(d_{\text{out}} + d_{\text{in}})$ scaling.
-- [ ] Zero exponential or cosine schedule calls in optimizer.
+- [ ] Ill-conditioned optimization sweep confirms $> 99.99\%$ convergence across $\kappa \in [10^2, 10^6]$.
+- [ ] Non-convex stochastic benchmarks match AdamW convergence within $5\%$.
+- [ ] Second-moment memory compression verified to be $\ge 1024\times$ at $d=4096$.
+- [ ] ARDS schedule verified strictly monotonic and rational.
+- [ ] Zero exponential or cosine calls confirmed in optimizer.
