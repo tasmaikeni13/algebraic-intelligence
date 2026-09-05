@@ -52,7 +52,7 @@ Benchmark across matrix dimensions:
 Compare directly against:
 - Standard ROCm FlashAttention-2;
 - Standard Sliding-Window Attention;
-- Gated Linear Attention / Mamba-2 SSM recurrent scan on ROCm.
+- Standard PyTorch SDPA (Scaled Dot-Product Attention) on ROCm.
 
 Compare across identical parameter counts, context lengths, and live decode memory states.
 

@@ -66,7 +66,7 @@ All autonomous research and verification in this repository is governed by [`pha
 - [**Phase 3: Learned Representations & Sequence Induction**](phases/phase3.md) (Associative Memory MQAR, Induction Heads, Effective Rank)
 - [**Phase 4: Long-Context Extrapolation & Quantization Gate**](phases/phase4.md) ($16\times$ Horizon Extrapolation, Multi-Hop Pointer Chains, FP4/INT4 Stability)
 - [**Phase 5: MI300X Systems Gate & Kernel Optimization**](phases/phase5.md) (CDNA3 Wave64 HIP/Triton Kernels, Additive Tile Accumulation, $> 3.5\text{ TB/s}$)
-- [**Phase 6: Language-Model Viability & 3-Way Comparative Gate**](phases/phase6.md) (Algebraic Transformer vs Causal Transformer vs SSM-Attention Hybrid at 125M & 350M)
+- [**Phase 6: Language-Model Viability & Head-to-Head Comparative Gate**](phases/phase6.md) (Algebraic Transformer vs Standard Causal Transformer at 125M & 350M)
 - [**Phase 7: Matched Multi-Seed Pretraining Study**](phases/phase7.md) (125M Parameters on 1.0B FineWeb-Edu Tokens across 3 Seeds on 1x MI300X)
 - [**Phase 8: Scaled Pretraining & Scaling Law Study**](phases/phase8.md) (350M Parameters on 3.0B FineWeb-Edu Tokens, 24 Layers, Scaling Law Progression)
 - [**Phase 9: Clean-Room Reproduction & Release Audit**](phases/phase9.md) (Clean-Room Fresh-Clone Verification, Standalone Paper Finalization, Release Package)

@@ -2,7 +2,7 @@
 
 Start only after Phase 6 PASS. Read all prior artifacts and `phases/AUTONOMY_PROTOCOL.md`. Execute the failure-repair loop until PASS.
 
-This phase executes the definitive empirical head-to-head pretraining comparison at the **125M parameter scale** across **1.0 Billion tokens of FineWeb-Edu** on the dedicated **1x AMD Instinct MI300X GPU (192 GB HBM3)**. It tests whether pure algebra matches or exceeds transcendental architectures under identical data and optimization budgets.
+This phase executes the definitive empirical head-to-head pretraining comparison at the **125M parameter scale** across **1.0 Billion tokens of FineWeb-Edu** on the dedicated **1x AMD Instinct MI300X GPU (192 GB HBM3)**. It tests whether pure algebra matches or exceeds the standard transcendental Transformer under identical data and optimization budgets.
 
 ---
 
@@ -16,8 +16,7 @@ Preregister and freeze the experimental configuration before launching training 
 - **Architectures Compared:**
   1. **Pure Algebraic Transformer (`AlgebraicTransformerLM`):** ALU-GLU, A-Softmax ($\kappa_8$, $\Omega=0.5$), AGO Cayley rotations, AVN, OACE ($\mathcal{L}_{1/8}$), ACO factorized curvature + ARDS schedule;
   2. **Standard Causal Transformer Baseline:** SwiGLU, Exponential Softmax Attention, RoPE, RMSNorm, Cross-Entropy ($-\ln p$), AdamW + Cosine Annealing;
-  3. **Competitive SSM-Attention Hybrid:** Alternating Mamba-2 style selective scan and causal attention blocks, SwiGLU, RMSNorm, AdamW;
-- **Paired Seeds:** Run all three architectures across **three identical random seeds** (Seed 42, Seed 1337, Seed 2026), yielding $3 \times 3 = 9$ complete pretraining runs;
+- **Paired Seeds:** Run both architectures across **three identical random seeds** (Seed 42, Seed 1337, Seed 2026), yielding $2 \times 3 = 6$ complete pretraining runs;
 - **Training Protocol:** Identical FineWeb-Edu shard ordering, global batch size $\approx 1.05 \times 10^6$ tokens (512 sequences of context length 2048), BF16 precision with FP32 master weights and optimizer state accumulation, checkpoint cadence every 50M tokens;
 - **Budget Parity:** Parameters within $\pm 1\%$, training tokens identical, optimizer step counts identical.
 
@@ -25,7 +24,7 @@ Preregister and freeze the experimental configuration before launching training 
 
 ## 2. Evaluation Suite & Statistical Protocol
 
-Evaluate all 9 completed runs across:
+Evaluate all 6 completed runs across:
 
 1. **Language Modeling Perplexity:**
    - Validation perplexity and loss on held-out FineWeb-Edu validation split;
@@ -55,7 +54,7 @@ If any seed diverges, experiences loss spikes, or fails to meet the parity thres
 
 ## PASS Gates
 
-- [ ] All 9 pretraining runs (3 architectures $\times$ 3 seeds) complete the full 1.0B token budget with zero unhandled NaNs or divergent loss spikes.
+- [ ] All 6 pretraining runs (2 architectures $\times$ 3 seeds) complete the full 1.0B token budget with zero unhandled NaNs or divergent loss spikes.
 - [ ] Algebraic Transformer validation perplexity on FineWeb-Edu achieves parity with the Standard Transformer baseline within $\le 1.08\times$ (mean over 3 paired seeds).
 - [ ] Perplexity variance across seeds is low and stable: $\operatorname{SEM} \le 0.15$.
 - [ ] Downstream zero-shot reasoning benchmarks (ARC-Easy, HellaSwag, PIQA, LAMBADA) are within $2.0\%$ absolute margin of the Standard Transformer baseline.

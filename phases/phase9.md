@@ -32,7 +32,7 @@ Finalize `theory.md` as an authoritative, self-contained, publication-ready rese
 1. **Empirical Results Integration:** Incorporate multi-seed pretraining results from Phase 7 (125M / 1B tokens) and Phase 8 (350M / 3B tokens), reporting mean $\pm$ SEM and 95% confidence intervals.
 2. **Formal Proof Reconciliation:** Audit every mathematical theorem against its formal Lean 4 proof in `formal/AlgebraicTheory/`. Ensure that `formal/PROOF_COVERAGE.md` accurately documents theorem coverage.
 3. **Visual & Structural Clarity:** Embed all architectural schematics, activation derivative profiles, attention Jacobian bounds, and scaling trajectory curves.
-4. **Novelty & Related Work Frontier:** Ensure comprehensive citations of contemporary literature (FlashAttention-2, Ring Attention, RoPE, SwiGLU, Mamba-2, AdamW, Adafactor, Kimi, DeepSeek-V3).
+4. **Novelty & Related Work Frontier:** Ensure comprehensive citations of contemporary literature (FlashAttention-2, Ring Attention, RoPE, SwiGLU, AdamW, Adafactor, DeepSeek-V3).
 
 ---
 

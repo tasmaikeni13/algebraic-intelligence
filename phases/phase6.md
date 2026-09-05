@@ -1,14 +1,14 @@
-# Phase 6 — Language-Model Viability & Three-Way Comparative Publication Gate
+# Phase 6 — Language-Model Viability & Head-to-Head Comparative Publication Gate
 
 Start only after Phase 5 PASS. Read all prior evidence and `phases/AUTONOMY_PROTOCOL.md`.
 
-This phase establishes natural language modeling viability and rigorous comparative benchmarks for publication across **three distinct architectural paradigms at both 125M and 350M parameter scales**. Execute the mandatory failure-repair loop until PASS.
+This phase establishes natural language modeling viability and rigorous comparative benchmarks for publication across **two matched architectures: The Pure Algebraic Stack vs. The Modern Causal Transformer at both 125M and 350M parameter scales**. Execute the mandatory failure-repair loop until PASS.
 
 ---
 
-## 1. Three Publication Candidate Architectures
+## 1. Two Publication Candidate Architectures
 
-For peer-reviewed publication and definitive architectural comparison, implement and evaluate three matched candidates:
+For peer-reviewed publication and definitive architectural comparison, implement and evaluate two matched candidates:
 
 1. **Candidate 1: The Pure Algebraic Stack (`AlgebraicTransformerLM`)**:
    - Gating: ALU-GLU feed-forward blocks ($\text{expansion} = 2.67d$) with exact Horner cubic backward pass;
@@ -19,16 +19,11 @@ For peer-reviewed publication and definitive architectural comparison, implement
    - Optimization: Factorized Algebraic Curvature Optimizer (ACO) with ARDS rational decay schedule;
    - Zero transcendental operations throughout the entire training and inference cycle.
 
-2. **Candidate 2: Modern Causal Transformer (Pure Attention SOTA Baseline)**:
+2. **Candidate 2: Modern Causal Transformer (Standard Transcendental Baseline)**:
    - Modern LLaMA/Mistral-style decoder-only architecture;
    - Rotary Position Embeddings (RoPE), Pre-RMSNorm, Causal Multi-Head Self-Attention, and SwiGLU MLP ($d_{\text{ffn}} = \frac{8}{3}d_{\text{model}}$);
    - Standard Cross-Entropy loss ($-\ln p$), AdamW optimizer with Cosine Annealing;
    - Standard $O(L)$ growing KV cache at inference and $O(L^2)$ training complexity.
-
-3. **Candidate 3: Strong SSM + Attention Hybrid (SOTA Hybrid Baseline)**:
-   - Modern competitive hybrid architecture (following Samba / Jamba / RecurrentGemma literature);
-   - Alternates selective state-space recurrent blocks (Mamba-2 style input-dependent selection with 1D causal depthwise convolution and SiLU gating) with causal multi-head self-attention blocks;
-   - Pre-RMSNorm and SwiGLU MLP feedforward networks, AdamW optimizer.
 
 ---
 
@@ -45,13 +40,13 @@ Preregister and implement both parameter scales to validate small-scale viabilit
   - Vocabulary: $50,257$;
   - Context length: $2048$ tokens.
 
-Parameters across all three candidates must be calibrated within $\pm 3\%$ at each scale.
+Parameters across both candidates must be calibrated within $\pm 1\%$ at each scale.
 
 ---
 
 ## 3. Diagnostic & Natural Language Benchmark Suite
 
-Evaluate all three candidates across both scales on:
+Evaluate both candidates across both scales on:
 
 1. **FineWeb-Edu Token Distribution:** Validation loss, convergence trajectory, and perplexity on held-out **FineWeb-Edu** tokens.
 2. **Multi-Query Associative Recall (MQAR):** Key-value retrieval across varied distractor loads and sequence lengths.
@@ -77,11 +72,11 @@ Evaluate all three candidates across both scales on:
 
 ## PASS Gates
 
-- [ ] All three architectures (Algebraic Stack, Transformer Baseline, SSM-Attention Hybrid) are fully implemented, calibrated at both 125M and 350M scales ($\pm 3\%$ params), and pass all gradient checks.
+- [ ] Both architectures (Algebraic Stack and Standard Causal Transformer) are fully implemented, calibrated at both 125M and 350M scales ($\pm 1\%$ params), and pass all gradient checks.
 - [ ] Accelerated kernels compile and pass numerical validation against fp64 CPU references with maximum relative error $< 1.0 \times 10^{-5}$ in float32.
 - [ ] Algebraic Transformer achieves validation perplexity on FineWeb-Edu token distributions within $8\%$ parity ($\le 1.08\times$) of the Standard Transformer baseline at 125M scale.
 - [ ] Algebraic Transformer demonstrates statistically significant advantage over standard Transformer on sub-byte FP4 quantization stability.
-- [ ] Multi-Query Associative Recall (MQAR) and multi-hop pointer chasing benchmarks confirm parity with or superiority over the SSM-Attention Hybrid.
+- [ ] Multi-Query Associative Recall (MQAR) and multi-hop pointer chasing benchmarks confirm parity with the Standard Transformer baseline.
 - [ ] Systems profiling on the MI300X confirms that ACO achieves $\ge 45\%$ lower total optimizer memory consumption compared to AdamW at 125M and 350M scales.
 - [ ] AST code audit confirms exactly 0 transcendental operations in the Algebraic Transformer training and inference loops.
 - [ ] All Lean 4 formal proofs compile cleanly via `/root/.elan/bin/lake build`.

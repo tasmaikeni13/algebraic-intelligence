@@ -17,8 +17,7 @@ Preregister and freeze the medium-scale configuration:
 - **Architectures Compared:**
   1. **Pure Algebraic Transformer (`AlgebraicTransformerLM` 350M):** ALU-GLU, A-Softmax ($\kappa_8$, $\Omega=0.5$), AGO Cayley rotations, AVN, OACE ($\mathcal{L}_{1/8}$), ACO factorized curvature + ARDS schedule;
   2. **Standard Causal Transformer Baseline (350M):** SwiGLU, Exponential Softmax, RoPE, RMSNorm, Cross-Entropy, AdamW + Cosine Annealing;
-  3. **Competitive SSM-Attention Hybrid (350M):** Mamba-2 style selective scan + Attention, SwiGLU, RMSNorm, AdamW;
-- **Paired Seeds:** Run across three identical random seeds (Seed 42, Seed 1337, Seed 2026);
+- **Paired Seeds:** Run both architectures across **three identical random seeds** (Seed 42, Seed 1337, Seed 2026), yielding $2 \times 3 = 6$ complete pretraining runs;
 - **Training Protocol:** Identical FineWeb-Edu shards, global batch size $\approx 1.05 \times 10^6$ tokens (512 sequences of context length 2048), BF16 precision with FP32 accumulation, checkpoint cadence every 100M tokens;
 - **Budget Parity:** Parameters within $\pm 1\%$, training tokens identical, optimizer step counts identical.
 

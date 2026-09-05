@@ -97,7 +97,7 @@ A gate may change **only** when preserved empirical evidence proves that its und
    $$\text{Tolerance}(\kappa) = C \cdot \epsilon_{\text{mach}} \cdot \kappa.$$
 4. **Hardware Timing Discipline:** Systems benchmarking on the MI300X must call `torch.cuda.synchronize()` before and after timed loops. Warmup iterations and compilation passes (`torch.compile`) must be timed and reported separately from steady-state execution.
 5. **Full Seed Disclosure:** Report results across all configured random seeds, including failing, diverging, or non-finite runs. Selective cherry-picking of favorable seeds is scientific misconduct.
-6. **Equal-Budget Discipline:** Head-to-head comparisons against transcendental baselines (Transformer, Mamba/SSM) must maintain strict budget equivalence: identical parameter count ($\pm 3\%$), identical training tokens, identical batch size, identical context length, and identical optimizer tuning opportunity.
+6. **Equal-Budget Discipline:** Head-to-head comparisons against the standard transcendental baseline (Standard Causal Transformer) must maintain strict budget equivalence: identical parameter count ($\pm 1\%$), identical training tokens, identical batch size, identical context length, and identical optimizer tuning opportunity.
 7. **Lock-Box Test Sets:** Never use test sets or downstream benchmark evaluations to redesign an architecture within the same experimental generation. If architectural changes are made, increment the generation counter and rerun all baseline and candidate models across all seeds.
 
 ---
