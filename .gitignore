@@ -1,0 +1,24 @@
+# Build and cache artifacts
+formal/.lake/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+
+# Lean artifacts
+*.olean
+*.ilean
+*.c
+
+# Local environments and skills repo
+skills/
+.venv/
+venv/
+ENV/
+
+# System files
+.DS_Store
+*.swp
+*.swo
