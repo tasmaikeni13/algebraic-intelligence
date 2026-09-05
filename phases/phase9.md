@@ -1,6 +1,6 @@
 # Phase 9: Scaled Frontier Pretraining: 350M Parameters on 3.0B FineWeb-Edu Tokens & Scaling Laws
 
-Start only after Phase 8 PASS. Read `theory.md`, Phase 7 & 8 evidence in `results/phase7/` and `results/phase8/`, and `phases/AUTONOMY_PROTOCOL.md` completely before executing. Execute the shared failure-repair loop until all gates pass.
+Start only after Phase 8 PASS. Read `theory.md`, Phase 7 & 8 evidence in `results/phase7/` and `results/phase8/`, and `phases/README.md` completely before executing. Execute the shared failure-repair loop until all gates pass.
 
 ---
 

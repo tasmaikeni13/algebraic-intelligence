@@ -44,8 +44,7 @@ We answer this question affirmatively by constructing and verifying the **Algebr
 │       ├── Curvature.lean          # ACO factorized curvature preconditioning & debiasing
 │       └── Variance.lean           # AVN bounded normalization & Coupling Identity
 ├── phases/                         # Autonomous Research Execution & Self-Correction Engine
-│   ├── AUTONOMY_PROTOCOL.md        # Master governing protocol, 9-step failure-repair loop, and gates
-│   ├── README.md                   # Agent execution protocol, failure ledger, and passing gates
+│   ├── README.md                   # Master governing protocol, 9-step failure-repair loop, and phase index
 │   └── phase1.md to phase10.md     # Exactly 10 sequential phases through 350M scaling & publication
 ├── skills/                         # Autonomous Scientific Research Skills & Frameworks
 └── analysis/                       # Empirical and Numerical Mathematical Suite
@@ -58,7 +57,7 @@ We answer this question affirmatively by constructing and verifying the **Algebr
 
 ## Autonomous Research Engine & Verification Phases
 
-All autonomous research and verification in this repository is governed by [`phases/AUTONOMY_PROTOCOL.md`](phases/AUTONOMY_PROTOCOL.md). The research lifecycle is organized into **exactly ten sequential phases** defined in [`phases/`](phases/):
+All autonomous research and verification in this repository is governed by [`phases/README.md`](phases/README.md). The research lifecycle is organized into **exactly ten sequential phases** defined in [`phases/`](phases/):
 
 - [**Phase 1: Pure Algebraic Primitives & Non-Linear Gating**](phases/phase1.md) (ALU Inflection at $-\sqrt{2}$, Parameter-Free AVN, Horner Cubic Backward)
 - [**Phase 2: Octic Algebraic Attention & 2-Lipschitz Bounds**](phases/phase2.md) (A-Softmax 3-Stage Squaring $\kappa_8$, Uniform $\le n/4$ Jacobian, FP4 Quantization)

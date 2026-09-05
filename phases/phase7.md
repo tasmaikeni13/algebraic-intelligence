@@ -1,6 +1,6 @@
 # Phase 7: Full Architecture Assembly & Pilot Pretraining (15M LM on WikiText-103)
 
-Start only after Phase 6 PASS. Read `theory.md`, Phase 1–6 evidence in `results/phase1/` through `results/phase6/`, and `phases/AUTONOMY_PROTOCOL.md` completely before executing. Execute the shared failure-repair loop until all gates pass.
+Start only after Phase 6 PASS. Read `theory.md`, Phase 1–6 evidence in `results/phase1/` through `results/phase6/`, and `phases/README.md` completely before executing. Execute the shared failure-repair loop until all gates pass.
 
 ---
 

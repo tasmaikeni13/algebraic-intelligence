@@ -1,6 +1,6 @@
 # Phase 1: Pure Algebraic Primitives & Non-Linear Gating (ALU & AVN)
 
-Read `theory.md`, `formal/README.md`, `formal/AlgebraicTheory/Gate.lean`, `formal/AlgebraicTheory/Variance.lean`, and `phases/AUTONOMY_PROTOCOL.md` completely before executing. Execute the shared failure-repair loop until all gates pass.
+Read `theory.md`, `formal/README.md`, `formal/AlgebraicTheory/Gate.lean`, `formal/AlgebraicTheory/Variance.lean`, and `phases/README.md` completely before executing. Execute the shared failure-repair loop until all gates pass.
 
 ---
 

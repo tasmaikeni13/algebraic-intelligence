@@ -1,6 +1,6 @@
 # Phase 3: Algebraic Geometric Oscillators & Shift Equivariance (AGO)
 
-Start only after Phase 2 PASS. Read `theory.md`, `formal/README.md`, `formal/AlgebraicTheory/Cayley.lean`, Phase 2 evidence in `results/phase2/`, and `phases/AUTONOMY_PROTOCOL.md` completely before executing. Execute the shared failure-repair loop until all gates pass.
+Start only after Phase 2 PASS. Read `theory.md`, `formal/README.md`, `formal/AlgebraicTheory/Cayley.lean`, Phase 2 evidence in `results/phase2/`, and `phases/README.md` completely before executing. Execute the shared failure-repair loop until all gates pass.
 
 ---
 

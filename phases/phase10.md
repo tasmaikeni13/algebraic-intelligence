@@ -1,6 +1,6 @@
 # Phase 10: Comprehensive Research Paper, Clean-Room Replication, & Publication Release
 
-Start only after Phase 9 PASS. Read the entire repository, all generated artifacts, and `phases/AUTONOMY_PROTOCOL.md`. Treat completion as unproven. Execute the failure-repair loop for every discrepancy until all gates pass.
+Start only after Phase 9 PASS. Read the entire repository, all generated artifacts, and `phases/README.md`. Treat completion as unproven. Execute the failure-repair loop for every discrepancy until all gates pass.
 
 ---
 
@@ -74,7 +74,7 @@ Finalize `theory.md` as an authoritative, self-contained research manuscript tar
 ## 4. Public Repository & Release Audit
 
 Verify that the repository is clean, complete, and reproducible:
-1. **Phase File Structure:** Verify that there are **exactly ten numbered phases**, `phase1.md` through `phase10.md`, plus `AUTONOMY_PROTOCOL.md` and `README.md` in `phases/`.
+1. **Phase File Structure:** Verify that there are **exactly ten numbered phases**, `phase1.md` through `phase10.md`, plus `README.md` in `phases/`.
 2. **Zero-Transcendental Compliance:** Confirm via AST static analysis that zero un-whitelisted transcendental operations exist in production modules.
 3. **Skills Integration:** Verify that the `skills/` directory (`https://github.com/tasmaikeni13/skills`) is fully present, clean, and tracked.
 4. **Hygiene & Security Audit:** Confirm that no credentials, API keys, private tokens, temporary download caches, or oversized raw checkpoint files are tracked in Git.
@@ -113,7 +113,7 @@ $$\textbf{Goal Fulfilled: Algebra and Algebra Alone Gives Rise to Intelligence.}
 - [ ] Fresh-clone reproduction script runs end-to-end on the MI300X without manual intervention.
 - [ ] All Lean 4 formal proofs compile cleanly via `/root/.elan/bin/lake build` with zero errors and zero `sorry`.
 - [ ] Every empirical metric in `theory.md` and `README.md` reproduces from pinned configs within declared numerical tolerances.
-- [ ] Exactly ten numbered phase documents (`phase1.md` to `phase10.md`) exist in `phases/`, all obeying `AUTONOMY_PROTOCOL.md`.
+- [ ] Exactly ten numbered phase documents (`phase1.md` to `phase10.md`) exist in `phases/`, all obeying `phases/README.md`.
 - [ ] AST code audit confirms zero transcendental operations in production code.
 - [ ] `skills/` directory is fully integrated, clean, and tracked in Git.
 - [ ] Repository hygiene check confirms zero tracked secrets, large binaries, or dirty working-tree state.

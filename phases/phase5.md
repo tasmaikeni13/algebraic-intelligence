@@ -1,6 +1,6 @@
 # Phase 5: Factorized Curvature Optimization & Rational Scheduling (ACO & ARDS)
 
-Start only after Phase 4 PASS. Read `theory.md`, `formal/README.md`, `formal/AlgebraicTheory/Curvature.lean`, Phase 4 evidence in `results/phase4/`, and `phases/AUTONOMY_PROTOCOL.md` completely before executing. Execute the shared failure-repair loop until all gates pass.
+Start only after Phase 4 PASS. Read `theory.md`, `formal/README.md`, `formal/AlgebraicTheory/Curvature.lean`, Phase 4 evidence in `results/phase4/`, and `phases/README.md` completely before executing. Execute the shared failure-repair loop until all gates pass.
 
 ---
 

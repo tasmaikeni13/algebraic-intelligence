@@ -1,6 +1,6 @@
 # Phase 6: Hardware-Fused Kernels & Algebraic FlashAttention (AFA on MI300X)
 
-Start only after Phase 5 PASS. Read `theory.md`, current official AMD ROCm / MI300X documentation, and `phases/AUTONOMY_PROTOCOL.md`. Execute the failure-repair loop until PASS.
+Start only after Phase 5 PASS. Read `theory.md`, current official AMD ROCm / MI300X documentation, and `phases/README.md`. Execute the failure-repair loop until PASS.
 
 ---
 

@@ -1,6 +1,6 @@
 # Phase 2: Octic Algebraic Attention & 2-Lipschitz Bounds (A-Softmax)
 
-Start only after Phase 1 PASS. Read `theory.md`, `formal/README.md`, `formal/AlgebraicTheory/Kernel.lean`, Phase 1 evidence in `results/phase1/`, and `phases/AUTONOMY_PROTOCOL.md` completely before executing. Execute the shared failure-repair loop until all current and inherited gates pass.
+Start only after Phase 1 PASS. Read `theory.md`, `formal/README.md`, `formal/AlgebraicTheory/Kernel.lean`, Phase 1 evidence in `results/phase1/`, and `phases/README.md` completely before executing. Execute the shared failure-repair loop until all current and inherited gates pass.
 
 ---
 

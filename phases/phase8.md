@@ -1,6 +1,6 @@
 # Phase 8: Frontier Pretraining: 125M Parameters on 1.0B FineWeb-Edu Tokens
 
-Start only after Phase 7 PASS. Read `theory.md`, Phase 7 evidence in `results/phase7/`, and `phases/AUTONOMY_PROTOCOL.md` completely before executing. Execute the shared failure-repair loop until all gates pass.
+Start only after Phase 7 PASS. Read `theory.md`, Phase 7 evidence in `results/phase7/` and `phases/README.md` completely before executing. Execute the shared failure-repair loop until all gates pass.
 
 ---
 

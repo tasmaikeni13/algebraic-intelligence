@@ -1,6 +1,6 @@
 # Phase 4: Algebraic Loss Functionals & Information Metrics (OACE / $\mathcal{L}_{1/8}$)
 
-Start only after Phase 3 PASS. Read `theory.md`, `formal/README.md`, `formal/AlgebraicTheory/Loss.lean`, Phase 3 evidence in `results/phase3/`, and `phases/AUTONOMY_PROTOCOL.md` completely before executing. Execute the shared failure-repair loop until all gates pass.
+Start only after Phase 3 PASS. Read `theory.md`, `formal/README.md`, `formal/AlgebraicTheory/Loss.lean`, Phase 3 evidence in `results/phase3/`, and `phases/README.md` completely before executing. Execute the shared failure-repair loop until all gates pass.
 
 ---
 
