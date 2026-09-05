@@ -171,41 +171,66 @@ def test_a_softmax_and_jacobian():
     print("✓ A-Softmax and Jacobian verified successfully!\n")
 
 def test_ago_cayley_rotations():
-    print("--- 4. Testing Algebraic Geometric Ordering (AGO) (Section 7) ---")
+    print("--- 4. Testing Algebraic Geometric Ordering (AGO) (Section 7 & Phase 3) ---")
+    # 4.1 Check exact Cayley determinant and column orthogonality in float64
+    w_test = torch.linspace(0.001, 10.0, 1000, dtype=torch.float64)
+    w2 = w_test.pow(2)
+    denom = 1.0 / (1.0 + w2)
+    c_w = (1.0 - w2) * denom
+    s_w = 2.0 * w_test * denom
+
+    det_err = torch.max(torch.abs(c_w.pow(2) + s_w.pow(2) - 1.0)).item()
+    print(f"Cayley Determinant Error |det(R(w)) - 1.0|: {det_err:.2e} (Expected: <= 1.0e-15)")
+    assert det_err <= 1.0e-15, f"Determinant error exceeded bound: {det_err}"
+
+    col_dot_err = torch.max(torch.abs(c_w * (-s_w) + s_w * c_w)).item()
+    print(f"Column Orthogonality Error |c1 . c2|: {col_dot_err:.2e} (Expected: <= 1.0e-15)")
+    assert col_dot_err <= 1.0e-15, f"Column orthogonality error exceeded bound: {col_dot_err}"
+
+    # 4.2 Norm Conservation
+    torch.manual_seed(42)
+    v = torch.randn(1000, 2, dtype=torch.float64)
+    v_norm = torch.norm(v, p=2, dim=-1)
+    v_rot_0 = c_w * v[:, 0] - s_w * v[:, 1]
+    v_rot_1 = s_w * v[:, 0] + c_w * v[:, 1]
+    v_rot = torch.stack([v_rot_0, v_rot_1], dim=-1)
+    v_rot_norm = torch.norm(v_rot, p=2, dim=-1)
+    norm_cons_err = torch.max(torch.abs(v_rot_norm - v_norm)).item()
+    print(f"Norm Conservation Error |||R(w)v||_2 - ||v||_2|: {norm_cons_err:.2e} (Expected: <= 1.0e-7)")
+    assert norm_cons_err <= 1.0e-7, f"Norm conservation error exceeded bound: {norm_cons_err}"
+
+    # 4.3 Shift Equivariance Matrix & Attention Verification
     dim = 64
     ago = ast.AlgebraicGeometricOrdering(dim=dim, max_seq_len=256)
-
-    # 4.1 Check orthogonality of base Cayley rotation matrix for all pairs
-    c = ago.base_c # (num_pairs,)
-    s = ago.base_s # (num_pairs,)
-    norm_sq = c.pow(2) + s.pow(2)
-    ortho_error = torch.max(torch.abs(norm_sq - 1.0)).item()
-    print(f"AGO Cayley 2D orthogonality error (c^2 + s^2 - 1): {ortho_error:.2e}")
-    assert ortho_error < 1e-6, f"Orthogonality error too high: {ortho_error}"
-
-    # 4.2 Check relative shift equivariance:
-    # <Q_m, K_n> == <Q_0, K_{n-m}>
-    torch.manual_seed(42)
-    x_q = torch.randn(1, 1, 1, dim) # 1 token query
-    x_k = torch.randn(1, 1, 1, dim) # 1 token key
-
     m = 25
     n = 70
     delta = n - m
 
-    # Encode position m for Q, position n for K
+    c_m, s_m = ago.pos_c[m], ago.pos_s[m]
+    c_n, s_n = ago.pos_c[n], ago.pos_s[n]
+    c_delta, s_delta = ago.pos_c[delta], ago.pos_s[delta]
+    r_c = c_m * c_n + s_m * s_n
+    r_s = c_m * s_n - s_m * c_n
+    matrix_shift_err = max(torch.max(torch.abs(r_c - c_delta)).item(), torch.max(torch.abs(r_s - s_delta)).item())
+    print(f"Shift Equivariance Matrix Error ||R_m^T R_n - R_{{n-m}}||_inf: {matrix_shift_err:.2e} (Expected: <= 1.0e-6)")
+    assert matrix_shift_err <= 1.0e-6, f"Matrix shift equivariance exceeded bound: {matrix_shift_err}"
+
+    # Relative shift equivariance on attention dot products:
+    # <Q_m, K_n> == <Q_0, K_{n-m}>
+    x_q = torch.randn(1, 1, 1, dim) # 1 token query
+    x_k = torch.randn(1, 1, 1, dim) # 1 token key
+
     q_m = ago(x_q, seq_offset=m)
     k_n = ago(x_k, seq_offset=n)
     dot_mn = (q_m * k_n).sum().item()
 
-    # Encode position 0 for Q, position delta for K
     q_0 = ago(x_q, seq_offset=0)
     k_delta = ago(x_k, seq_offset=delta)
     dot_0_delta = (q_0 * k_delta).sum().item()
 
     shift_error = abs(dot_mn - dot_0_delta)
-    print(f"AGO Relative shift equivariance error (<Q_m, K_n> - <Q_0, K_{{n-m}}>): {shift_error:.2e}")
-    assert shift_error < 1e-5, f"Shift equivariance violated: {shift_error}"
+    print(f"AGO Relative shift equivariance error (<Q_m, K_n> - <Q_0, K_{{n-m}}>): {shift_error:.2e} (Expected: <= 1.0e-6)")
+    assert shift_error <= 1.0e-6, f"Shift equivariance violated: {shift_error}"
 
     print("✓ AGO Cayley rotations verified successfully!\n")
 

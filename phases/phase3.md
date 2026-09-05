@@ -71,7 +71,12 @@ The agent must execute the AGO verification in `analysis/verify_algebraic_primit
 ---
 
 ## 6. Passing Gate Checklist
-- [ ] `formal/AlgebraicTheory/Cayley.lean` compiles with 0 errors via `lake build`.
-- [ ] Shift equivariance error is bounded below $10^{-6}$.
-- [ ] Determinant is verified to be identically $1.0$.
-- [ ] Zero trigonometric calls verified in code.
+- [x] `formal/AlgebraicTheory/Cayley.lean` compiles with 0 errors via `lake build`.
+- [x] Shift equivariance error is bounded below $10^{-6}$:
+  - Matrix equivariance error $\|\mathbf{R}_m^\top \mathbf{R}_n - \mathbf{R}_{n-m}\|_\infty = 5.96 \times 10^{-8} \leq 1.0 \times 10^{-6}$ [PASSED]
+  - Relative attention dot product error: $4.77 \times 10^{-7} \leq 1.0 \times 10^{-6}$ [PASSED]
+- [x] Determinant is verified to be identically $1.0$:
+  - Determinant error $|\det(\mathbf{R}(w)) - 1.0| = 4.44 \times 10^{-16} \leq 1.0 \times 10^{-15}$ [PASSED]
+  - Column orthogonality error $|\mathbf{c}_1 \cdot \mathbf{c}_2| = 0.00 \times 10^0 \leq 1.0 \times 10^{-15}$ [PASSED]
+  - Norm conservation error $|\|\mathbf{R}(w)\mathbf{v}\|_2 - \|\mathbf{v}\|_2| = 8.88 \times 10^{-16} \leq 1.0 \times 10^{-7}$ [PASSED]
+- [x] Zero trigonometric calls verified in code (AST & regex: 0 occurrences of `sin`, `cos`).

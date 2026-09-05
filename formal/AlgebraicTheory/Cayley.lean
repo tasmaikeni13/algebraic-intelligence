@@ -13,12 +13,44 @@ theorem cayley_column_norm_one (w : ℝ) (hw : 1 + w^2 ≠ 0) :
   field_simp [hw]
   ring
 
+theorem cayley_col1_norm_sq (w : ℝ) (hw : 1 + w^2 ≠ 0) :
+    ((1 - w^2) / (1 + w^2))^2 + ((2 * w) / (1 + w^2))^2 = 1 :=
+  cayley_column_norm_one w hw
+
+theorem cayley_col2_norm_sq (w : ℝ) (hw : 1 + w^2 ≠ 0) :
+    ((-2 * w) / (1 + w^2))^2 + ((1 - w^2) / (1 + w^2))^2 = 1 := by
+  field_simp [hw]
+  ring
+
 theorem cayley_columns_orthogonal (w : ℝ) :
     (1 - w^2) * (-2 * w) + (2 * w) * (1 - w^2) = 0 := by
   ring
 
+theorem cayley_dot_product_zero (w : ℝ) (hw : 1 + w^2 ≠ 0) :
+    ((1 - w^2) / (1 + w^2)) * ((-2 * w) / (1 + w^2)) +
+    ((2 * w) / (1 + w^2)) * ((1 - w^2) / (1 + w^2)) = 0 := by
+  field_simp [hw]
+  ring
+
 theorem cayley_determinant_one (w : ℝ) (hw : 1 + w^2 ≠ 0) :
     ((1 - w^2) * (1 - w^2) - (-2 * w) * (2 * w)) / (1 + w^2)^2 = 1 := by
+  field_simp [hw]
+  ring
+
+theorem cayley_det_one (w : ℝ) (hw : 1 + w^2 ≠ 0) :
+    ((1 - w^2) * (1 - w^2) - (-2 * w) * (2 * w)) / (1 + w^2)^2 = 1 :=
+  cayley_determinant_one w hw
+
+theorem cayley_norm_preserving (c s v1 v2 : ℝ) (h : c^2 + s^2 = 1) :
+    (c * v1 - s * v2)^2 + (s * v1 + c * v2)^2 = v1^2 + v2^2 := by
+  calc
+    (c * v1 - s * v2)^2 + (s * v1 + c * v2)^2 = (c^2 + s^2) * (v1^2 + v2^2) := by ring
+    _ = 1 * (v1^2 + v2^2) := by rw [h]
+    _ = v1^2 + v2^2 := by ring
+
+theorem cayley_rational_norm_preserving (w v1 v2 : ℝ) (hw : 1 + w^2 ≠ 0) :
+    (((1 - w^2) / (1 + w^2)) * v1 - ((2 * w) / (1 + w^2)) * v2)^2 +
+    (((2 * w) / (1 + w^2)) * v1 + ((1 - w^2) / (1 + w^2)) * v2)^2 = v1^2 + v2^2 := by
   field_simp [hw]
   ring
 
