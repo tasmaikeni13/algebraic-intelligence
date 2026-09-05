@@ -130,6 +130,6 @@ python3 analysis/benchmark_algebraic_vs_transcendental.py
   author={Keni, Tasmai},
   journal={Preprint},
   year={2026},
-  url={https://github.com/tasmaikeni13/algebraic-stack}
+  url={https://github.com/tasmaikeni13/algebraic-intelligence}
 }
 ```
