@@ -1,0 +1,17 @@
+{
+  "device": "AMD Instinct MI300X VF",
+  "total_params": 16908288,
+  "tokens_processed": 4096000,
+  "loss_spikes": 0,
+  "initial_max_grad_norm": 23.107662143230524,
+  "steady_state_max_grad_norm": 2.431973657506983,
+  "ppl_alg": 611.7816843810414,
+  "ppl_std": 306.02742633636853,
+  "ppl_ratio": 1.999107373169242,
+  "parity_passed": false,
+  "throughput_alg_tok_s": 97164.37405919723,
+  "throughput_std_tok_s": 213951.11075283505,
+  "vram_alg_mb": 3700.50830078125,
+  "vram_std_mb": 1946.39013671875,
+  "zero_transcendentals": true
+}
