@@ -1,86 +1,129 @@
-# Phase 8 — 350M Medium-Scale Pretraining & Scaling Law Study (3.0B FineWeb-Edu Tokens)
+# Phase 8: Frontier Pretraining: 125M Parameters on 1.0B FineWeb-Edu Tokens
 
-Start only after Phase 7 PASS. Read all prior artifacts and `phases/AUTONOMY_PROTOCOL.md`. Execute the failure-repair loop until PASS.
-
-This phase scales model capacity to **350M parameters** ($2\times$ depth, 24 layers, width 1024) and pretrains on **3.0 Billion tokens of FineWeb-Edu** on the dedicated **1x AMD Instinct MI300X GPU (192 GB HBM3)**. It tests whether pure algebraic architectures obey predictable neural scaling laws and maintain deep gradient stability without transcendental saturation.
+Start only after Phase 7 PASS. Read `theory.md`, Phase 7 evidence in `results/phase7/`, and `phases/AUTONOMY_PROTOCOL.md` completely before executing. Execute the shared failure-repair loop until all gates pass.
 
 ---
 
-## 1. Frozen Experimental Design
+## 1. Objective, Scientific Hypothesis & Competing Models
 
-Preregister and freeze the medium-scale configuration:
+Execute the definitive empirical head-to-head pretraining comparison at the **125M parameter scale** across **1.0 Billion tokens of FineWeb-Edu** on the dedicated **1x AMD Instinct MI300X GPU (192 GB HBM3)**:
+$$\textbf{"Can pure algebra match or exceed the standard causal Transformer at the 125M / 1.0B token frontier?"}$$
 
-- **Model Scale:** **350M parameters** ($d_{\text{model}} = 1024$, $\text{heads} = 16$, $\text{layers} = 24$, $d_k = 64, d_v = 64$, FFN dimension $2816$, vocabulary size $50,257$);
-- **Dataset & Token Budget:** Exactly **3.0 Billion training tokens** per model drawn from **FineWeb-Edu**;
-- **Hardware Target:** Dedicated 1x AMD Instinct MI300X GPU (`gfx942`, 192 GB HBM3, 5.3 TB/s bandwidth).
-  - *VRAM Advantage:* Total static state is $< 2.2\text{ GB}$, leaving over $189\text{ GB}$ of local HBM3 for large micro-batches without multi-node pipeline stalls;
-- **Architectures Compared:**
-  1. **Pure Algebraic Transformer (`AlgebraicTransformerLM` 350M):** ALU-GLU, A-Softmax ($\kappa_8$, $\Omega=0.5$), AGO Cayley rotations, AVN, OACE ($\mathcal{L}_{1/8}$), ACO factorized curvature + ARDS schedule;
-  2. **Standard Causal Transformer Baseline (350M):** SwiGLU, Exponential Softmax, RoPE, RMSNorm, Cross-Entropy, AdamW + Cosine Annealing;
-- **Paired Seeds:** Run both architectures across **three identical random seeds** (Seed 42, Seed 1337, Seed 2026), yielding $2 \times 3 = 6$ complete pretraining runs;
-- **Training Protocol:** Identical FineWeb-Edu shards, global batch size $\approx 1.05 \times 10^6$ tokens (512 sequences of context length 2048), BF16 precision with FP32 accumulation, checkpoint cadence every 100M tokens;
-- **Budget Parity:** Parameters within $\pm 1\%$, training tokens identical, optimizer step counts identical.
+### Competing Hypotheses:
+- **$H_1$ (Algebraic Hypothesis):** The 125M Pure Algebraic Transformer (`AlgebraicTransformerLM`) achieves validation perplexity parity ($\le 1.08\times$) and downstream zero-shot reasoning parity (within $2.0\%$ absolute margin on ARC-Easy, HellaSwag, PIQA, and LAMBADA) relative to the Standard Causal Transformer baseline across 3 paired seeds, while maintaining bounded gradient dynamics, zero loss spikes, and $\ge 45\%$ lower optimizer memory in local HBM3.
+- **$H_0$ (Transcendental Baseline Hypothesis):** On a large web corpus (1.0B tokens), continuous transcendental functions (Swish activation, exponential Softmax, RoPE trigonometric embeddings, cross-entropy $-\ln p$, and AdamW + Cosine schedule) provide essential inductive advantages that pure algebraic approximations cannot replicate, resulting in diverging validation loss, representation collapse, or severe downstream benchmark degradation.
 
 ---
 
-## 2. Scaling Law & Deep Stability Evaluation
+## 2. Matched Multi-Seed Experimental Configuration & Budget Parity
 
-Evaluate all completed 350M runs across:
-
-1. **Empirical Neural Scaling Laws:**
-   - Measure loss reduction $\Delta \mathcal{L} = \mathcal{L}_{125\text{M}} - \mathcal{L}_{350\text{M}}$;
-   - Confirm parallel power-law scaling: verify that the Algebraic Stack exhibits a scaling exponent $\alpha$ matching or exceeding the Standard Transformer baseline ($L(N) \propto N^{-\alpha}$);
-   - Plot Compute FLOPs vs. Validation Loss for both architectures.
-2. **Deep 24-Layer Network Stability:**
-   - Track activation variance $\operatorname{Var}(\mathbf{h}_\ell)$ across all 24 layers from layer 1 to 24;
-   - Verify that parameter-free AVN prevents exponential signal amplification across 24 layers ($(1.0445)^{24} \approx 2.87$ maximum theoretical drift);
-   - Confirm zero loss spikes ($\Delta \mathcal{L} > 1.5$) and zero gradient explosions over the full 3B token pretraining trajectory.
-3. **Long-Context Retrieval & Needle-In-A-Haystack (NIAH):**
-   - Multi-needle retrieval benchmarks across context lengths $\{2048, 4096, 8192\}$;
-   - Confirm that AGO Cayley rotations maintain $> 95\%$ needle retrieval accuracy at extended context.
-4. **Systems & Inference Telemetry on MI300X:**
-   - Prefill throughput (tok/s) and per-token decode latency (ms/tok);
-   - Peak VRAM allocation;
-   - Optimizer memory state bytes: Verify factorized second-moment compression of $\approx 2048\times$ at width 1024, saving $> 45\%$ total optimizer memory in HBM.
-
----
-
-## 3. Hierarchical Scaling Back-Propagation Loop
-
-If the 125M model succeeded in Phase 7, but the 350M model fails in Phase 8, the autonomous agent must execute the **Hierarchical Scaling Back-Propagation Protocol**:
+Preregister and freeze the experimental configuration before launching training runs:
 
 ```mermaid
-graph TD
-    A["Phase 8 (350M) Failure"] --> B["Diagnose Pathology (Depth 24 / Width 1024 / Horizon 3B)"]
-    B --> C["Hypothesize Mechanism (Variance Drift / Attention Saturation / ACO Ill-Conditioning)"]
-    C --> D["Derive Pure Algebraic Repair (e.g. rsqrt(2D) depth attenuation)"]
-    D --> E["Formalize Lemma in Lean 4 (lake build clean)"]
-    E --> F["Mandatory 125M Regression Test (Verify 125M does not degrade)"]
-    F --> G{"125M Regression Passed?"}
-    G -- "No" --> D
-    G -- "Yes" --> H["Re-run 350M across 3 Seeds on MI300X"]
-    H --> I{"Phase 8 Gates Satisfied?"}
-    I -- "No" --> B
-    I -- "Yes" --> J["Advance to Phase 9 (Reproduction & Release)"]
+graph LR
+    subgraph "Hardware Substrate"
+        GPU["1x AMD Instinct MI300X (192 GB HBM3, CDNA3 gfx942)"]
+    end
+
+    subgraph "Candidate 1: Pure Algebraic Transformer (125M)"
+        M1["AlgebraicTransformerLM 125M<br/>(ALU-GLU, AVN, A-Softmax, AGO, OACE, ACO)"]
+        S1a["Seed 42"] --> M1
+        S1b["Seed 1337"] --> M1
+        S1c["Seed 2026"] --> M1
+    end
+
+    subgraph "Candidate 2: Standard Causal Transformer (125M)"
+        M2["StandardTransformerLM 125M<br/>(SwiGLU, RMSNorm, Exp Softmax, RoPE, CE, AdamW)"]
+        S2a["Seed 42"] --> M2
+        S2b["Seed 1337"] --> M2
+        S2c["Seed 2026"] --> M2
+    end
+
+    GPU --- M1
+    GPU --- M2
 ```
 
-### Specific 350M Diagnostics:
-1. **Vanishing / Exploding Gradients Across 24 Layers:** Apply rational depth attenuation: $\mathbf{x}_{\ell+1} = \mathbf{x}_\ell + \operatorname{rsqrt}(2 D) \cdot \operatorname{SubLayer}(\operatorname{AVN}(\mathbf{x}_\ell))$.
-2. **Attention Entropy Saturation at Width $d=1024$:** Calibrate query-key scale factor $\tau = \frac{1}{\sqrt{d_k}} \operatorname{rsqrt}(1 + \mu)$ or adjust attention sink $\Omega$.
-3. **ACO Preconditioner Ill-Conditioning:** Enforce algebraic diagonal damping $\hat{\mathbf{V}}_{ij} \leftarrow \hat{\mathbf{V}}_{ij} + \epsilon_{\text{curv}} \bar{r} \mathbf{I}$.
-4. **Mandatory 125M Regression Check:** Any change made to fix 350M must be evaluated on the 125M model to confirm zero performance regression. Both scales must simultaneously pass.
+### 2.1 Model Specifications (125M Scale)
+- **Parameter Count:** $\approx 125\text{M}$ parameters (matched within $\pm 1\%$ across architectures).
+- **Hidden Dimension ($d_{\text{model}}$):** $768$.
+- **Number of Layers ($L$):** $12$.
+- **Attention Heads ($H$):** $12$ ($d_k = d_v = 64$ per head).
+- **FFN Intermediate Dimension ($d_{\text{ff}}$):** $2048$ ($8/3 \times d_{\text{model}} \approx 2048$).
+- **Vocabulary Size ($V$):** $50,257$ (GPT-2 standard BPE tokenizer).
+- **Context Length ($T$):** $2048$ tokens.
+- **Dataset:** Exactly **1.0 Billion training tokens** drawn from the **FineWeb-Edu** corpus (`HuggingFaceFW/fineweb-edu`).
+- **Global Batch Size:** $\approx 1.05 \times 10^6$ tokens ($512$ sequences $\times 2048$ context length).
+- **Precision:** BF16 mixed-precision with FP32 master weights and optimizer state accumulation.
+- **Checkpoint Cadence:** Checkpoints saved every $50\text{M}$ tokens.
+- **Paired Seeds:** 3 identical random seeds (Seed 42, Seed 1337, Seed 2026), yielding $2 \times 3 = 6$ complete pretraining runs.
+
+### 2.2 Budget Parity Enforcement
+- Parameters within $\pm 1\%$.
+- Exact same token streams and shard ordering across corresponding seeds.
+- Identical optimizer step counts.
+- Dedicated single-socket execution on 1x AMD Instinct MI300X with zero distributed pipeline stalls.
 
 ---
 
-## PASS Gates
+## 3. Evaluation Suite & Statistical Protocol
 
-- [ ] All 3 random seed runs for 350M Algebraic Transformer and 350M Baseline Transformer complete the full 3.0B token budget with zero unhandled NaNs or divergence.
-- [ ] Algebraic Transformer validation perplexity achieves parity with the Standard Transformer baseline within $\le 1.08\times$ (mean over 3 seeds).
-- [ ] Parallel power-law scaling confirmed: Loss reduction from 125M to 350M satisfies $\Delta \mathcal{L}_{\text{alg}} \approx \Delta \mathcal{L}_{\text{base}}$.
-- [ ] Zero loss spikes ($\Delta \mathcal{L} > 1.5$) or gradient explosions across all 24 layers over 3.0B tokens.
-- [ ] Multi-needle passkey retrieval achieves $\ge 90.0\%$ accuracy at context lengths $\ge 4096$ tokens.
-- [ ] Hardware measurements confirm $\ge 45\%$ lower total optimizer memory footprint for ACO vs. AdamW at 350M scale.
-- [ ] Mandatory 125M regression check passes with zero performance degradation.
+Evaluate all 6 completed runs across the following four evaluation axes:
+
+### 3.1 Language Modeling Perplexity
+- Validation perplexity and loss on held-out FineWeb-Edu validation split.
+- Report mean $\pm$ standard error of the mean (SEM) and 95% confidence intervals across the 3 paired seeds.
+
+### 3.2 Downstream Zero-Shot Reasoning Benchmarks
+Evaluate checkpoints using the standard `lm-evaluation-harness` suite:
+- **ARC-Easy:** Elementary science reasoning.
+- **HellaSwag:** Grounded commonsense reasoning.
+- **PIQA:** Physical interaction question answering.
+- **LAMBADA:** Broad narrative context word prediction.
+- Report mean accuracy $\pm$ SEM across seeds. Parity bound: within $2.0\%$ absolute margin of the baseline.
+
+### 3.3 Training Stability Dynamics
+- Maximum gradient norm: $\max_{t} \|\mathbf{g}_t\|_2$ over the entire 1.0B token trajectory.
+- Count of sudden loss spikes ($\Delta \mathcal{L} > 1.5$) and non-finite iterations ($0$ permitted).
+- Hidden activation variance tracking across all 12 layers: verify that parameter-free AVN maintains $\operatorname{Var}(\mathbf{h}_\ell) \in [0.8, 1.3]$ without gain drift.
+
+### 3.4 Systems & Efficiency Telemetry on MI300X
+- Sustained training throughput (tokens/second) on MI300X.
+- Peak VRAM allocation during training.
+- Optimizer memory state bytes: Confirm that ACO reduces second-moment memory from $\approx 500\text{ MB}$ to $< 1\text{ MB}$, saving $\ge 45\%$ total optimizer memory in HBM.
+
+---
+
+## 4. Lean 4 Formal Verification Gate
+
+Re-verify formal proof integrity under parameter scaling:
+- Compile all modules in `formal/AlgebraicTheory/` via `/root/.elan/bin/lake build`.
+- Verify that dimensional scaling ($d_{\text{model}} = 768$, $L = 12$) preserves all algebraic Lipschitz bounds, variance bounds, and loss propriety theorems.
+
+---
+
+## 5. Autonomous Failure Ledger & Self-Correction Playbook
+
+- **Symptom: A single seed diverges or experiences numerical instability:**
+  - *Action:* Freeze raw trace, checkpoint, and numerical state. Classify root cause (e.g. rational learning rate warmup too short, rational decay parameter $\alpha$ miscalibrated, gradient accumulation precision loss).
+  - *Correction:* Derive an algebraic correction, formalize any altered deterministic lemma in Lean 4, verify that `lake build` passes, and run Phase 1–7 regression tests.
+  - *Rule:* Rerun all 3 seeds under symmetric budgets. Selective exclusion of unfavorable seeds is strictly forbidden.
+- **Symptom: Attention entropy collapses at sequence length 2048:**
+  - *Root Cause:* Score magnitude scaling $\tau$ fails to control logit variance at long sequence lengths.
+  - *Correction:* Confirm query-key scaling $\tau = \operatorname{rsqrt}(d_k)$ and calibrate attention sink parameter $\Omega \in [0.25, 1.0]$.
+- **Symptom: Downstream benchmark performance gap $> 2.0\%$:**
+  - *Root Cause:* Preconditioning lag in ACO factorized row/column accumulators during early training.
+  - *Correction:* Implement rational debiasing factors $\hat{\mathbf{m}}_t / (1 - \beta_1^t)$ with algebraic polynomial powers.
+
+---
+
+## 6. PASS Gates
+
+- [ ] All 6 pretraining runs (2 architectures $\times$ 3 seeds) complete the full 1.0B token budget with zero unhandled NaNs or divergent loss spikes.
+- [ ] Algebraic Transformer validation perplexity on FineWeb-Edu achieves parity with the Standard Transformer baseline within $\le 1.08\times$ (mean over 3 paired seeds).
+- [ ] Perplexity variance across seeds is low and stable: $\operatorname{SEM} \le 0.15$.
+- [ ] Downstream zero-shot reasoning benchmarks (ARC-Easy, HellaSwag, PIQA, LAMBADA) are within $2.0\%$ absolute margin of the Standard Transformer baseline.
+- [ ] Hardware measurements on 1x MI300X confirm $\ge 45\%$ lower optimizer memory footprint for ACO compared to AdamW.
+- [ ] Strict Zero-Transcendental audit confirms 0 transcendental function calls across all 125M Algebraic checkpoints and training traces.
 - [ ] All Lean 4 formal proofs compile cleanly via `/root/.elan/bin/lake build`.
-- [ ] All inherited Phase 0–7 gates pass.
-- [ ] `results/phase8/PASS.md` satisfies the shared PASS record contract.
+- [ ] All inherited Phase 1–7 gates pass without regression.
+- [ ] `results/phase8/PASS.md` satisfies the shared PASS record contract with complete reproduction logs.

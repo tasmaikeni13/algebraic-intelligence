@@ -1,84 +1,77 @@
-# Phase 6 — Language-Model Viability & Head-to-Head Comparative Publication Gate
+# Phase 6: Hardware-Fused Kernels & Algebraic FlashAttention (AFA on MI300X)
 
-Start only after Phase 5 PASS. Read all prior evidence and `phases/AUTONOMY_PROTOCOL.md`.
-
-This phase establishes natural language modeling viability and rigorous comparative benchmarks for publication across **two matched architectures: The Pure Algebraic Stack vs. The Modern Causal Transformer at both 125M and 350M parameter scales**. Execute the mandatory failure-repair loop until PASS.
+Start only after Phase 5 PASS. Read `theory.md`, current official AMD ROCm / MI300X documentation, and `phases/AUTONOMY_PROTOCOL.md`. Execute the failure-repair loop until PASS.
 
 ---
 
-## 1. Two Publication Candidate Architectures
+## 1. Objective, Scientific Hypothesis & Competing Models
 
-For peer-reviewed publication and definitive architectural comparison, implement and evaluate two matched candidates:
+Eliminate the inter-tile synchronization barriers and transcendental online rescaling of FlashAttention:
+$$\textbf{"Can Algebraic FlashAttention achieve near-roofline memory bandwidth on the AMD Instinct MI300X?"}$$
 
-1. **Candidate 1: The Pure Algebraic Stack (`AlgebraicTransformerLM`)**:
-   - Gating: ALU-GLU feed-forward blocks ($\text{expansion} = 2.67d$) with exact Horner cubic backward pass;
-   - Attention: A-Softmax with octic kernel $\kappa_8(x)$, attention sink $\Omega = 0.5$, and hardware-accelerated AFA additive accumulation;
-   - Positional Encoding: AGO Cayley rotations on $\mathfrak{so}(2)$, providing exact shift equivariance without trigonometry;
-   - Normalization: Parameter-free AVN, eliminating learnable $\boldsymbol{\gamma}$ from HBM;
-   - Loss Functional: Octo-Algebraic Cross-Entropy (OACE / $\mathcal{L}_{1/8}$);
-   - Optimization: Factorized Algebraic Curvature Optimizer (ACO) with ARDS rational decay schedule;
-   - Zero transcendental operations throughout the entire training and inference cycle.
-
-2. **Candidate 2: Modern Causal Transformer (Standard Transcendental Baseline)**:
-   - Modern LLaMA/Mistral-style decoder-only architecture;
-   - Rotary Position Embeddings (RoPE), Pre-RMSNorm, Causal Multi-Head Self-Attention, and SwiGLU MLP ($d_{\text{ffn}} = \frac{8}{3}d_{\text{model}}$);
-   - Standard Cross-Entropy loss ($-\ln p$), AdamW optimizer with Cosine Annealing;
-   - Standard $O(L)$ growing KV cache at inference and $O(L^2)$ training complexity.
+### Competing Hypotheses:
+- **$H_1$ (Algebraic Hypothesis):** AFA replaces running maximum subtraction $\exp(m_{\text{old}} - m_{\text{new}})$ with pure additive tile accumulation, executing within CDNA3 Wave64 vector registers without inter-tile synchronization barriers, sustaining $> 3.5\text{ TB/s}$ HBM3 bandwidth on the dedicated 1x AMD Instinct MI300X GPU (`gfx942`).
+- **$H_0$ (Transcendental Baseline Hypothesis):** FlashAttention-2 online exponential rescaling is optimal for GPU SRAM caching; additive algebraic kernels will encounter vector register pressure or numerical overflow during long sequence tile streaming.
 
 ---
 
-## 2. Dual Model Capacity Targets: 125M and 350M
+## 2. Hardware Execution Model & Mathematical Formulations
 
-Preregister and implement both parameter scales to validate small-scale viability and medium-scale scaling readiness:
+### 2.1 Pure Additive Tile Accumulation on CDNA3 (MI300X)
+For query block $\mathbf{Q}_b \in \mathbb{R}^{B_q \times d}$ and key-value blocks $\mathbf{K}_c, \mathbf{V}_c \in \mathbb{R}^{B_k \times d}$:
+1. Raw algebraic scores in Local Data Share (LDS): $\mathbf{S}_{bc} = \frac{\mathbf{Q}_b \mathbf{K}_c^\top}{\sqrt{d_k}}$.
+2. Octic algebraic kernel in Wave64 registers via 3 squaring operations: $\mathbf{P}_{bc} = (\mathbf{S}_{bc} + \sqrt{1 + \mathbf{S}_{bc}^{\odot 2}})^8$.
+3. Pure additive accumulation:
+   $$\mathbf{O}_b = \sum_{c} \mathbf{P}_{bc} \mathbf{V}_c, \qquad \mathbf{D}_b = \Omega + \sum_{c} \sum_{j} \mathbf{P}_{bc, \cdot j}$$
+4. Single-pass tile normalization: $\mathbf{Y}_b = \mathbf{O}_b / \mathbf{D}_b$. Zero inter-tile sync!
 
-- **125M Parameter Scale:**
-  - $d_{\text{model}} = 768$, $\text{heads} = 12$, $\text{layers} = 12$, $d_k = 64, d_v = 64$;
-  - Vocabulary: $50,257$ (GPT-2 / FineWeb-Edu tiktoken standard);
-  - Context length: $2048$ tokens.
-- **350M Parameter Scale:**
-  - $d_{\text{model}} = 1024$, $\text{heads} = 16$, $\text{layers} = 24$, $d_k = 64, d_v = 64$;
-  - Vocabulary: $50,257$;
-  - Context length: $2048$ tokens.
-
-Parameters across both candidates must be calibrated within $\pm 1\%$ at each scale.
-
----
-
-## 3. Diagnostic & Natural Language Benchmark Suite
-
-Evaluate both candidates across both scales on:
-
-1. **FineWeb-Edu Token Distribution:** Validation loss, convergence trajectory, and perplexity on held-out **FineWeb-Edu** tokens.
-2. **Multi-Query Associative Recall (MQAR):** Key-value retrieval across varied distractor loads and sequence lengths.
-3. **Induction & Selective Copy:** Long-distance prefix pattern completion and selective token extraction.
-4. **Cache-Boundary & Recency Generalization:** Retrieval precision across local window eviction boundaries.
-5. **Multi-Hop Pointer Chains:** Chained associative pointer chasing through $\{2, 4, 8\}$ hops.
-6. **Passkey Retrieval / Needle-In-A-Haystack (NIAH):** Accurate passkey retrieval at sequence lengths up to 4096 tokens.
-7. **Systems Profiling (1x AMD Instinct MI300X):**
-   - Prefill throughput (tokens/second) across lengths $\{512, 1024, 2048, 4096\}$;
-   - Per-token decode latency (ms/token);
-   - Peak VRAM allocation during training and inference;
-   - Second-moment optimizer memory footprint: ACO factorized $\mathcal{O}(d_{\text{out}} + d_{\text{in}})$ vs AdamW $\mathcal{O}(d_{\text{out}} \cdot d_{\text{in}})$.
+### 2.2 CDNA3 Architectural Parameters
+- **Wavefront:** Native Wave64 (`warp_size = 64`).
+- **Peak Bandwidth:** $5.3\text{ TB/s}$ HBM3 on single socket.
+- **Register Budget:** 256 Vector General-Purpose Registers (VGPRs) per work-item to eliminate scratch memory spilling.
+- **Ring Attention:** Single global AllReduce sum across distributed nodes with zero intermediate tile communication.
 
 ---
 
-## 4. Failure Repair & Calibration Playbook
+## 3. Lean 4 Formal Verification Gate
 
-- If the Algebraic Transformer exhibits higher initial loss than the baseline, do not abandon the pure algebraic formulation. Verify that the rational learning rate warmup $T_{\text{warm}}$ is calibrated and check that the attention sink $\Omega$ is not set too large ($\Omega \in [0.1, 0.5]$).
-- If gradient norms fluctuate in early training, calibrate the ARDS decay parameter $\alpha$ and verify that the AVN variance scalar regularizer $\epsilon = 10^{-6}$ prevents division by zero in zero-variance token embeddings.
-- Every architectural adjustment must preserve the Zero-Transcendental Axiom and compile cleanly in Lean 4.
+The agent must compile `formal/AlgebraicTheory/Kernel.lean` and `formal/AlgebraicTheory/Gate.lean` under `/root/.elan/bin/lake build`:
+1. Single-pass additive associativity: $\sum (P_1 V_1 + P_2 V_2) = (\sum P_1 V_1) + (\sum P_2 V_2)$.
+2. Numerator-denominator scaling invariance: $(\alpha O) / (\alpha D) = O / D$ for $\alpha > 0$.
 
 ---
 
-## PASS Gates
+## 4. Hardware Benchmarking & Passing Gate on MI300X
 
-- [ ] Both architectures (Algebraic Stack and Standard Causal Transformer) are fully implemented, calibrated at both 125M and 350M scales ($\pm 1\%$ params), and pass all gradient checks.
-- [ ] Accelerated kernels compile and pass numerical validation against fp64 CPU references with maximum relative error $< 1.0 \times 10^{-5}$ in float32.
-- [ ] Algebraic Transformer achieves validation perplexity on FineWeb-Edu token distributions within $8\%$ parity ($\le 1.08\times$) of the Standard Transformer baseline at 125M scale.
-- [ ] Algebraic Transformer demonstrates statistically significant advantage over standard Transformer on sub-byte FP4 quantization stability.
-- [ ] Multi-Query Associative Recall (MQAR) and multi-hop pointer chasing benchmarks confirm parity with the Standard Transformer baseline.
-- [ ] Systems profiling on the MI300X confirms that ACO achieves $\ge 45\%$ lower total optimizer memory consumption compared to AdamW at 125M and 350M scales.
-- [ ] AST code audit confirms exactly 0 transcendental operations in the Algebraic Transformer training and inference loops.
-- [ ] All Lean 4 formal proofs compile cleanly via `/root/.elan/bin/lake build`.
-- [ ] All inherited Phase 0–5 gates pass.
+Benchmark `analysis/kernels/algebraic_attention_hip.cpp` and `analysis/kernels/algebraic_attention_triton.py` on the MI300X:
+
+| Evaluation Dimension | Target on MI300X | Tolerance / Bound |
+| :--- | :--- | :--- |
+| **Numerical Accuracy vs. Float64** | $\|\mathbf{Y}_{\text{AFA}} - \mathbf{Y}_{\text{exact}}\|_\infty / \|\mathbf{Y}_{\text{exact}}\|_\infty$ | $\leq 1.0 \times 10^{-6}$ |
+| **Inter-Tile Rescaling FLOPs** | Transcendental $\exp(m_{\text{old}} - m_{\text{new}})$ calls in AFA | Exactly $0$ |
+| **Kernel Throughput at $L=4096$** | TFLOPS on MI300X (BF16 forward) | $\geq 85\%$ of baseline FlashAttention-2 |
+| **HBM Memory Bandwidth Utilization** | Sustained GB/s during tile streaming | $\geq 3.5\text{ TB/s}$ ($> 65\%$ of theoretical peak) |
+| **Distributed Ring Attention Relative Error** | 8 simulated nodes, additive accumulation error | $\leq 1.0 \times 10^{-6}$ |
+| **Zero Transcendental Audit** | ISA inspection via `llvm-objdump -d` on compiled `.hsaco` | Exactly $0$ transcendental math opcodes |
+
+---
+
+## 5. Autonomous Failure Ledger & Self-Correction Playbook
+
+- **Symptom: High VGPR pressure spills to scratch memory on MI300X:**
+  - *Root Cause:* Block size $(B_q, B_k) = (128, 128)$ with unrolled squaring exceeds register capacity.
+  - *Correction:* Tune tile dimensions to $(64, 64)$ or $(128, 64)$ for CDNA3 Wave64.
+- **Symptom: Compilation failure in `hipcc`:**
+  - *Root Cause:* Target architecture mismatch.
+  - *Correction:* Pass compiler flags explicitly: `--offload-arch=gfx942 -O3 -ffast-math`.
+
+---
+
+## 6. Passing Gate Checklist
+
+- [ ] AFA HIP and AMD Triton kernels compile cleanly with `--offload-arch=gfx942`.
+- [ ] Relative numerical accuracy against float64 un-tiled reference is $\le 1.0 \times 10^{-6}$.
+- [ ] Head-to-head throughput benchmark executed against ROCm FlashAttention-2 on MI300X.
+- [ ] Sustained HBM3 bandwidth exceeds $3.5\text{ TB/s}$.
+- [ ] Assembly dump confirms zero transcendental library calls.
 - [ ] `results/phase6/PASS.md` satisfies the shared PASS record contract.

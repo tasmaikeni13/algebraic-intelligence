@@ -46,7 +46,7 @@ We answer this question affirmatively by constructing and verifying the **Algebr
 ├── phases/                         # Autonomous Research Execution & Self-Correction Engine
 │   ├── AUTONOMY_PROTOCOL.md        # Master governing protocol, 9-step failure-repair loop, and gates
 │   ├── README.md                   # Agent execution protocol, failure ledger, and passing gates
-│   └── phase0.md to phase9.md      # Exactly 10 sequential phases through 350M scaling & publication
+│   └── phase1.md to phase10.md     # Exactly 10 sequential phases through 350M scaling & publication
 ├── skills/                         # Autonomous Scientific Research Skills & Frameworks
 └── analysis/                       # Empirical and Numerical Mathematical Suite
     ├── algebraic_stack.py          # 100% Pure Algebraic PyTorch reference implementation
@@ -60,16 +60,16 @@ We answer this question affirmatively by constructing and verifying the **Algebr
 
 All autonomous research and verification in this repository is governed by [`phases/AUTONOMY_PROTOCOL.md`](phases/AUTONOMY_PROTOCOL.md). The research lifecycle is organized into **exactly ten sequential phases** defined in [`phases/`](phases/):
 
-- [**Phase 0: Algebraic Reference Substrate & MI300X Audit**](phases/phase0.md) (fp64 CPU Oracles, AST Audit, ROCm/HIP Verification)
-- [**Phase 1: Mathematical Oracle & Pathology Gate**](phases/phase1.md) (ALU, AVN, A-Softmax, OACE, AD, AGO, ACO Numerical Calibration)
-- [**Phase 2: Primitive Mechanism Separation & Matched Baselines**](phases/phase2.md) (4-View Matched Baselines vs GELU, Softmax, RoPE, RMSNorm, CE, AdamW)
-- [**Phase 3: Learned Representations & Sequence Induction**](phases/phase3.md) (Associative Memory MQAR, Induction Heads, Effective Rank)
-- [**Phase 4: Long-Context Extrapolation & Quantization Gate**](phases/phase4.md) ($16\times$ Horizon Extrapolation, Multi-Hop Pointer Chains, FP4/INT4 Stability)
-- [**Phase 5: MI300X Systems Gate & Kernel Optimization**](phases/phase5.md) (CDNA3 Wave64 HIP/Triton Kernels, Additive Tile Accumulation, $> 3.5\text{ TB/s}$)
-- [**Phase 6: Language-Model Viability & Head-to-Head Comparative Gate**](phases/phase6.md) (Algebraic Transformer vs Standard Causal Transformer at 125M & 350M)
-- [**Phase 7: Matched Multi-Seed Pretraining Study**](phases/phase7.md) (125M Parameters on 1.0B FineWeb-Edu Tokens across 3 Seeds on 1x MI300X)
-- [**Phase 8: Scaled Pretraining & Scaling Law Study**](phases/phase8.md) (350M Parameters on 3.0B FineWeb-Edu Tokens, 24 Layers, Scaling Law Progression)
-- [**Phase 9: Clean-Room Reproduction & Release Audit**](phases/phase9.md) (Clean-Room Fresh-Clone Verification, Standalone Paper Finalization, Release Package)
+- [**Phase 1: Pure Algebraic Primitives & Non-Linear Gating**](phases/phase1.md) (ALU Inflection at $-\sqrt{2}$, Parameter-Free AVN, Horner Cubic Backward)
+- [**Phase 2: Octic Algebraic Attention & 2-Lipschitz Bounds**](phases/phase2.md) (A-Softmax 3-Stage Squaring $\kappa_8$, Uniform $\le n/4$ Jacobian, FP4 Quantization)
+- [**Phase 3: Algebraic Geometric Oscillators & Shift Equivariance**](phases/phase3.md) (AGO Cayley Rotations on $\mathfrak{so}(2)$, Unimodular $\det=1$, $\mathcal{O}(1)$ Decode)
+- [**Phase 4: Algebraic Loss Functionals & Information Metrics**](phases/phase4.md) (OACE $\mathcal{L}_{1/8}$, Bounded Gradient $8 p_k^{-1/8}$, Pearson $\chi^2$, Fisher Equivalence)
+- [**Phase 5: Factorized Curvature Optimization & Rational Scheduling**](phases/phase5.md) (ACO $\mathcal{O}(d_{\text{out}} + d_{\text{in}})$ Curvature, ARDS Rational Decay Schedule)
+- [**Phase 6: Hardware-Fused Kernels & Algebraic FlashAttention on MI300X**](phases/phase6.md) (CDNA3 Wave64 HIP/Triton AFA Kernel, Additive Accumulation, $> 3.5\text{ TB/s}$)
+- [**Phase 7: Full Architecture Assembly & Pilot Pretraining**](phases/phase7.md) (15M LM on WikiText-103 across $10^5$ Steps on MI300X, Head-to-Head Comparison)
+- [**Phase 8: Frontier Pretraining: 125M Parameters on 1.0B Tokens**](phases/phase8.md) (3 Paired Seeds on FineWeb-Edu on 1x MI300X, Downstream Zero-Shot Reasoning)
+- [**Phase 9: Scaled Pretraining: 350M Parameters on 3.0B Tokens & Scaling Laws**](phases/phase9.md) (24 Layers, Width 1024, Power-Law Scaling, Hierarchical Back-Propagation Loop)
+- [**Phase 10: Comprehensive Research Paper, Clean-Room Replication, & Release**](phases/phase10.md) (Fresh-Clone Reproduction on MI300X, Standalone Manuscript, Full Completion Matrix)
 
 
 ---

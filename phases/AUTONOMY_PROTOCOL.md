@@ -4,27 +4,26 @@ Every numbered phase must obey this protocol. A phase prompt plus this file is t
 
 ## 1. Non-Negotiable Objective
 
-Build, falsify, and scale the **Algebraic Stack** architecture defined in `theory.md`. Do not replace it with an easier generic transcendental architecture or introduce hybrid compromises that violate the foundational axiom.
+Build, verify, and scale the **Algebraic Transformer** architecture defined in `theory.md`. The singular scientific question is:
+$$\textbf{Can algebra and algebra alone give rise to intelligence?}$$
 
-The defining invariant of this research is the **Zero-Transcendental Axiom**:
+We mandate the **Zero-Transcendental Axiom**:
 $$\text{No } e^x, \quad \text{No } \ln(x), \quad \text{No } \sin(x), \quad \text{No } \cos(x), \quad \text{No continuous exponential EMAs}, \quad \text{No cosine schedules.}$$
 
-Every forward pass, backward pass, activation function, variance normalization, attention score, relative positional encoding, loss functional, divergence, mixture-of-experts routing, and optimizer update must consist solely of rational operations $(+, -, \cdot, /)$, polynomial compositions, and a single hardware-native algebraic radical:
+Every forward pass, backward pass, activation function, normalization layer, attention mechanism, relative positional encoding, loss functional, divergence, and optimizer update must consist strictly of rational operations $(+, -, \cdot, /)$, polynomial compositions, and a single hardware-native algebraic radical:
 $$\operatorname{rsqrt}(z) = \frac{1}{\sqrt{z}} \quad (z > 0).$$
 
-The twelve load-bearing architectural primitives that must be rigorously constructed, formally verified, and empirical-stress-tested are:
-1. **Algebraic Linear Unit (ALU):** $K(x) = \frac{x}{2}(1 + u)$ with cached $u = x \cdot \operatorname{rsqrt}(x^2 + 1)$, closed-form Horner cubic backward $K'(x) = \frac{1}{2}(1 + 2u - u^3)$, inflection point at $x = -\sqrt{2}$, and global Lipschitz constant $L_K \approx 1.04433$.
-2. **Algebraic Variance Normalization (AVN):** Zero-parameter projection $\hat{\mathbf{x}} = \mathbf{x} \cdot \operatorname{rsqrt}(m_2(\mathbf{x}) + \epsilon)$, eliminating the $d$-dimensional learnable scale vector $\boldsymbol{\gamma}$ from HBM, strictly satisfying the Coupling Identity $\beta(x; v) = \beta(\hat{x}; 1)$.
+The foundational primitives of the Algebraic Transformer that must be constructed and verified are:
+1. **Algebraic Linear Unit (ALU):** $K(x) = \frac{x}{2}(1 + u)$ with $u = x \cdot \operatorname{rsqrt}(x^2 + 1)$, closed-form Horner cubic backward $K'(x) = \frac{1}{2}(1 + 2u - u^3) = 0.5 + u(1.0 - 0.5 u^2)$, inflection point at $x = -\sqrt{2}$ matching GELU, and global Lipschitz bound $L_K \approx 1.04433$.
+2. **Algebraic Variance Normalization (AVN):** Parameter-free projection $\hat{\mathbf{x}} = \mathbf{x} \cdot \operatorname{rsqrt}(m_2(\mathbf{x}) + \epsilon)$, eliminating the learnable channel scale vector $\boldsymbol{\gamma}$ from HBM, strictly satisfying the Coupling Identity $\beta(x; v) = \beta(\hat{x}; 1)$.
 3. **Algebraic Softmax (A-Softmax):** $\mathbf{S}_n(\mathbf{s})_i = \rho(\hat{s}_i)^n / (\sum_j \rho(\hat{s}_j)^n + \Omega)$ with kernel $\rho(x) = x + \sqrt{x^2 + 1}$, sharpening exponent $n = 8 = 2^3$ evaluated via 3 hardware squarings, globally 2-Lipschitz, uniform diagonal Jacobian bound $\le n/4 = 2.0$, routing contrast $> 10^5$ on bounded logits, and rational attention sink $\Omega \ge 0$.
 4. **Octo-Algebraic Cross-Entropy (OACE / $\mathcal{L}_{1/8}$):** Strictly proper scoring rule $\mathcal{L}_{1/8}(p_k) = 8(p_k^{-1/8} - 1)$ evaluated via 3 sequential $\operatorname{rsqrt}$ operations, with strictly bounded gradient $8 p_k^{-1/8}$, eliminating the logarithmic pole.
-5. **Algebraic Divergence (AD):** Strictly proper Pearson $\chi^2$ divergence $D_A(\mathbf{y} \| \mathbf{p}) = \sum y_i^2 / p_i - 1$, Fisher information metric equivalence $\nabla^2 D_A|_{\mathbf{p}=\mathbf{y}} = 2 \nabla^2 D_{\text{KL}}|_{\mathbf{p}=\mathbf{y}}$, and bounded gradients under AVN pre-bounding.
+5. **Algebraic Divergence (AD):** Strictly proper Pearson $\chi^2$ divergence $D_A(\mathbf{y} \| \mathbf{p}) = \sum y_i^2 / p_i - 1$, Riemannian Fisher information metric equivalence $\nabla^2 D_A|_{\mathbf{p}=\mathbf{y}} = 2 \nabla^2 D_{\text{KL}}|_{\mathbf{p}=\mathbf{y}}$, and bounded gradients under AVN pre-bounding.
 6. **Algebraic Geometric Ordering (AGO):** Static skew generator $\mathbf{A}_k = \omega_k \mathbf{J}$ on $\mathfrak{so}(2)$, rational Cayley transform $\mathbf{R}_k = (\mathbf{I} + \omega_k \mathbf{J})(\mathbf{I} - \omega_k \mathbf{J})^{-1}$, unimodular $\mathrm{SO}(2)$ rotation ($\det = 1$), exact relative shift equivariance $\langle \mathbf{Q}_m, \mathbf{K}_n \rangle = f(n - m)$, and $\mathcal{O}(1)$ autoregressive decode updates via 4 FMAs.
 7. **Algebraic Attention (AA):** Dual-track attention combining local windowed A-Softmax with global linear associative memory updated via an ALU delta rule, with contractive stability $\|\mathbf{S}_t\|_F < \infty$.
 8. **Algebraic FlashAttention (AFA):** Strictly positive kernel $\rho^8$ enabling pure additive tile accumulation without running-max subtraction $\exp(m_{\text{old}} - m_{\text{new}})$, and single-pass lock-free asynchronous Ring Attention via a single global AllReduce.
 9. **ALU-GLU:** Feed-forward network $\mathbf{W}_d [(\mathbf{W}_g \mathbf{x}) \odot K(\mathbf{W}_u \mathbf{x})]$ with polynomial backward graph in cached $u$ and universal approximation certificate.
-10. **Algebraic Mixture of Experts (A-MoE):** AVN-bounded $\rho^8$ routing with Algebraic Noise Transform (ANT) inverse-CDF sampling $\eta = (2U - 1)/\sqrt{1 - (2U - 1)^2 + \epsilon_n}$, native FP4 routing, and structural anti-collapse via $(1 + \hat{r}_j^2)^{-1/2}$ gradient attenuation.
-11. **Algebraic Curvature Optimizer (ACO):** Factorized $\mathcal{O}(d_{\text{out}} + d_{\text{in}})$ curvature preconditioning $\hat{\mathbf{V}}_{ij} = \sqrt{\hat{r}_i \hat{c}_j}$, rational momentum and polynomial debiasing, Algebraic Rational Decay Schedule (ARDS) $\eta_t \propto \operatorname{rsqrt}(1 + \alpha t^2)$, and $\mathcal{O}(1/\sqrt{T})$ non-convex convergence.
-12. **Algebraic Byte Algebra (ABA) & AIP:** Patch-pooled byte representations with constant $\mathcal{O}(1)$ typo shatter vs BPE $\Omega(\sqrt{L})$, and Algebraic Information Preservation (anti-roughness power iteration, anti-dimensional collapse $\|\mathbf{C} - \mathbf{I}\|_F^2$, and AVN repulsive field).
+10. **Algebraic Curvature Optimizer (ACO):** Factorized $\mathcal{O}(d_{\text{out}} + d_{\text{in}})$ curvature preconditioning $\hat{\mathbf{V}}_{ij} = \sqrt{\hat{r}_i \hat{c}_j}$, rational momentum and polynomial debiasing, Algebraic Rational Decay Schedule (ARDS) $\eta_t \propto \operatorname{rsqrt}(1 + \alpha t^2)$, and $\mathcal{O}(1/\sqrt{T})$ non-convex convergence.
 
 ---
 
@@ -85,7 +84,7 @@ A gate may change **only** when preserved empirical evidence proves that its und
 - Never lower a threshold because a training run is slow, expensive, or disappointing.
 - Never delete a test because it is difficult to pass.
 - When an amendment is scientifically justified: version the gate, retain the historical failing evidence, update `theory.md`, `README.md`, and Lean coverage, and replace the gate with a stricter, more faithful test of the corrected claim.
-- If an actual external blocker (e.g. unresolvable hardware defect, unavailable dataset) halts progress, report the blocker with exhaustive documentation and leave the phase in a failed state; **do not manufacture a synthetic PASS**.
+- If an actual external blocker halts progress, report the blocker with exhaustive documentation and leave the phase in a failed state; **do not manufacture a synthetic PASS**.
 
 ---
 
