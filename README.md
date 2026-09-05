@@ -44,7 +44,7 @@ We answer this question affirmatively by constructing and verifying the **Algebr
 │       └── Variance.lean           # AVN bounded normalization & Coupling Identity
 ├── phases/                         # Autonomous Research Execution & Self-Correction Engine
 │   ├── README.md                   # Agent execution protocol, failure ledger, and passing gates
-│   ├── phase1.md to phase9.md      # 9 sequential phases through 125M pretraining & publication
+│   ├── phase1.md to phase10.md     # 10 sequential phases through 350M scaling & publication
 └── analysis/                       # Empirical and Numerical Mathematical Suite
     ├── algebraic_stack.py          # 100% Pure Algebraic PyTorch reference implementation
     ├── verify_algebraic_primitives.py # Numerical verification of all mathematical theorems
@@ -55,17 +55,18 @@ We answer this question affirmatively by constructing and verifying the **Algebr
 
 ## Autonomous Research Engine & Verification Phases
 
-To fully automate the research lifecycle with closed-loop agentic self-correction, the project is divided into **9 tightly coupled phases** defined in [`phases/`](file:///root/algebric/phases):
+To fully automate the research lifecycle with closed-loop agentic self-correction, the project is divided into **10 tightly coupled phases** defined in [`phases/`](file:///root/algebric/phases):
 
 - [**Phase 1: Pure Algebraic Primitives & Non-Linear Gating**](file:///root/algebric/phases/phase1.md) (ALU & AVN)
 - [**Phase 2: Octic Algebraic Attention & 2-Lipschitz Bounds**](file:///root/algebric/phases/phase2.md) (A-Softmax)
 - [**Phase 3: Algebraic Geometric Oscillators & Shift Equivariance**](file:///root/algebric/phases/phase3.md) (AGO Cayley Rotations)
 - [**Phase 4: Algebraic Loss Functionals & Information Metrics**](file:///root/algebric/phases/phase4.md) (OACE $\mathcal{L}_{1/8}$ & Pearson $\chi^2$)
 - [**Phase 5: Factorized Curvature Optimization & Rational Scheduling**](file:///root/algebric/phases/phase5.md) (ACO & ARDS)
-- [**Phase 6: Hardware-Fused Kernels & Algebraic FlashAttention**](file:///root/algebric/phases/phase6.md) (AFA Asynchronous Ring Attention)
-- [**Phase 7: Architecture Assembly & Pilot Scaling**](file:///root/algebric/phases/phase7.md) (10M–30M LM stability across $10^5$ steps)
-- [**Phase 8: Frontier Pretraining: 125M Parameters on 1B Tokens of FineWeb-Edu**](file:///root/algebric/phases/phase8.md) (Head-to-head vs. Transformer)
-- [**Phase 9: Comprehensive Research Paper & Publication Release**](file:///root/algebric/phases/phase9.md) (Academic manuscript & open weights)
+- [**Phase 6: Hardware-Fused Kernels & Algebraic FlashAttention**](file:///root/algebric/phases/phase6.md) (AFA on 1x MI300X CDNA3)
+- [**Phase 7: Architecture Assembly & Pilot Scaling**](file:///root/algebric/phases/phase7.md) (10M–30M LM stability across $10^5$ steps on MI300X)
+- [**Phase 8: Frontier Pretraining: 125M Parameters on 1B Tokens**](file:///root/algebric/phases/phase8.md) (3 Seeds on FineWeb-Edu, MI300X)
+- [**Phase 9: Scaled Frontier Pretraining: 350M Parameters on 3B Tokens**](file:///root/algebric/phases/phase9.md) (3 Seeds on FineWeb-Edu, Hierarchical Back-Propagation Loop)
+- [**Phase 10: Comprehensive Research Paper & Publication Release**](file:///root/algebric/phases/phase10.md) (Full multi-seed scaling synthesis & open weights)
 
 ---
 

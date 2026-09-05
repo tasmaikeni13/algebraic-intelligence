@@ -20,9 +20,8 @@ All agents executing these phases must know and build for the specific hardware 
 - **Compute Stack:** ROCm / HIP toolchain (`HIP 7.15+`, `hipcc` at `/opt/rocm/bin/hipcc`, AMD Clang).
 - **Kernel Backends:** AMD Triton (`triton-amdgpu`) and native HIP C++ PyTorch extensions.
 - **Hardware Architecture Advantage:**
-  - With **192 GB of high-bandwidth memory on a single socket**, the full 125M parameter model, complete batch tokens (2048+ context), and factorized ACO optimizer state fit comfortably in local VRAM with zero distributed pipeline stalls.
-  - Custom fused kernels must exploit CDNA3 Local Data Share (LDS - 64 KB per compute unit) and hardware matrix cores (MFMA) for algebraic squaring chains and additive accumulation.
-  - In later phases (Phase 6–8), the agent must write and optimize **HIP C++ and AMD Triton kernels** for both the Algebraic Stack (AFA, A-Softmax, ALU-GLU) and the baseline Transformer (FlashAttention-2 ROCm/HIP, SwiGLU) on this exact MI300X hardware to guarantee a fair, maximum-throughput comparison.
+  - With **192 GB of high-bandwidth memory on a single socket**, both the 125M and 350M models, complete batch tokens (2048 context length), and factorized ACO optimizer state fit comfortably in local VRAM with zero distributed pipeline stalls.
+  - In later phases (Phase 6–9), the agent must write and optimize **HIP C++ and AMD Triton kernels** for both the Algebraic Stack (AFA, A-Softmax, ALU-GLU) and the baseline Transformer (FlashAttention-2 ROCm/HIP, SwiGLU) on this exact MI300X hardware to guarantee a fair, maximum-throughput comparison.
 
 ---
 
@@ -45,7 +44,11 @@ graph TD
     I --> J{"Meets MI300X Throughput & Parity Gate?"}
     J -- "No" --> K["Profile CDNA3 LDS/Registers & Tune Kernel"]
     K --> I
-    J -- "Yes" --> L["Sign-off Phase & Advance to phase(X+1).md"]
+    J -- "Yes" --> L["Execute Frontier Scaling Runs (3 Seeds)"]
+    L --> M{"Passes Multi-Seed Scaling Gate?"}
+    M -- "No" --> N["Trigger Hierarchical Scaling Back-Propagation Loop"]
+    N --> B
+    M -- "Yes" --> O["Sign-off Phase & Advance to phase(X+1).md"]
 ```
 
 ### Non-Negotiable Operational Principles
@@ -53,10 +56,9 @@ graph TD
 1. **Autonomous Self-Correction over Halting:**
    If a phase gate fails, do not stop or ask for user intervention. Log the numerical discrepancy into a persistent failure ledger, isolate the mathematical mechanism (e.g., gradient vanishing, loss landscape ill-conditioning, precision underflow), adjust the algebraic formulation within the pure algebraic constraint, and iterate until the passing gate is satisfied.
 
-2. **Strict Epistemic Rigor:**
-   - *Observation is not mechanism:* Never declare an algebraic primitive "working" until its backward pass, Lipschitz bounds, and gradient behavior are verified analytically and numerically.
-   - *Precision is not accuracy:* High float64 numerical precision in a toy script does not guarantee stability in bfloat16 or FP8. Always verify conditioning across typical neural network dynamic ranges.
-   - *Reproducibility is mandatory:* Every phase deliverable must be accompanied by an automated, self-contained Python script, HIP kernel, and Lean 4 module that any agent or human can execute with zero errors.
+2. **Strict Epistemic Rigor & Multi-Seed Validation:**
+   - Both the 125M and 350M models must be trained across **three independent random seeds** (Seeds 42, 1337, 2026) alongside identically seeded standard Transformer baselines.
+   - All comparisons must report mean $\pm$ standard error of the mean (SEM) to establish rigorous statistical significance.
 
 3. **Methodological Reasoning Guidance:**
    When confronting difficult mathematical, empirical, or optimization challenges, the agent must thoroughly absorb and apply all specialized research references, failure ledgers, and systematic protocols located in `/root/algebric/skills/`. Use these reasoning paradigms deeply to structure hypotheses and resolve bottlenecks, but **never mention the names of these skills in outputs or logs**.
@@ -66,12 +68,12 @@ graph TD
 
 ---
 
-## 3. Master Phase Overview (9 Phases)
+## 3. Master Phase Overview (10 Phases)
 
-The research is organized into exactly 9 sequential phases leading to full frontier pretraining and academic publication on this 1x MI300X server:
+The research is organized into exactly 10 sequential phases leading to full frontier pretraining and academic publication on this 1x MI300X server:
 
 - [**`phase1.md`**](file:///root/algebric/phases/phase1.md): **Pure Algebraic Primitives & Non-Linear Gating (ALU & AVN)**  
-  Formally prove and verify the Algebraic Linear Unit (ALU) and Algebraic Variance Normalization (AVN). Verify $\mathcal{O}(1)$ backward cache reuse, inflection point matching with GELU, and variance preservation.
+  Formally prove and verify ALU and AVN. Verify $\mathcal{O}(1)$ backward cache reuse, inflection point matching with GELU, and variance preservation.
 
 - [**`phase2.md`**](file:///root/algebric/phases/phase2.md): **Octic Algebraic Attention & 2-Lipschitz Bounds (A-Softmax)**  
   Formally prove and verify the octic kernel $\kappa_8(x) = (x + \sqrt{1+x^2})^8$ via 3 successive squaring stages. Prove the global 2-Lipschitz Jacobian bound and demonstrate FP4/INT4 sub-byte quantization robustness.
@@ -91,32 +93,38 @@ The research is organized into exactly 9 sequential phases leading to full front
 - [**`phase7.md`**](file:///root/algebric/phases/phase7.md): **Architectural Integration & Pilot Pretraining (10M–30M LM on MI300X)**  
   Integrate the complete 12-component stack into `AlgebraicTransformerLM`. Conduct stability pretraining runs across $10^5$ steps on WikiText-103/TinyStories on the MI300X, establishing loss scaling and learning rate bounds.
 
-- [**`phase8.md`**](file:///root/algebric/phases/phase8.md): **Frontier Pretraining: 125M Parameters on 1B Tokens of FineWeb-Edu on 1x MI300X**  
-  Execute the definitive head-to-head empirical comparison: pure Algebraic Transformer (125M) vs. standard Transcendental Transformer (125M) trained on 1 Billion tokens of FineWeb-Edu using the full 192GB HBM3 capacity. Evaluate downstream perplexity, reasoning benchmarks, and hardware efficiency.
+- [**`phase8.md`**](file:///root/algebric/phases/phase8.md): **Frontier Pretraining: 125M Parameters on 1B Tokens of FineWeb-Edu (3 Seeds on 1x MI300X)**  
+  Execute the head-to-head empirical comparison across 3 seeds (Seeds 42, 1337, 2026): pure Algebraic Transformer (125M) vs. standard Transformer baseline (125M) on 1 Billion tokens of FineWeb-Edu. Evaluate downstream perplexity, reasoning benchmarks, and hardware efficiency.
 
-- [**`phase9.md`**](file:///root/algebric/phases/phase9.md): **Comprehensive Research Paper & Artifact Publication**  
-  Synthesize all mathematical proofs, Lean 4 certificates, empirical logs, and scaling curves into a publication-ready LaTeX paper and release public benchmark checkpoints.
+- [**`phase9.md`**](file:///root/algebric/phases/phase9.md): **Scaled Frontier Pretraining: 350M Parameters on 3B Tokens of FineWeb-Edu (3 Seeds on 1x MI300X)**  
+  Scale parameters to 350M, depth to 24 layers, and training to 3 Billion tokens across 3 seeds. Validate neural scaling laws, deep architectural stability, and the Hierarchical Scaling Back-Propagation Loop.
+
+- [**`phase10.md`**](file:///root/algebric/phases/phase10.md): **Comprehensive Research Paper & Publication Release**  
+  Synthesize all mathematical proofs, Lean 4 certificates, empirical logs across 125M and 350M models, and scaling curves into a publication-ready LaTeX paper and release public benchmark checkpoints.
 
 ---
 
-## 4. Protocol for Gate Failure & Self-Correction
+## 4. Hierarchical Multi-Scale Self-Correction Protocol
 
-When a phase passing gate fails:
+When scaling empirical runs, the autonomous system enforces a two-tier self-correction mechanism:
 
-1. **Isolate the Failure Mode:**
-   - *Exploding Gradients:* Inspect if intermediate variables exceed AVN pre-bounding or if $\kappa_8$ scores were computed without normalization.
-   - *Vanishing Gradients:* Verify that the derivative polynomial $\beta'(u) = \frac{1}{2}(1 + 2u - u^3)$ did not saturate at $u \to -1$.
-   - *Lean 4 Tactic Failure:* Use `field_simp` to eliminate denominators before calling `ring` or `linear_combination`. For real bounds, decompose into algebraic squares $a^2 \geq 0$.
-   - *Loss Divergence in ACO:* Verify that the scalar trace mean $\sqrt{\bar{r}}$ is correctly dividing the preconditioner outer product to ensure scale invariance.
-   - *ROCm/HIP Kernel Bottlenecks on MI300X:* Check register pressure and LDS usage per wave. On CDNA3, ensure wave size is 64 (`warp_size = 64`) and tile dimensions match CDNA3 MFMA matrix instructions ($16\times 16 \times 16$ or $32 \times 32 \times 8$).
+### Tier 1: Failure at 125M Scale (Phase 8)
+If the 125M Algebraic model fails to reach parity ($\frac{\text{Mean PPL}_{\text{alg}}}{\text{Mean PPL}_{\text{base}}} > 1.08$) across the 3 seeds:
+1. **Halt Progression:** Do NOT proceed to Phase 9.
+2. **Isolate Parameter/Loss Mismatch:**
+   - Check if ARDS rational decay parameter $\alpha$ decayed too aggressively; calibrate rational warmup.
+   - Sweep attention sink $\Omega \in [0.2, 1.0]$ in Phase 7 pilot.
+   - Adjust ACO factorized preconditioner damping $\epsilon \sqrt{\bar{r}}$.
+3. **Formal Verification & Regression:** Update Lean 4 proofs if primitives change, re-verify Phase 1–7 gates, and re-run all 3 seeds of Phase 8.
 
-2. **Record in Failure Ledger:**
-   Create or append to `phases/failure_ledger.md` documenting:
-   - Phase ID and failing test name.
-   - Observed behavior vs. theoretical expectation.
-   - Root cause hypothesis.
-   - Mathematical / kernel correction applied.
-   - Verification of the fix.
-
-3. **Re-run Gate:**
-   Ensure clean exit code (`0`) on both `lake build` and Python/HIP verification scripts before signing off on the phase.
+### Tier 2: 125M Passes, but 350M Fails (Phase 9)
+If the 125M model succeeded, but the 350M model on 3B tokens fails:
+1. **Halt Progression:** Do NOT write the paper or advance to Phase 10.
+2. **Execute Hierarchical Scaling Back-Propagation Loop:**
+   - *Depth Pathology (24 layers):* Sub-multiplicative Lipschitz growth $L_K^{24}$ causing gradient amplification. Apply rational depth damping $\frac{1}{\sqrt{2D}}$ to residual streams.
+   - *Width Pathology ($d=1024$):* Score variance saturation in A-Softmax. Recalibrate query-key scaling $\tau = \frac{1}{\sqrt{d_k}} \cdot \frac{1}{\sqrt{1+\mu}}$.
+   - *Horizon Pathology (3B tokens):* Curvature drift over extended optimization horizons. Refine ACO marginal momentum horizon $\tau_2$.
+3. **Mandatory 125M Regression Check:**
+   Any modification applied to fix 350M **must be tested on 125M** to prove it does not degrade 125M performance.
+4. **Re-execute:**
+   Re-run 350M across all 3 seeds. Only when **both 125M and 350M simultaneously pass their acceptance gates** does the system advance to Phase 10.
