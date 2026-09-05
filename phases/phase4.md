@@ -1,73 +1,58 @@
-# Phase 4: Algebraic Loss Functionals & Information Metrics (OACE / $\mathcal{L}_{1/8}$)
+# Phase 4 — Long-Context Extrapolation, Compositional Reasoning, & Sub-Byte Quantization Gate
 
-## 1. Objective, Scientific Hypothesis & Competing Models
-Eliminate the natural logarithm $\ln(x)$ and Shannon entropy from neural training objectives:
-$$\textbf{"Can an algebraic divergence train neural distributions without logarithmic gradient poles?"}$$
+Start only after Phase 3 PASS. Read all prior artifacts and `phases/AUTONOMY_PROTOCOL.md`. Execute the mandatory failure-repair loop until PASS.
 
-### Competing Hypotheses:
-- **$H_1$ (Algebraic Hypothesis):** The Optimal Algebraic Cross-Entropy $\mathcal{L}_{1/8}(p_k) = 8(p_k^{-1/8} - 1)$ evaluated via 3 sequential hardware $\operatorname{rsqrt}$ operations is a strictly proper scoring rule that eliminates the infinite gradient singularity of cross-entropy near simplex boundaries ($p \to 0$), matches the Riemannian Fisher information metric of KL divergence, and stabilizes gradient descent under extreme label noise.
-- **$H_0$ (Transcendental Baseline Hypothesis):** The logarithmic cross-entropy $\mathcal{L}_{\text{CE}} = -\ln p$ is uniquely derived from maximum likelihood; any algebraic replacement will distort prediction calibration, suffer from slow convergence, or fail on multi-class language modeling.
+This phase stresses the Algebraic Stack under extreme conditions: **long-context horizon scaling ($16\times$ training length), multi-hop compositional pointer chasing, non-stationary concept drift, and sub-byte (FP4 / INT4) hardware quantization**.
 
 ---
 
-## 2. Mathematical Formulations & Zero-Transcendental Constraints
+## 1. Required Stress Suites
 
-### 2.1 The $\alpha$-Algebraic Cross-Entropy Family
-For probability distribution $\mathbf{p} \in \operatorname{int}\Delta^{K-1}$ and target index $k$:
-$$\mathcal{L}_{1/8}(p_k) = 8\left( p_k^{-1/8} - 1 \right)$$
-Evaluation proceeds strictly via 3 hardware square-root/rsqrt operations:
-$$z_1 = \operatorname{rsqrt}(p_k) = p_k^{-1/2}, \quad z_2 = \operatorname{rsqrt}(z_1^{-1}) = p_k^{-1/4}, \quad z_3 = \operatorname{rsqrt}(z_2^{-1}) = p_k^{-1/8}$$
-with zero log calls.
+### 1.1 Multi-Hop Compositional Pointer Chasing
+Evaluate the model's ability to traverse chained relational pointers $[ k_0 \mapsto v_0, k_1(=v_0) \mapsto v_1, \dots, k_H \mapsto v_H ]$:
+- **Hop Horizons:** $H \in \{1, 2, 4, 8, 16\}$ sequential pointer hops;
+- **Distractor Density:** Interleave 10, 50, and 100 distractor key-value pairs between legitimate chain links;
+- **Metrics:** Trace error propagation $\| \mathbf{h}_H - \mathbf{v}_H^* \|_2$, decoded symbol accuracy, and attention entropy per hop.
+- **Hypothesis:** Pure algebraic composition avoids exponential dynamic range explosion, maintaining stable error propagation across multi-hop chains.
 
-### 2.2 Gradient Boundedness & Fisher Curvature
-- **Gradient:** $\frac{d}{dp_k}\mathcal{L}_{1/8} = -p_k^{-9/8}$, with magnitude at $p = 10^{-7}$ bounded by $1.78 \times 10^8$ (algebraic growth vs. infinite logarithmic pole).
-- **Pearson $\chi^2$ Equivalence:** For target distribution $\mathbf{y}$, the algebraic divergence $D_A(\mathbf{y} \| \mathbf{p}) = \sum \frac{y_i^2}{p_i} - 1$ is non-negative and convex, with Hessian $H(D_A)|_{\mathbf{p}=\mathbf{y}} = 2 H(D_{\text{KL}})|_{\mathbf{p}=\mathbf{y}}$.
+### 1.2 Extreme Sequence Length Extrapolation ($16\times$)
+Evaluate models trained at context length $L_{\text{train}} = 256$ and $L_{\text{train}} = 2048$ on sequence lengths extending up to $16\times$ horizon:
+- $L_{\text{test}} \in \{512, 1024, 2048, 4096, 8192, 16384\}$ tokens;
+- **AGO Rotational Stability:** Measure cumulative angular drift in Cayley rotations $\mathbf{R}_k(m) = (\mathbf{R}_k)^m$. Verify that no frequency aliasing or catastrophic norm degradation occurs at step $16,384$.
+- **Associative Memory Contractivity:** Verify Theorem 8.2: Under normalized keys $\|\mathbf{k}_t\| = 1$, the global associative memory state $\|\mathbf{S}_t\|_F$ remains strictly bounded by $\gamma_{\max} V / f_{\min} < \infty$, preventing recurrent state blowup.
 
----
+### 1.3 Non-Stationary Dynamics & Concept Drift
+- **Abrupt Key-Value Overwrites:** Update key $K$ with new value $V_{\text{new}}$ midway through the sequence. Measure the model's ability to recall the latest update while discarding stale history.
+- **Corrupted Logits & Outlier Injections:** Inject extreme magnitude outliers ($100\sigma$) into isolated token embeddings. Verify that AVN pre-bounding bounds coordinates $|\hat{x}_i| \leq \sqrt{d}$, preventing layer collapse.
 
-## 3. Lean 4 Formal Verification Gate
-
-The agent must compile `formal/AlgebraicTheory/Loss.lean` with zero errors under `lake build`:
-
-1. `pearson_chi_sq_expansion`:
-   $$\forall y, p \in \mathbb{R}, \ p \neq 0 \implies \frac{(y - p)^2}{p} = \frac{y^2}{p} - 2y + p$$
-2. `pearson_divergence_nonneg`:
-   $$\forall y, p \in \mathbb{R}, \ p > 0 \implies \frac{(y - p)^2}{p} \geq 0$$
-3. `pearson_zero_iff_equal`:
-   $$\frac{(y - p)^2}{p} = 0 \iff y = p \quad \text{for } p > 0$$
-
----
-
-## 4. Deep Empirical & Monte Carlo Simulation Gate
-
-The agent must execute the Phase 4 test suite in `analysis/verify_algebraic_primitives.py`:
-
-| Evaluation Dimension | Experimental Protocol | Success Criterion / Bound |
-| :--- | :--- | :--- |
-| **Monte Carlo Label Noise Stress Test** | $10^5$ trials under symmetric label noise $\epsilon \in [0.0, 0.3]$ | Gradient variance $\operatorname{Var}(\nabla \mathcal{L}_{1/8}) \le 0.50 \times \operatorname{Var}(\nabla \mathcal{L}_{\text{CE}})$ |
-| **Simplex Boundary Stability** | Evaluate gradient across $p_k \in [10^{-7}, 1 - 10^{-7}]$ | Zero NaNs, zero Infs, bounded gradient |
-| **Fisher Information Ratio** | Hessian ratio $H(D_A) / H(D_{\text{KL}})$ at $p = y$ | Exactly $[2.0, 2.0, \dots, 2.0]$ |
-| **Strict Propriety & Monotonicity** | Verify $\frac{\partial \mathcal{L}_{1/8}}{\partial p_k} < 0$ across $10^5$ samples | Monotonically decreasing on $(0, 1]$ |
-| **Minimum Value** | Evaluate $\min_{p_k \in (0, 1]} \mathcal{L}_{1/8}(p_k)$ | Exactly $0.000000$ at $p_k = 1.0$ |
-| **Zero Transcendental Audit** | Grep of loss module for `log`, `ln`, `cross_entropy` | Exactly $0$ occurrences |
+### 1.4 Native Sub-Byte Quantization Stress (FP4 / INT4 / FP8)
+Simulate hardware-native sub-byte quantization on the model's forward pass:
+- **Formats:** IEEE FP8 (E4M3 and E5M2), INT4 (affine min-max), and microscopic FP4 (E2M1);
+- **Quantization Targets:** Weights, activation tensors, and attention logit matrices;
+- **Comparison:** Pure Algebraic Model vs. Standard Transcendental Transformer;
+- **Hypothesis to Validate:** Because the A-Softmax kernel $\rho$ is globally 2-Lipschitz, logit quantization noise propagates additively, not exponentially ($\operatorname{Var}(\rho(X)) \leq 4 \operatorname{Var}(X)$). The Algebraic Stack runs stably in FP4/INT4 without requiring dynamic per-group scales or QAT outlier suppression.
 
 ---
 
-## 5. Autonomous Failure Ledger & Self-Correction Playbook
+## 2. Failure Diagnostics & Playbook
 
-- **Symptom: Gradient overflow when probability approaches zero ($p_k \to 0$):**
-  - *Root Cause:* Division by zero in unconstrained probability logits.
-  - *Correction:* Apply algebraic floor clamping $p_{\text{floor}} = 10^{-7}$ or verify that A-Softmax attention sink $\Omega > 0$ provides a strictly positive mathematical lower bound.
-- **Symptom: Optimization step size too small relative to standard CE:**
-  - *Root Cause:* Constant scale factor mismatch in $\mathcal{L}_{1/8}$.
-  - *Correction:* Scale OACE loss by rational calibration factor $\gamma = 2.0$.
+- **Symptom: Error blows up exponentially with hop count $H \ge 8$:**
+  - *Root Cause:* Un-normalized residual connections accumulating variance across multiple forward passes.
+  - *Correction:* Insert AVN normalization on intermediate recurrent pointer reads.
+- **Symptom: Extreme degradation ($> 5.0$ loss spike) under FP4 quantization:**
+  - *Root Cause:* Intermediate accumulator precision too low in A-Softmax denominator.
+  - *Correction:* Ensure block-level denominator summation is accumulated in FP32 scratch registers while storing inputs and outputs in FP4/INT4.
 
 ---
 
-## 6. Passing Gate Checklist
-- [ ] `formal/AlgebraicTheory/Loss.lean` compiles with 0 errors via `lake build`.
-- [ ] $10^5$-trial Monte Carlo label noise simulation proves $\le 50\%$ gradient variance vs. Cross-Entropy.
-- [ ] Simplex boundary evaluation confirms zero gradient singularities at $p_k = 10^{-7}$.
-- [ ] Fisher information equivalence ratio is identically $2.0$.
-- [ ] OACE loss strictly proper, monotonic, and zero at $p_k = 1.0$.
-- [ ] Zero log calls verified in loss codebase.
+## 3. PASS Gates
+
+- [ ] Multi-hop pointer chasing achieves $\ge 90.0\%$ decoded accuracy at $H = 4$ hops and $\ge 75.0\%$ at $H = 8$ hops under distractor load.
+- [ ] Model trained at $L=256$ maintains stable perplexity and zero non-finite outputs when extrapolated to $L=4096$ ($16\times$ horizon).
+- [ ] Contractive memory norm $\|\mathbf{S}_t\|_F$ is proven and empirically confirmed strictly bounded across 16,384 consecutive update steps.
+- [ ] Post-training FP4 quantization degradation on validation loss is $\le 0.40$ units for the Algebraic Stack (vs $\ge 2.50$ units for the Standard Softmax Transformer).
+- [ ] INT4 attention scores maintain $> 95\%$ of unquantized associative recall accuracy without per-group dynamic scale vectors.
+- [ ] Zero loss spikes, NaNs, or gradient explosions under abrupt key-value overwrites and extreme outlier injections.
+- [ ] All Lean 4 formal proofs compile cleanly via `/root/.elan/bin/lake build`.
+- [ ] All inherited Phase 0–3 gates pass.
+- [ ] `results/phase4/PASS.md` satisfies the shared PASS record contract.

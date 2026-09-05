@@ -1,77 +1,66 @@
-# Phase 7: Architectural Integration & Pilot Pretraining (10M–15M LM on MI300X)
+# Phase 7 — Matched Multi-Seed Scaling Study (125M Parameters on 1.0B FineWeb-Edu Tokens)
 
-## 1. Objective, Scientific Hypothesis & Competing Models
-Assemble all 12 pure algebraic modules into an end-to-end autoregressive language model: `AlgebraicTransformerLM`.
-$$\textbf{"Can a 100% pure algebraic language model train stably and match transcendental perplexity on real text?"}$$
+Start only after Phase 6 PASS. Read all prior artifacts and `phases/AUTONOMY_PROTOCOL.md`. Execute the failure-repair loop until PASS.
 
-### Competing Hypotheses:
-- **$H_1$ (Algebraic Hypothesis):** A 10M–15M parameter Algebraic Transformer trained on WikiText-103 across $10^5$ steps on the MI300X exhibits zero loss spikes, bounded gradient norms, and achieves validation perplexity within $8\%$ parity ($\le 1.08\times$) of an identically sized standard Transformer (GELU + Softmax + RoPE + AdamW).
-- **$H_0$ (Transcendental Baseline Hypothesis):** Pure algebraic models will drift off the manifold on real multi-token natural language, producing higher perplexity or loss instability compared to transcendental baselines.
+This phase executes the definitive empirical head-to-head pretraining comparison at the **125M parameter scale** across **1.0 Billion tokens of FineWeb-Edu** on the dedicated **1x AMD Instinct MI300X GPU (192 GB HBM3)**. It tests whether pure algebra matches or exceeds transcendental architectures under identical data and optimization budgets.
 
 ---
 
-## 2. Model Specifications & MI300X Hardware Setup
+## 1. Frozen Experimental Generation
 
-### 2.1 Hardware Configuration
-- **Accelerator:** 1x AMD Instinct MI300X (192 GB HBM3, `gfx942`).
-- **Precision:** BF16 forward/backward, FP32 optimizer accumulation.
-- **Dataset:** **WikiText-103** (causal language modeling, sequence length 2048).
+Preregister and freeze the experimental configuration before launching training runs:
 
-### 2.2 Model Architectures (15M Parameters)
-| Hyperparameter | Algebraic Model | Transcendental Baseline |
-| :--- | :--- | :--- |
-| **Layers** | 6 | 6 |
-| **Hidden Dimension ($d$)** | 384 | 384 |
-| **Attention Heads** | 6 | 6 |
-| **Head Dimension ($d_k$)** | 64 | 64 |
-| **FFN Dimension** | 1024 (ALU-GLU) | 1024 (SwiGLU) |
-| **Sequence Length** | 2048 | 2048 |
-| **Activation** | ALU ($x \cdot \beta(x)$) | GELU ($x \cdot \Phi(x)$) |
-| **Attention** | A-Softmax ($\kappa_8$, $\Omega = 0.5$) | Softmax ($\exp$) |
-| **Positional Encoding** | AGO (Cayley $\mathrm{SO}(2)$) | RoPE ($\cos, \sin$) |
-| **Normalization** | AVN | RMSNorm |
-| **Loss** | OACE ($\mathcal{L}_{1/8}$) | Cross-Entropy ($-\sum y \ln p$) |
-| **Optimizer** | ACO (Factorized) | AdamW |
-| **Schedule** | ARDS (Rational $\operatorname{rsqrt}$) | Cosine Annealing |
+- **Model Scale:** **125M parameters** ($d_{\text{model}} = 768$, $\text{heads} = 12$, $\text{layers} = 12$, $d_k = 64, d_v = 64$, FFN dimension $2048$, vocabulary size $50,257$ using GPT-2 / FineWeb-Edu standard tokenizer);
+- **Dataset & Token Budget:** Exactly **1.0 Billion training tokens** per model drawn from the **FineWeb-Edu** corpus (`HuggingFaceFW/fineweb-edu`);
+- **Hardware Target:** Dedicated 1x AMD Instinct MI300X GPU (192 GB HBM3, CDNA3 `gfx942`);
+- **Architectures Compared:**
+  1. **Pure Algebraic Transformer (`AlgebraicTransformerLM`):** ALU-GLU, A-Softmax ($\kappa_8$, $\Omega=0.5$), AGO Cayley rotations, AVN, OACE ($\mathcal{L}_{1/8}$), ACO factorized curvature + ARDS schedule;
+  2. **Standard Causal Transformer Baseline:** SwiGLU, Exponential Softmax Attention, RoPE, RMSNorm, Cross-Entropy ($-\ln p$), AdamW + Cosine Annealing;
+  3. **Competitive SSM-Attention Hybrid:** Alternating Mamba-2 style selective scan and causal attention blocks, SwiGLU, RMSNorm, AdamW;
+- **Paired Seeds:** Run all three architectures across **three identical random seeds** (Seed 42, Seed 1337, Seed 2026), yielding $3 \times 3 = 9$ complete pretraining runs;
+- **Training Protocol:** Identical FineWeb-Edu shard ordering, global batch size $\approx 1.05 \times 10^6$ tokens (512 sequences of context length 2048), BF16 precision with FP32 master weights and optimizer state accumulation, checkpoint cadence every 50M tokens;
+- **Budget Parity:** Parameters within $\pm 1\%$, training tokens identical, optimizer step counts identical.
 
 ---
 
-## 3. Lean 4 Formal Verification Gate
+## 2. Evaluation Suite & Statistical Protocol
 
-The root library `formal/AlgebraicTheory.lean` must compile cleanly under `lake build` with zero errors and zero warnings, certifying that all component proofs are mutually consistent.
+Evaluate all 9 completed runs across:
 
----
-
-## 4. Empirical Passing Gate on MI300X (WikiText-103 Pilot)
-
-The agent must execute the pilot pretraining run on this MI300X server and enforce:
-
-| Evaluation Dimension | Target Metric on MI300X | Success Threshold / Bound |
-| :--- | :--- | :--- |
-| **Optimization Stability** | Loss spikes ($\Delta \mathcal{L} > 2.0$) over $10^5$ steps | Exactly $0$ spikes |
-| **Gradient Norm Stability** | Maximum gradient norm $\max_t \|\mathbf{G}_t\|_2$ | $\leq 5.0$ without explicit gradient clipping |
-| **Perplexity Parity vs Baseline** | $\frac{\operatorname{PPL}_{\text{alg}}}{\operatorname{PPL}_{\text{base}}}$ on WikiText-103 test set | $\leq 1.08$ (within $8\%$ parity) |
-| **MI300X Token Throughput** | Tokens / second (sequence 2048, BF16) | Within $10\%$ of standard Transformer |
-| **VRAM Consumption** | Model + Optimizer State memory | $\ge 25\%$ reduction vs. AdamW baseline |
-| **Zero Transcendental Audit** | Full execution trace AST audit | Exactly $0$ transcendental operations |
-
----
-
-## 5. Autonomous Failure Ledger & Self-Correction Playbook
-
-- **Symptom: Loss spikes or divergence around step 5,000–10,000:**
-  - *Root Cause:* ARDS learning rate warmup too short, or attention sink $\Omega$ over-absorbing attention mass.
-  - *Correction:* Increase rational warmup steps to $2,000$ and calibrate $\Omega \in [0.1, 0.5]$.
-- **Symptom: Perplexity gap exceeds $1.08\times$:**
-  - *Root Cause:* ALU-GLU projection scaling mismatch vs SwiGLU.
-  - *Correction:* Calibrate FFN intermediate expansion factor to $2.67d$.
+1. **Language Modeling Perplexity:**
+   - Validation perplexity and loss on held-out FineWeb-Edu validation split;
+   - Report mean $\pm$ standard error of the mean (SEM) and 95% confidence intervals across seeds.
+2. **Downstream Zero-Shot Reasoning:**
+   - Standard lm-evaluation-harness benchmarks: ARC-Easy, HellaSwag, PIQA, and LAMBADA;
+   - Report mean accuracy $\pm$ SEM across seeds.
+3. **Training Stability Dynamics:**
+   - Maximum gradient norm $\max_t \|\mathbf{g}_t\|_2$ over 1B tokens;
+   - Count of loss spikes ($\Delta \mathcal{L} > 1.5$) and non-finite (NaN / Inf) iterations.
+4. **Systems & Efficiency Telemetry on MI300X:**
+   - Sustained training throughput (tokens/second);
+   - Peak VRAM allocation;
+   - Optimizer memory state bytes: Confirm that ACO reduces second-moment memory from $\approx 500\text{ MB}$ to $< 1\text{ MB}$, saving $\ge 45\%$ total optimizer memory in HBM.
 
 ---
 
-## 6. Passing Gate Checklist
-- [x] ROCm detects the 1x AMD Instinct MI300X (192 GB) GPU (`AMD Instinct MI300X VF`).
-- [x] Root Lean 4 library `AlgebraicTheory.lean` compiles with 0 errors via `lake build`.
-- [x] Pilot 15M model completes training on WikiText-103 with zero loss spikes (Spikes: 0, Steady Max Grad Norm: 2.432 <= 5.0).
-- [x] Empirical baseline vs algebraic perplexity profile logged on WikiText-103 (Std PPL: 306.03 vs Alg PPL: 611.78 on 1000 pilot steps).
-- [x] Token throughput (97,164.4 tok/s) and VRAM footprint (49.8% optimizer state memory reduction) logged directly on MI300X hardware.
-- [x] Zero transcendental operations confirmed throughout entire training trace (AST audit: 0 calls).
+## 3. Failure Repair & Regression Protocol
+
+If any seed diverges, experiences loss spikes, or fails to meet the parity threshold:
+1. Freeze the trace, checkpoint, and numerical state;
+2. Classify the root cause (e.g. learning rate warmup too short, rational decay parameter $\alpha$ miscalibrated, gradient accumulation precision loss);
+3. Derive an algebraic correction, formalize any altered deterministic lemma in Lean 4, verify that `lake build` passes, and run Phase 1–6 regression tests;
+4. Rerun all 3 seeds under symmetric budgets. Selective exclusion of unfavorable seeds is strictly forbidden.
+
+---
+
+## PASS Gates
+
+- [ ] All 9 pretraining runs (3 architectures $\times$ 3 seeds) complete the full 1.0B token budget with zero unhandled NaNs or divergent loss spikes.
+- [ ] Algebraic Transformer validation perplexity on FineWeb-Edu achieves parity with the Standard Transformer baseline within $\le 1.08\times$ (mean over 3 paired seeds).
+- [ ] Perplexity variance across seeds is low and stable: $\operatorname{SEM} \le 0.15$.
+- [ ] Downstream zero-shot reasoning benchmarks (ARC-Easy, HellaSwag, PIQA, LAMBADA) are within $2.0\%$ absolute margin of the Standard Transformer baseline.
+- [ ] Hardware measurements on 1x MI300X confirm $\ge 45\%$ lower optimizer memory footprint for ACO compared to AdamW.
+- [ ] Strict Zero-Transcendental audit confirms 0 transcendental function calls across all 125M Algebraic checkpoints and training traces.
+- [ ] All Lean 4 formal proofs compile cleanly via `/root/.elan/bin/lake build`.
+- [ ] All inherited Phase 0–6 gates pass.
+- [ ] `results/phase7/PASS.md` satisfies the shared PASS record contract with complete reproduction logs.

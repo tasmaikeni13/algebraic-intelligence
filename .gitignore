@@ -12,8 +12,7 @@ formal/.lake/
 *.ilean
 *.c
 
-# Local environments and skills repo
-skills/
+# Local environments
 .venv/
 venv/
 ENV/

@@ -1,94 +1,96 @@
-# Autonomous Agent Protocol: The Algebraic Stack
+# Autonomous Agent Research Protocol: The Algebraic Stack
 
-This directory contains the operational execution blueprints, formal verification specifications, and empirical Monte Carlo protocols for the **Algebraic Stack** research project.
+This directory contains the operational execution blueprints, formal verification specifications, empirical benchmarking protocols, and release standards for the **Algebraic Stack** research project.
 
-The ultimate scientific question is singular, foundational, and uncompromising:
-286390\textbf{Can algebra and algebra alone give rise to intelligence?}286390
+The ultimate scientific question investigated across this repository is singular, foundational, and uncompromising:
+$$\textbf{Can algebra and algebra alone give rise to intelligence?}$$
 
-We mandate the **Zero-Transcendental Axiom**:
-286390\text{No } e^x, \quad \text{No } \ln(x), \quad \text{No } \sin(x), \quad \text{No } \cos(x), \quad \text{No continuous exponential EMAs}, \quad \text{No cosine schedules.}286390
-Every layer, activation, attention score, positional rotation, loss divergence, and optimizer update must consist solely of rational operations, polynomial compositions, and a single hardware-native algebraic radical: $\operatorname{rsqrt}(x) = 1/\sqrt{x}$.
+We mandate the strict **Zero-Transcendental Axiom**:
+$$\text{No } e^x, \quad \text{No } \ln(x), \quad \text{No } \sin(x), \quad \text{No } \cos(x), \quad \text{No continuous exponential EMAs}, \quad \text{No cosine schedules.}$$
+Every layer, activation, normalization, attention score, positional rotation, loss functional, divergence, and optimizer update must consist solely of rational operations, polynomial compositions, and a single hardware-native algebraic radical: $\operatorname{rsqrt}(x) = 1/\sqrt{x}$.
 
 ---
 
-## 1. Target Hardware Environment: 1x AMD Instinct MI300X (ROCm / HIP)
+## 1. The Autonomous Constitution
 
-All empirical and kernel phases execute on this machine's dedicated high-performance accelerator:
+All automated research execution in this repository is governed by:
+$$\textbf{\href{AUTONOMY_PROTOCOL.md}{AUTONOMY\_PROTOCOL.md}}$$
+
+Every numbered phase inherits all earlier gates and must strictly adhere to:
+- **The Evidence Hierarchy:** Raw execution traces, checkpoints, and hardware measurements are authoritative over prose and expectations.
+- **The 9-Step Failure-Repair Loop:** Freeze evidence $\to$ Classify failure $\to$ Research primary literature $\to$ Derive mathematical repair $\to$ Formalize in Lean 4 $\to$ Implement twice (fp64 CPU oracle vs. optimized path) $\to$ Test mechanism $\to$ Run all inherited gates $\to$ Iterate.
+- **Gate Amendment Discipline:** Thresholds are never lowered for convenience or disappointing results; gates may only be versioned if evidence refutes the theoretical claim or invalidates the evaluation harness.
+- **The Reproducibility Contract:** Deterministic seed pinning, fp64 oracle standard, synchronized GPU timing, and equal-budget baseline comparisons.
+- **Formal Verification Contract:** Zero-axiom Lean 4 compilation via Mathlib4 with zero `sorry` and zero `admit`.
+- **PASS Record:** Each phase officially concludes only upon generating `results/phaseN/PASS.md`.
+
+---
+
+## 2. Hardware Substrate: 1x AMD Instinct MI300X (ROCm / HIP)
+
+All empirical simulation, kernel execution, and pretraining phases run on this machine's dedicated hardware accelerator:
 - **Accelerator:** 1x AMD Instinct MI300X GPU (CDNA3 architecture, `gfx942`).
-- **Memory Capacity:** **192 GB HBM3** with **5.3 TB/s** peak memory bandwidth.
-- **Compute Stack:** ROCm / HIP toolchain (`HIP 7.15+`, `hipcc` at `/opt/rocm/bin/hipcc`, AMD Clang).
-- **Kernel Backends:** AMD Triton (`triton-amdgpu`) and native HIP C++ PyTorch extensions.
-- **Hardware Architecture Advantage:**
-  - With **192 GB of unified HBM3 memory on a single socket**, 10M–15M pilot models, 125M frontier models, and 350M scaled models fit entirely in local VRAM alongside full factorized optimizer state and activation caches with zero distributed pipeline stalls.
-  - Custom CDNA3 Wave64 kernels eliminate inter-tile synchronization and log-sum-exp scaling barriers.
+- **Memory Capacity:** **192 GB unified HBM3** with **5.3 TB/s** peak memory bandwidth.
+- **Software Stack:** ROCm toolchain (`HIP 6.2+`, `hipcc` at `/opt/rocm/bin/hipcc`, AMD Clang, AMD Triton).
+- **Substrate Advantage:**
+  - With **192 GB of high-bandwidth memory on a single socket**, 125M and 350M models train locally without distributed pipeline stalls or multi-node communication bottlenecks.
+  - Custom CDNA3 Wave64 kernels eliminate inter-tile log-sum-exp synchronization barriers.
 
 ---
 
-## 2. The Dual-Pillar Autonomous Research Paradigm
+## 3. The Ten Research & Verification Phases
 
-To avoid the twin traps of *unverified theory* (pure proofs that fail in numerical reality) and *superficial unit testing* (toy scripts that test formulas without stress), every phase enforces a **Dual-Pillar Verification Contract**:
+The autonomous research lifecycle is organized into **exactly ten sequential phases** (`phase0.md` through `phase9.md`):
+
+| Phase File | Phase Title | Primary Focus & Verification Milestone |
+| :--- | :--- | :--- |
+| [**`phase0.md`**](phase0.md) | **Algebraic Reference Substrate & MI300X Audit** | Zero-transcendental AST audit, fp64 CPU reference paths, MI300X/HIP environment verification, and fail-fast test runner. |
+| [**`phase1.md`**](phase1.md) | **Mathematical Oracle & Pathology Gate** | Falsification of exact algebraic equations under extreme conditioning ($\kappa = 10^6$), boundary logits ($p = 10^{-9}$), and Lean 4 formal verification. |
+| [**`phase2.md`**](phase2.md) | **Primitive Mechanism Separation & Matched Baselines** | Controlled 4-view comparison (dimension, params, bytes, FLOPs) of ALU, A-Softmax, AGO, AVN, OACE, and ACO vs. GELU, Softmax, RoPE, RMSNorm, CE, and AdamW. |
+| [**`phase3.md`**](phase3.md) | **Learned Representations & Sequence Induction** | 7 algorithmic task families across 5 paired seeds: associative memory (MQAR), induction heads, selective copy, and effective rank preservation. |
+| [**`phase4.md`**](phase4.md) | **Long-Context Extrapolation & Quantization Gate** | $16\times$ horizon extrapolation ($L=16384$), multi-hop pointer chains (up to 16 hops), and sub-byte FP4/INT4 quantization stability ($\ge 100\times$ noise reduction). |
+| [**`phase5.md`**](phase5.md) | **MI300X Systems Gate & Kernel Optimization** | Fused CDNA3 Wave64 HIP C++ and AMD Triton kernels for AFA, sustaining $> 3.5\text{ TB/s}$ HBM3 bandwidth and pure additive tile accumulation. |
+| [**`phase6.md`**](phase6.md) | **Language-Model Viability & 3-Way Comparative Gate** | 3-way publication comparison at 125M and 350M scales: Algebraic Transformer vs. Causal Transformer vs. SSM-Attention Hybrid on FineWeb-Edu. |
+| [**`phase7.md`**](phase7.md) | **Matched Multi-Seed Pretraining Study (125M / 1.0B Tokens)** | Head-to-head pretraining across Seeds 42, 1337, and 2026 on 1B FineWeb-Edu tokens on 1x MI300X; statistical significance (mean $\pm$ SEM) across downstream probes. |
+| [**`phase8.md`**](phase8.md) | **Scaled Pretraining Study (350M / 3.0B Tokens)** | Scaling to 24 layers, width 1024, and 3B tokens; neural scaling law power-law validation and Hierarchical Scaling Back-Propagation Loop. |
+| [**`phase9.md`**](phase9.md) | **Clean-Room Reproduction & Release Audit** | Clean-room fresh-clone replication on MI300X, standalone paper finalization (`theory.md`), full completion matrix, and open-source release package. |
+
+---
+
+## 4. Dual-Pillar Verification Paradigm
 
 ```mermaid
 graph TD
-    A["Phase Specification (phaseX.md)"] --> B["Pillar 1: Lean 4 Formal Verification"]
-    B --> C{"lake build (0 Errors, 0 Sorry)?"}
+    A["Phase Specification (phaseX.md)"] --> B["Pillar 1: Lean 4 Formal Logic"]
+    B --> C{"lake build (0 Sorry, 0 Admit)?"}
     C -- "Failed" --> D["Analyze Proof Tactic / Reformulate Lemma"]
     D --> B
-    C -- "Passed" --> E["Pillar 2: Deep Empirical & Monte Carlo Simulation"]
-    E --> F{"Monte Carlo Gates (N >= 10^5, Depth, Noise)?"}
-    F -- "Failed" --> G["Diagnose Failure Ledger & Remediate Formulation"]
+    C -- "Passed" --> E["Pillar 2: Deep Empirical & Systems Benchmarking"]
+    E --> F{"Empirical Gates (fp64 Parity, Convergence, Noise)?"}
+    F -- "Failed" --> G["Trigger 9-Step Failure-Repair Loop"]
     G --> B
-    F -- "Passed" --> H["Hardware Kernel / Scaling Run (1x MI300X)"]
-    H --> I{"Empirical Parity & Stability Gates Passed?"}
-    I -- "Failed" --> J["Trigger Multi-Scale Back-Propagation Loop"]
+    F -- "Passed" --> H["Hardware Execution on 1x AMD Instinct MI300X"]
+    H --> I{"Throughput, Memory & Parity Validated?"}
+    I -- "Failed" --> J["Execute Systems / Scaling Remediation"]
     J --> E
-    I -- "Passed" --> K["Sign-off Phase Checklist & Advance to Next Phase"]
+    I -- "Passed" --> K["Generate results/phaseX/PASS.md & Advance"]
 ```
 
-### Pillar 1: Machine-Checked Formal Verification (Lean 4 + Mathlib4)
-Mathematical claims must be codified in formal logic and compiled with **zero `sorry`**, zero axioms, and zero compilation errors. Formal proofs establish:
-- Invariant preservation (unimodularity, partition of unity, reflection symmetry).
-- Exact analytic derivations (polynomial backward passes, inflection point coordinates).
-- Global operator bounds (Lipschitz continuity, variance coupling, norm preservation).
-
-### Pillar 2: Deep Empirical & Monte Carlo Stress Testing
-Code verification is not model validation. Every mathematical primitive must survive rigorous numerical contact:
-- **High-Sample Monte Carlo Simulations ( = 10^5 - 10^6$ trials):** Testing behavior across wide probability regimes, input variance spreads, and parameter spectra.
-- **Deep Gradient Flow & Depth Scaling (8 to 32 layers):** Measuring empirical Lyapunov exponents, vanishing/exploding gradient frequencies, and activation variance propagation.
-- **Finite-Precision & Quantization Noise:** Evaluating robustness under stochastic perturbations and sub-byte FP4/INT4 simulated rounding.
-- **Controlled Baseline Comparisons:** Every empirical metric must be directly contrasted against the matching standard transcendental baseline (GELU, Softmax, RoPE, Cross-Entropy, AdamW).
-- **Statistical Rigor:** All empirical comparisons must report mean $\pm$ standard error of the mean (SEM) and 95% confidence intervals.
+Every phase enforces the **Dual-Pillar Verification Contract**:
+1. **Pillar 1: Machine-Checked Formal Verification:** Lean 4 modules in `formal/AlgebraicTheory/` compiled cleanly with Mathlib4 via `lake build`.
+2. **Pillar 2: Rigorous Empirical & Hardware Testing:** High-sample Monte Carlo simulations, deep gradient flow tracking, sub-byte quantization noise stress, and full pretraining on 1x AMD Instinct MI300X.
 
 ---
 
-## 3. Master Phase Overview (10 Sequential Phases)
+## 5. Execution Commands
 
-1. [**`phase1.md`**](phase1.md): **Pure Algebraic Primitives & Non-Linear Gating (ALU & AVN)**  
-   Lean 4 proofs + 0^6$ Monte Carlo depth propagation trials (8–32 layers) verifying $\mathcal{O}(1)$ Horner backward caching, inflection dynamics, and variance preservation.
-2. [**`phase2.md`**](phase2.md): **Octic Algebraic Attention & 2-Lipschitz Bounds (A-Softmax)**  
-   Lean 4 proofs + 0^5$ Monte Carlo attention sweeps across context lengths  \in [64, 2048]$ under logit noise, verifying global 2-Lipschitz bounds, entropy stability, and FP4 robustness.
-3. [**`phase3.md`**](phase3.md): **Algebraic Geometric Oscillators & Shift Equivariance (AGO)**  
-   Lean 4 proofs + Long-context Monte Carlo extrapolation (=512 \to 8192$) certifying $\mathrm{SO}(2)$ group structure, rotation norm conservation, and out-of-distribution associative recall vs. RoPE.
-4. [**`phase4.md`**](phase4.md): **Algebraic Loss Functionals & Information Metrics (OACE / $\mathcal{L}_{1/8}$)**  
-   Lean 4 proofs + 0^5$ Monte Carlo trials under label noise and simplex boundary extremes ( \in [10^{-7}, 1 - 10^{-7}]$), verifying Fisher information equivalence and gradient boundedness.
-5. [**`phase5.md`**](phase5.md): **Factorized Curvature Optimization & Rational Scheduling (ACO & ARDS)**  
-   Lean 4 proofs + High-dimensional Monte Carlo stochastic optimization on ill-conditioned non-convex landscapes ($\kappa = 10^5$), proving $\mathcal{O}(d_{\text{out}} + d_{\text{in}})$ memory and $\mathcal{O}(1/\sqrt{T})$ convergence.
-6. [**`phase6.md`**](phase6.md): **Hardware-Fused Kernel Implementation & Algebraic FlashAttention (AFA on MI300X)**  
-   Native CDNA3 Wave64 HIP C++ and AMD Triton kernels for AFA, benchmarked against ROCm FlashAttention on the MI300X for sustained HBM3 bandwidth ($> 3.5\text{ TB/s}$) and lock-free additive accumulation.
-7. [**`phase7.md`**](phase7.md): **Architectural Integration & Pilot Pretraining (10M–15M LM on MI300X)**  
-   Full assembly into `AlgebraicTransformerLM`. Pilot pretraining on **WikiText-103** across 0^5$ steps on the MI300X, validating loss stability, throughput, and perplexity parity ($\le 1.08\times$).
-8. [**`phase8.md`**](phase8.md): **Frontier Pretraining: 125M Parameters on 1B Tokens (3 Seeds on 1x MI300X)**  
-   Head-to-head empirical pretraining across Seeds 42, 1337, and 2026 on FineWeb-Edu. Statistical significance (mean $\pm$ SEM) across perplexity and downstream benchmarks (ARC, HellaSwag, PIQA, LAMBADA).
-9. [**`phase9.md`**](phase9.md): **Scaled Frontier Pretraining: 350M Parameters on 3B Tokens (3 Seeds on 1x MI300X)**  
-   Scaling to 24 layers, width 1024, and 3B tokens. Empirical validation of neural scaling laws and execution of the Hierarchical Scaling Back-Propagation Loop with mandatory 125M regression checks.
-10. [**`phase10.md`**](phase10.md): **Comprehensive Research Paper & Publication Release**  
-    Synthesis of all formal certificates, empirical logs, scaling figures, and checkpoints into a publication-ready LaTeX paper and open-weights repository.
+```bash
+# Run Phase 0 verification (Environment audit, AST check, fp64 tests, Lean build):
+python3 analysis/verify_algebraic_primitives.py
 
----
+# Run comparative empirical benchmarks:
+python3 analysis/benchmark_algebraic_vs_transcendental.py
 
-## 4. Hierarchical Multi-Scale Self-Correction Protocol
-
-When scaling empirical runs, the autonomous engine operates a strict closed-loop self-correction policy:
-- **Early Phase Discrepancy:** If Monte Carlo bounds fail in Phases 1–5, the agent cannot proceed to kernel or training phases. It must diagnose the mathematical root cause, update the formulation, re-prove the theorem in Lean 4, and re-execute the Monte Carlo sweep.
-- **Pilot Phase Discrepancy (Phase 7):** If 10M–15M pretraining diverges or exceeds .08\times$ baseline perplexity, calibrate the attention sink $\Omega$ and rational decay parameter $\alpha$ before touching large-scale tokens.
-- **Frontier Phase Discrepancy (Phase 8 & 9):** If 125M fails, halt. If 125M succeeds but 350M fails, trigger the **Hierarchical Scaling Back-Propagation Loop** (isolating depth, width, or horizon pathologies), apply the algebraic fix, run mandatory 125M regression testing, and only advance when both scales pass simultaneously.
+# Compile formal Lean 4 proofs:
+cd formal && /root/.elan/bin/lake build
+```
