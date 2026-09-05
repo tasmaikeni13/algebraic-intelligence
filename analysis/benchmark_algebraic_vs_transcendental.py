@@ -253,9 +253,11 @@ def run_quantization_benchmark():
     print(f"Output L2 displacement under quantization noise:")
     print(f"  Standard Softmax:    {err_soft:.4f} (Variance ratio: {var_soft_ratio:.4f})")
     print(f"  Algebraic Softmax:   {err_alg:.4f} (Variance ratio: {var_alg_ratio:.4f})")
-    print(f"Relative stability gain: {err_soft / err_alg:.2f}x less sensitive to quantization noise!")
+    ratio = err_soft / err_alg
+    print(f"Relative stability gain: {ratio:.2f}x less sensitive to quantization noise!")
 
     assert err_alg < err_soft, "A-Softmax was expected to be more robust than exponential softmax!"
+    assert ratio >= 100.0, f"Quantization stability gain {ratio:.2f}x was below 100.0x bound!"
     print("✓ VERIFIED: A-Softmax 2-Lipschitz property dampens quantization noise!")
 
 # ============================================================================

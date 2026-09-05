@@ -80,13 +80,15 @@ class AVN(nn.Module):
 class AlgebraicSoftmax(nn.Module):
     """
     AVN-bounded A-Softmax with power sharpening n=8 (computed via 3 squarings):
-    S_8(s)_i = rho(s_hat_i)^8 / sum_j rho(s_hat_j)^8
+    S_8(s)_i = rho(s_hat_i)^8 / (sum_j rho(s_hat_j)^8 + Omega)
+    where Omega >= 0 is a constant algebraic attention sink.
     """
-    def __init__(self, eps: float = 1e-6):
+    def __init__(self, eps: float = 1e-6, omega: float = 0.0):
         super().__init__()
         self.eps = eps
+        self.omega = omega
 
-    def forward(self, s: torch.Tensor, dim: int = -1) -> torch.Tensor:
+    def forward(self, s: torch.Tensor, dim: int = -1, omega: float = None) -> torch.Tensor:
         # Step 1: AVN logit bounding along dim
         d = s.shape[dim]
         m2 = torch.sum(s.pow(2), dim=dim, keepdim=True) / d
@@ -101,8 +103,9 @@ class AlgebraicSoftmax(nn.Module):
         rho4 = rho2 * rho2
         rho8 = rho4 * rho4
 
-        # Step 4: Normalization (denominator accumulated in float32)
-        denom = torch.sum(rho8, dim=dim, keepdim=True)
+        # Step 4: Normalization (denominator accumulated in float32 with attention sink)
+        omega_val = self.omega if omega is None else omega
+        denom = torch.sum(rho8, dim=dim, keepdim=True) + omega_val
         return rho8 / (denom + 1e-12)
 
 # ============================================================================

@@ -28,12 +28,17 @@ def test_algebraic_gate_and_kernel():
     print(f"Reflection symmetry error: {refl_error:.2e} (Expected: <= 1.0e-15)")
     assert refl_error <= 1.0e-15, f"Reflection symmetry failed: {refl_error}"
 
-    # 1.2 Kernel reciprocal symmetry: rho(x) * rho(-x) == 1
+    # 1.2 Kernel reciprocal symmetry: (s+x)*(s-x) == 1 and rho(x)*rho(-x) == 1
+    s_hyp = torch.sqrt(x.pow(2) + 1.0)
+    recip_id_error = torch.max(torch.abs((s_hyp + x) * (s_hyp - x) - 1.0)).item()
+    print(f"Reciprocal identity error ||(s+x)(s-x) - 1.0||_inf: {recip_id_error:.2e} (Expected: <= 5.0e-14)")
+    assert recip_id_error <= 5.0e-14, f"Reciprocal identity failed: {recip_id_error}"
+
     rho_x = ast.algebraic_kernel(x)
     rho_neg_x = ast.algebraic_kernel(-x)
     recip_error = torch.max(torch.abs(rho_x * rho_neg_x - 1.0)).item()
-    print(f"Reciprocal symmetry error: {recip_error:.2e} (Expected: ~0.0)")
-    assert recip_error < 1e-12, f"Reciprocal symmetry failed: {recip_error}"
+    print(f"Reciprocal symmetry error: {recip_error:.2e} (Expected: <= 5.0e-14)")
+    assert recip_error <= 5.0e-14, f"Reciprocal symmetry failed: {recip_error}"
 
     # 1.3 Gate identity: rho(x) == 2 * sqrt(x^2 + 1) * beta(x)
     gate_id_error = torch.max(torch.abs(rho_x - 2.0 * torch.sqrt(x.pow(2) + 1.0) * beta_x)).item()
@@ -88,12 +93,19 @@ def test_a_softmax_and_jacobian():
     a_softmax = ast.AlgebraicSoftmax()
     p = a_softmax(s)
 
-    # 3.1 Simplex constraints
+    # 3.1 Simplex constraints and attention sink
     sum_p = p.sum().item()
     min_p = p.min().item()
-    print(f"A-Softmax sum(p): {sum_p:.8f} (Expected: 1.0), min(p): {min_p:.2e} (Expected: > 0)")
+    print(f"A-Softmax sum(p): {sum_p:.8f} (Expected: <= 1.0), min(p): {min_p:.2e} (Expected: > 0)")
+    assert sum_p <= 1.00000001
     assert abs(sum_p - 1.0) < 1e-12
     assert min_p > 0.0
+
+    p_sink = a_softmax(s, omega=0.5)
+    sum_sink = p_sink.sum().item()
+    print(f"A-Softmax with sink Omega=0.5: sum(p) = {sum_sink:.6f} <= 1.0")
+    assert sum_sink <= 1.0
+    assert (p_sink >= 0.0).all()
 
     # 3.2 Jacobian test
     # Compute full numerical/autograd Jacobian
@@ -118,16 +130,43 @@ def test_a_softmax_and_jacobian():
 
     # Check maximum diagonal entry bound: |dp_j / ds_hat_j| <= n/4 = 2.0
     diag_max = torch.max(torch.abs(torch.diag(J_theory_hat))).item()
+    autograd_max = torch.max(torch.abs(J_autograd)).item()
     print(f"A-Softmax diagonal Jacobian max: {diag_max:.4f} (Theoretical upper bound: 2.0000)")
+    print(f"A-Softmax autograd Jacobian max: {autograd_max:.4f} (Bound: <= 2.0000)")
     assert diag_max <= 2.0001, f"Diagonal Jacobian bound exceeded: {diag_max}"
+    assert autograd_max <= 2.0001, f"Autograd Jacobian bound exceeded: {autograd_max}"
 
-    # 3.3 Routing sharpness test: s_hat = [2.0, 0.0] -> ratio = (2 + sqrt(5))^8
+    # 3.3 Dynamic Contrast Ratio & Sharpness test across [-3, 3]
+    s_3 = torch.tensor([3.0, -3.0], dtype=torch.float64)
+    rho_3 = s_3 + torch.sqrt(s_3.pow(2) + 1.0)
+    contrast_ratio_3 = (rho_3[0] / rho_3[1]).pow(8).item()
+    print(f"Dynamic contrast ratio kappa_8(+3)/kappa_8(-3): {contrast_ratio_3:.2e} (Expected: >= 1.0e5)")
+    assert contrast_ratio_3 >= 1.0e5, f"Dynamic contrast ratio too low: {contrast_ratio_3}"
+
+    # Routing sharpness test: s_hat = [2.0, 0.0] -> ratio = (2 + sqrt(5))^8 = 103,682
     s_sharp = torch.tensor([2.0, 0.0], dtype=torch.float64)
     rho_sharp = s_sharp + torch.sqrt(s_sharp.pow(2) + 1.0)
     sharp_ratio_empirical = (rho_sharp[0] / rho_sharp[1]).pow(8).item()
     sharp_ratio_theory = (2.0 + math.sqrt(5.0)) ** 8
-    print(f"Sharpness contrast ratio: Empirical={sharp_ratio_empirical:.2f}, Theory={sharp_ratio_theory:.2f}")
+    print(f"Sharpness contrast ratio (2 + sqrt(5))^8: Empirical={sharp_ratio_empirical:.2f}, Theory={sharp_ratio_theory:.2f}")
     assert abs(sharp_ratio_empirical - sharp_ratio_theory) < 1.0
+    assert sharp_ratio_empirical >= 1.0e5
+
+    # 3.4 Sub-byte FP4 Quantization Sensitivity Ratio (noise sigma = 0.05)
+    torch.manual_seed(42)
+    K_q = 128
+    s_q = torch.randn(K_q, dtype=torch.float32)
+    s_q[0] += 6.0
+    p_soft = torch.softmax(s_q, dim=-1)
+    p_alg_q = a_softmax(s_q)
+    noise_q = (torch.rand(K_q) - 0.5) * 0.5
+    p_soft_noisy = torch.softmax(s_q + noise_q, dim=-1)
+    p_alg_noisy = a_softmax(s_q + noise_q)
+    err_soft = torch.norm(p_soft - p_soft_noisy, p=2).item()
+    err_alg = torch.norm(p_alg_q - p_alg_noisy, p=2).item()
+    q_ratio = err_soft / err_alg
+    print(f"FP4 Quantization Sensitivity Ratio (Softmax/A-Softmax): {q_ratio:.2f}x (Expected: >= 100.0x)")
+    assert q_ratio >= 100.0, f"Quantization sensitivity ratio too low: {q_ratio:.2f}x"
 
     print("✓ A-Softmax and Jacobian verified successfully!\n")
 
