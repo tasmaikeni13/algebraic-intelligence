@@ -23,4 +23,14 @@ theorem avn_coupling_identity (x v tau : ℝ) (htau : tau^2 * v = 1) :
     _ = tau^2 * x^2 + tau^2 * v := by rw [htau.symm]
     _ = tau^2 * (x^2 + v) := by ring
 
+theorem bounded_avn_norm (S d eps : ℝ) (hS : 0 ≤ S) (hd : 0 < d) (heps : 0 ≤ eps) :
+    S ≤ d * (S / d + eps) :=
+  avn_bounded_norm S d eps hS hd heps
+
+theorem avn_scale_invariance (x tau α : ℝ) (hα : α ≠ 0) :
+    (tau / α) * (α * x) = tau * x := by
+  calc
+    (tau / α) * (α * x) = ((tau / α) * α) * x := by ring
+    _ = tau * x := by rw [div_mul_cancel₀ tau hα]
+
 end AlgebraicTheory

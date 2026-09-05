@@ -8,6 +8,10 @@ theorem gate_reflection_identity (u : ℝ) :
     (1 / 2 : ℝ) * (1 + u) + (1 / 2 : ℝ) * (1 - u) = 1 := by
   ring
 
+theorem alu_reflection_symmetry (u : ℝ) :
+    (1 / 2 : ℝ) * (1 + u) + (1 / 2 : ℝ) * (1 - u) = 1 := by
+  ring
+
 theorem alu_cache_invertibility (x s u : ℝ) (hs : s^2 = x^2 + 1) (hu : u * s = x) :
     (1 - u^2) * s^2 = 1 := by
   calc
@@ -17,6 +21,11 @@ theorem alu_cache_invertibility (x s u : ℝ) (hs : s^2 = x^2 + 1) (hu : u * s =
 
 theorem alu_polynomial_backward_identity (u : ℝ) :
     (1 / 2 : ℝ) * (1 + u) + (1 / 2 : ℝ) * (u - u^3) =
+    (1 / 2 : ℝ) * (1 + 2 * u - u^3) := by
+  ring
+
+theorem alu_deriv_formula (u : ℝ) :
+    (1 + u) / 2 + (u * (1 - u^2)) / 2 =
     (1 / 2 : ℝ) * (1 + 2 * u - u^3) := by
   ring
 

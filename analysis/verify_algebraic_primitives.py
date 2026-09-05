@@ -5,10 +5,13 @@ Tests all theorems, lemmas, and numerical bounds derived in theory.md.
 Author: Tasmai Keni (tas.ken.rt25@dypatil.edu)
 """
 
-import math
+import os
 import sys
-sys.path.append("/root/algebric/analysis")
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
 
+import math
 import torch
 import torch.nn as nn
 import numpy as np
@@ -22,8 +25,8 @@ def test_algebraic_gate_and_kernel():
     beta_x = ast.algebraic_gate(x)
     beta_neg_x = ast.algebraic_gate(-x)
     refl_error = torch.max(torch.abs(beta_x + beta_neg_x - 1.0)).item()
-    print(f"Reflection symmetry error: {refl_error:.2e} (Expected: ~0.0)")
-    assert refl_error < 1e-14, f"Reflection symmetry failed: {refl_error}"
+    print(f"Reflection symmetry error: {refl_error:.2e} (Expected: <= 1.0e-15)")
+    assert refl_error <= 1.0e-15, f"Reflection symmetry failed: {refl_error}"
 
     # 1.2 Kernel reciprocal symmetry: rho(x) * rho(-x) == 1
     rho_x = ast.algebraic_kernel(x)
@@ -55,8 +58,8 @@ def test_alu_properties():
     grad_theory = 0.5 * (1.0 + 2.0 * u - u.pow(3))
 
     grad_error = torch.max(torch.abs(grad_autograd - grad_theory)).item()
-    print(f"ALU derivative error (Autograd vs Theory): {grad_error:.2e}")
-    assert grad_error < 1e-14, f"ALU gradient mismatch: {grad_error}"
+    print(f"ALU derivative error (Autograd vs Theory): {grad_error:.2e} (Expected: <= 5.0e-16)")
+    assert grad_error <= 5.0e-16, f"ALU gradient mismatch: {grad_error}"
 
     # 2.2 Maximum derivative (Lipschitz constant)
     # Theory: u* = sqrt(2/3), L_K = 0.5 * (1 + 2*sqrt(2/3) - (2/3)^(3/2)) = 1.0443375673
@@ -64,6 +67,7 @@ def test_alu_properties():
     l_k_theory = 0.5 * (1.0 + 2.0 * u_star - (u_star ** 3))
     l_k_empirical = grad_theory.max().item()
     print(f"ALU Lipschitz constant: Empirical={l_k_empirical:.6f}, Theoretical={l_k_theory:.6f}")
+    assert l_k_empirical <= 1.05, f"Lipschitz bound exceeded: {l_k_empirical}"
     assert abs(l_k_empirical - l_k_theory) < 1e-4
 
     # 2.3 Inflection point at x = -sqrt(2)
@@ -233,16 +237,82 @@ def test_aco_optimizer():
 
     print("✓ ACO verified successfully!\n")
 
+def test_avn_properties():
+    print("--- 2.5 Testing Algebraic Variance Normalization (AVN) (Section 6 & Phase 1) ---")
+    torch.manual_seed(42)
+    avn = ast.AVN(eps=1e-8)
+
+    # Test AVN output variance across different input variances:
+    # x ~ N(0, sigma^2 * I), d large
+    for sigma in [0.5, 1.0, 2.0, 5.0, 10.0]:
+        batch_size, d = 256, 4096
+        x = torch.randn(batch_size, d, dtype=torch.float64) * sigma
+        x_hat, tau = avn(x)
+
+        var_out = torch.var(x_hat).item()
+        print(f"AVN Output Variance (sigma={sigma:4.1f}): {var_out:.6f} (Bound: [0.99, 1.01])")
+        assert 0.99 <= var_out <= 1.01, f"AVN output variance out of bounds: {var_out}"
+
+    # Test scale invariance: AVN(alpha * x) == AVN(x) for alpha > 0
+    alpha = 4.2
+    x_sample = torch.randn(16, 256, dtype=torch.float64)
+    x_hat_orig, _ = avn(x_sample)
+    x_hat_scaled, _ = avn(alpha * x_sample)
+    scale_inv_err = torch.max(torch.abs(x_hat_orig - x_hat_scaled)).item()
+    print(f"AVN Scale Invariance Error: {scale_inv_err:.2e} (Expected: ~0.0)")
+    assert scale_inv_err < 1e-7, f"AVN scale invariance violated: {scale_inv_err}"
+
+    print("✓ AVN properties verified successfully!\n")
+
+def test_zero_transcendental_audit():
+    print("--- 7. Zero-Transcendental Codebase Audit (Section 4 & Phase 1) ---")
+    import ast as py_ast
+    import re
+
+    # Target algebraic stack implementation file
+    target_file = os.path.join(current_dir, "algebraic_stack.py")
+    with open(target_file, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    # 1. Parse AST to check all function calls and attribute accesses
+    tree = py_ast.parse(content, filename=target_file)
+    transcendental_names = {"exp", "log", "ln", "sin", "cos", "tan", "sinh", "cosh", "tanh",
+                            "asin", "acos", "atan", "sigmoid", "gelu", "silu", "softmax"}
+    forbidden_calls = []
+
+    for node in py_ast.walk(tree):
+        if isinstance(node, py_ast.Call):
+            func = node.func
+            if isinstance(func, py_ast.Name) and func.id in transcendental_names:
+                forbidden_calls.append(func.id)
+            elif isinstance(func, py_ast.Attribute) and func.attr in transcendental_names:
+                forbidden_calls.append(func.attr)
+
+    print(f"AST transcendental function call count: {len(forbidden_calls)}")
+    assert len(forbidden_calls) == 0, f"Found forbidden transcendental calls in algebraic_stack.py: {forbidden_calls}"
+
+    # 2. Grep code logic for standalone tokens: exp, log, sin, cos
+    # Strip comments and string literals to inspect actual code logic
+    code_without_comments = re.sub(r'#.*', '', content)
+    code_without_strings = re.sub(r'""".*?"""|\'\'\'.*?\'\'\'|"[^"]*"|\'[^\']*\'', '', code_without_comments, flags=re.DOTALL)
+    code_matches = re.findall(r'\b(exp|log|sin|cos)\b', code_without_strings)
+    print(f"Code grep audit for (exp, log, sin, cos): {len(code_matches)} occurrences {code_matches}")
+    assert len(code_matches) == 0, f"Transcendental tokens found in algebraic_stack.py code: {code_matches}"
+
+    print("✓ Zero-Transcendental Codebase Audit passed with exactly 0 occurrences!\n")
+
 if __name__ == "__main__":
     print("==================================================================")
     print("STARTING ALGEBRAIC STACK MATHEMATICAL AND NUMERICAL VERIFICATION")
     print("==================================================================\n")
     test_algebraic_gate_and_kernel()
     test_alu_properties()
+    test_avn_properties()
     test_a_softmax_and_jacobian()
     test_ago_cayley_rotations()
     test_oace_and_ad_losses()
     test_aco_optimizer()
+    test_zero_transcendental_audit()
     print("==================================================================")
     print("ALL ALGEBRAIC STACK MATHEMATICAL THEOREMS VERIFIED SUCCESSFULLY!")
     print("==================================================================")

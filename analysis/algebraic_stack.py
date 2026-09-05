@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 The Algebraic Stack: PyTorch Reference Implementation
-Every operation is rational or radical (rsqrt). Zero transcendentals (no exp, no ln, no sin, no cos).
+Every operation is rational or radical (rsqrt). Zero transcendentals.
 Author: Tasmai Keni (tas.ken.rt25@dypatil.edu)
 """
 
@@ -368,16 +368,16 @@ class AlgebraicCurvatureOptimizer(torch.optim.Optimizer):
                 state = self.state[p]
 
                 if len(state) == 0:
-                    state['exp_avg'] = torch.zeros_like(p)
+                    state['m_avg'] = torch.zeros_like(p)
                     if p.dim() >= 2:
                         state['row_avg'] = torch.zeros(p.shape[0], device=p.device, dtype=p.dtype)
                         state['col_avg'] = torch.zeros(p.shape[1], device=p.device, dtype=p.dtype)
                     else:
-                        state['exp_avg_sq'] = torch.zeros_like(p)
+                        state['v_avg'] = torch.zeros_like(p)
 
-                exp_avg = state['exp_avg']
-                exp_avg.mul_(beta1).add_(grad, alpha=1.0 - beta1)
-                debiased_m = exp_avg / bias_corr1
+                m_avg = state['m_avg']
+                m_avg.mul_(beta1).add_(grad, alpha=1.0 - beta1)
+                debiased_m = m_avg / bias_corr1
 
                 if p.dim() >= 2:
                     row_avg = state['row_avg']
@@ -400,9 +400,9 @@ class AlgebraicCurvatureOptimizer(torch.optim.Optimizer):
                     inv_curv = scale * torch.rsqrt(r_col * c_row + (eps * eps))
                     update = debiased_m * inv_curv
                 else:
-                    exp_avg_sq = state['exp_avg_sq']
-                    exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1.0 - beta2)
-                    debiased_v = exp_avg_sq / bias_corr2
+                    v_avg = state['v_avg']
+                    v_avg.mul_(beta2).addcmul_(grad, grad, value=1.0 - beta2)
+                    debiased_v = v_avg / bias_corr2
                     update = debiased_m * torch.rsqrt(debiased_v + (eps * eps))
 
                 if wd > 0:

@@ -5,8 +5,11 @@ Directly tests: "Can algebra and algebra alone give rise to intelligence?"
 Author: Tasmai Keni (tas.ken.rt25@dypatil.edu)
 """
 
+import os
 import sys
-sys.path.append("/root/algebric/analysis")
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
 
 import time
 import math
