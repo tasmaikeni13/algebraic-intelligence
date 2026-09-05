@@ -186,6 +186,10 @@ class AlgebraicGeometricOrdering(nn.Module):
         for _ in range(1, max_seq_len):
             next_c = cur_c * c - cur_s * s
             next_s = cur_c * s + cur_s * c
+            # Algebraic re-normalization to prevent cumulative numerical drift (Phase 3 playbook)
+            inv_norm = torch.rsqrt(next_c.pow(2) + next_s.pow(2))
+            next_c = next_c * inv_norm
+            next_s = next_s * inv_norm
             c_list.append(next_c)
             s_list.append(next_s)
             cur_c = next_c
