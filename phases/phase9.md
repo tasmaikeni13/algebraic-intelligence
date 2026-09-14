@@ -1,147 +1,133 @@
-# Phase 9: Scaled Frontier Pretraining: 350M Parameters on 3.0B FineWeb-Edu Tokens & Scaling Laws
+# Phase 9: Comprehensive Research Paper, Clean-Room Replication, & Publication Release
 
-Start only after Phase 8 PASS. Read `theory.md`, Phase 7 & 8 evidence in `results/phase7/` and `results/phase8/`, and `phases/README.md` completely before executing. Execute the shared adaptive failure-repair loop until all gates pass.
-
----
-
-## 1. Objective, Scientific Hypothesis & Competing Models
-
-Scale model capacity to **350M parameters** ($2\times$ depth, 24 layers, width 1024) and pretrain on **3.0 Billion tokens of FineWeb-Edu** on the dedicated **16 TPU v4 Pod slice (512 GB aggregate HBM)**:
-$$\textbf{"Do pure algebraic transformers obey neural power-law scaling and maintain deep 24-layer stability?"}$$
-
-### Competing Hypotheses:
-- **$H_1$ (Algebraic Hypothesis):** Pure algebraic Transformers obey empirical neural scaling laws ($L(N) \propto N^{-\alpha}$), exhibiting scaling exponents matching or exceeding the Standard Causal Transformer baseline ($\alpha_{\text{alg}} \approx \alpha_{\text{base}}$). Parameter-free AVN suppresses exponential variance drift across 24 stacked layers ($(1.0445)^{24} \approx 2.87$ maximum theoretical bound), and AGO Cayley rotations generalize across context lengths $\ge 4096$ tokens without positional distortion.
-- **$H_0$ (Transcendental Baseline Hypothesis):** At 24 layers and 3.0B tokens, the lack of transcendental non-linearities (e.g. Swish, Softmax) will cause representation degradation, cumulative variance distortion, or attention entropy collapse, breaking power-law scaling and causing loss divergence or plateauing relative to the transcendental baseline.
+Start only after Phase 8 PASS. Read the entire repository, all generated artifacts, and `phases/README.md`. Treat completion as unproven. Execute the adaptive failure-repair loop for every discrepancy until all gates pass.
 
 ---
 
-## 2. Matched Multi-Seed Experimental Configuration & Budget Parity
+## 1. Objective & Scientific Mandate
 
-Preregister and freeze the 350M configuration:
+Execute a rigorous **clean-room independent reproduction**, finalize the authoritative research paper (`theory.md`), audit the repository for open-source publication, and build the exhaustive requirement-by-requirement completion matrix:
+$$\textbf{"Can algebra and algebra alone give rise to intelligence?"} \implies \textbf{PROVED.}$$
+
+### Scientific Deliverables:
+1. **Clean-Room Reproduction:** An automated reproduction script (`scripts/clean_room_reproduce.py`) that re-executes all verifications, tests, and builds from a fresh shell on the 16 TPU v4 Pod slice with zero human intervention.
+2. **Authoritative Paper Finalization (`theory.md`):** Complete, publication-ready research manuscript incorporating all empirical multi-seed pretraining metrics (mean $\pm$ SEM, 95% CIs) from 15M (Phase 7) and 125M across 2.5B tokens (Phase 8) runs, reconciled against machine-checked Lean 4 proofs.
+3. **Open-Source Release Package:** Pristine Git repository containing all 9 numbered phase specifications, the complete `skills/` directory (`https://github.com/tasmaikeni13/skills`), clean Lean 4 formal proofs, JAX/Pallas TPU kernels, and verifiable benchmark artifacts.
+
+---
+
+## 2. Clean-Room Reproduction Protocol
+
+From a clean shell environment on the Google Cloud TPU v4 Pod slice:
 
 ```mermaid
-graph LR
-    subgraph "Hardware Substrate"
-        TPU["16 TPU v4 Pod Slice (512 GB HBM2e, 19.2 TB/s aggregate bandwidth)"]
-    end
-
-    subgraph "Candidate 1: Pure Algebraic Transformer (350M)"
-        M1["AlgebraicTransformerLM 350M<br/>(24 Layers, Width 1024, 16 Heads)"]
-        S1a["Seed 42"] --> M1
-        S1b["Seed 1337"] --> M1
-        S1c["Seed 2026"] --> M1
-    end
-
-    subgraph "Candidate 2: Standard Causal Transformer (350M)"
-        M2["StandardTransformerLM 350M<br/>(24 Layers, Width 1024, 16 Heads)"]
-        S2a["Seed 42"] --> M2
-        S2b["Seed 1337"] --> M2
-        S2c["Seed 2026"] --> M2
-    end
-
-    TPU --- M1
-    TPU --- M2
+graph TD
+    A["Clean Shell on 16 TPU v4 Pod"] --> B["1. Environment Bootstrap Audit<br/>(JAX, TPU v4-16, 512GB Aggregate HBM)"]
+    B --> C["2. AST & XLA Zero-Transcendental Audit<br/>(Zero exp, ln, sin, cos in src/ & HLO)"]
+    C --> D["3. Lean 4 Formal Verification<br/>(lake build: 0 sorry, 0 admit)"]
+    D --> E["4. Primitive Verification Suite<br/>(python3 scripts/run_verify_primitives.py)"]
+    E --> F["5. Pallas Kernel Benchmark<br/>(python3 scripts/run_benchmark_pallas.py)"]
+    F --> G["6. Multi-Seed Checkpoint Audit<br/>(SHA-256 validation of 15M & 125M / 2.5B runs)"]
+    G --> H{"All Checks Match?"}
+    H -- "No" --> I["Trigger Adaptive Failure-Repair Loop"]
+    I --> B
+    H -- "Yes" --> J["Publish results/phase9/PASS.md"]
 ```
 
-### 2.1 Model Specifications (350M Scale)
-- **Parameter Count:** $\approx 350\text{M}$ parameters (matched within $\pm 1\%$ across architectures).
-- **Hidden Dimension ($d_{\text{model}}$):** $1024$.
-- **Number of Layers ($L$):** $24$ ($2\times$ depth of Phase 8).
-- **Attention Heads ($H$):** $16$ ($d_k = d_v = 64$ per head).
-- **FFN Intermediate Dimension ($d_{\text{ff}}$):** $2816$ ($8/3 \times d_{\text{model}} \approx 2816$ rounded to multiple of 128 for TPU v4 MXU efficiency).
-- **Vocabulary Size ($V$):** $50,257$ (GPT-2 standard BPE tokenizer).
-- **Context Length ($T$):** $2048$ tokens (with evaluation up to $8192$ for NIAH).
-- **Dataset:** Exactly **3.0 Billion training tokens** drawn from **FineWeb-Edu**.
-- **Hardware Target:** Dedicated 16 TPU v4 Pod slice (32 TensorCores, 512 GB aggregate HBM2e).
-- **Global Batch Size:** $\approx 1.05 \times 10^6$ tokens ($512$ sequences $\times 2048$ context length), distributed across the 16 TPU v4 chips via SPMD mesh sharding (`data`, `fsdp`).
-- **Precision:** BF16 mixed-precision with FP32 master weights.
-- **Checkpoint Cadence:** Checkpoints saved every $100\text{M}$ tokens.
-- **Paired Seeds:** 3 identical random seeds (Seed 42, Seed 1337, Seed 2026), yielding $2 \times 3 = 6$ complete pretraining runs.
+### 2.1 Step-by-Step Reproduction Procedure
+1. **Environment Bootstrap Audit:**
+   - Verify 16 TPU v4 chips (`len(jax.devices()) == 16`);
+   - Confirm JAX TPU runtime (`jax.devices()[0].platform == 'tpu'`);
+   - Confirm zero proprietary GPU driver dependencies (pure JAX / XLA TPU runtime).
+2. **Automated End-to-End Test Suite:**
+   - Execute algebraic primitive verification:
+     ```bash
+     python3 scripts/run_verify_primitives.py
+     ```
+   - Execute Pallas TPU kernel benchmarks:
+     ```bash
+     python3 scripts/run_benchmark_pallas.py
+     ```
+   - Compile Lean 4 formal proofs:
+     ```bash
+     cd formal && /root/.elan/bin/lake build
+     ```
+3. **Multi-Seed Replication Audit:**
+   - Verify that all numerical results, tables, and figures reproduce from pinned random seeds;
+   - Compute SHA-256 checksums across raw logs, metric files, and checkpoint headers for all 6 runs (2 architectures $\times$ 3 seeds) at 125M / 2.5B tokens;
+   - Confirm that all plots and figures are programmatically generated.
+4. **Independent Numerical Re-Check:**
+   - Re-verify all core equations using an independent fp64 CPU reference path to eliminate any risk of false agreement from shared helper routines.
 
 ---
 
 ## 3. Implementation Target: JAX / TPU v4 Architecture
 
-Instruct the creation and verification of the following files targeting the 16 TPU v4 Pod:
-1. **`scripts/run_pretrain_350m.py`**:
-   - Scaled pretraining script for 350M parameter models across 3.0B tokens on 16 TPU v4 chips.
-   - SPMD distributed parallelism utilizing 3D Torus mesh sharding (`src/mesh.py`).
-2. **`scripts/evaluate_scaling_laws.py`**:
-   - Automated power-law curve fitting across 15M (Phase 7), 125M (Phase 8), and 350M (Phase 9) checkpoints.
-   - Multi-needle passkey retrieval (Needle-In-A-Haystack) suite across context lengths $\{2048, 4096, 8192\}$.
+Instruct the creation and verification of:
+1. **`scripts/clean_room_reproduce.py`**:
+   - Single command orchestrator executing:
+     - Environment check (`jax.devices()`, TPU version);
+     - AST and XLA HLO zero-transcendental static analysis;
+     - Lean 4 lake build execution;
+     - Unit and property test runs;
+     - Checkpoint verification across all 6 runs;
+     - Generation of `results/phase9/PASS.md`.
 
 ---
 
-## 4. Scaling Law Analysis & Deep 24-Layer Stability
+## 4. Authoritative Paper Finalization (`theory.md`)
 
-Evaluate all completed 350M runs across:
-
-### 4.1 Empirical Neural Scaling Laws
-- Measure loss reduction $\Delta \mathcal{L} = \mathcal{L}_{125\text{M}} - \mathcal{L}_{350\text{M}}$ from Phase 8 to Phase 9.
-- Confirm parallel power-law scaling: verify that the Algebraic Stack exhibits a scaling exponent $\alpha$ matching or exceeding the Standard Transformer baseline ($L(N) \propto N^{-\alpha}$).
-- Fit parametric scaling curves $L(N) = L_\infty + A \cdot N^{-\alpha}$ across the 15M (Phase 7), 125M (Phase 8), and 350M (Phase 9) checkpoints.
-
-### 4.2 Deep 24-Layer Stability & Signal Propagation
-- Track activation variance $\operatorname{Var}(\mathbf{h}_\ell)$ across all 24 layers from layer 1 to 24.
-- Verify that parameter-free AVN prevents exponential signal amplification across 24 layers ($(1.0445)^{24} \approx 2.87$ maximum theoretical drift).
-- Confirm zero loss spikes ($\Delta \mathcal{L} > 1.5$) and zero gradient explosions over the entire 3.0B token trajectory.
-
-### 4.3 Long-Context Retrieval & Needle-In-A-Haystack (NIAH)
-- Multi-needle passkey retrieval benchmarks across context lengths $\{2048, 4096, 8192\}$.
-- Confirm that AGO Cayley rotations maintain $\ge 90\%$ needle retrieval accuracy at extended context lengths.
-
-### 4.4 Systems & Efficiency Telemetry on 16 TPU v4 Pod
-- Prefill throughput (tok/s) and per-token decode latency (ms/tok).
-- Peak HBM memory allocation.
-- Optimizer memory state bytes: Verify factorized second-moment compression of $\approx 2048\times$ at width 1024, saving $> 45\%$ total optimizer memory in HBM.
+Finalize `theory.md` as an authoritative, self-contained research manuscript targeting top-tier peer review (NeurIPS / ICML / ICLR / JMLR):
+1. **Empirical Pretraining Integration:** Incorporate multi-seed pretraining results from Phase 7 (15M / WikiText-103) and Phase 8 (125M / 2.5B tokens across 6 runs), reporting mean $\pm$ SEM and 95% confidence intervals.
+2. **Formal Proof Reconciliation:** Audit every mathematical theorem against its formal Lean 4 proof in `formal/AlgebraicTheory/`. Ensure that `formal/PROOF_COVERAGE.md` accurately documents theorem coverage.
+3. **Visual & Architectural Clarity:** Embed architectural schematics, activation derivative curves, attention Jacobian bounds, and training trajectory curves.
+4. **Novelty & Related Work Frontier:** Provide comprehensive citations and comparative analyses of contemporary literature (FlashAttention-2, Ring Attention, RoPE, SwiGLU, AdamW, Adafactor, DeepSeek-V3).
 
 ---
 
-## 5. The Hierarchical Scaling Back-Propagation Loop
+## 5. Public Repository & Release Audit
 
-If the 125M model succeeded in Phase 8, but the 350M model fails in Phase 9, the autonomous agent must execute the **Hierarchical Scaling Back-Propagation Protocol**:
-
-```mermaid
-graph TD
-    A["Phase 9 (350M) Failure"] --> B["Diagnose Pathology (Depth 24 / Width 1024 / Horizon 3B)"]
-    B --> C["Hypothesize Mechanism (Variance Drift / Attention Saturation / ACO Ill-Conditioning)"]
-    C --> D["Derive Pure Algebraic Repair (e.g. rsqrt(2D) depth attenuation)"]
-    D --> E["Formalize Lemma in Lean 4 (lake build clean)"]
-    E --> F["Mandatory 125M Regression Test (Verify 125M does not degrade)"]
-    F --> G{"125M Regression Passed?"}
-    G -- "No" --> D
-    G -- "Yes" --> H["Re-run 350M across 3 Seeds on 16 TPU v4 Pod"]
-    H --> I{"Phase 9 Gates Satisfied?"}
-    I -- "No" --> B
-    I -- "Yes" --> J["Advance to Phase 10 (Paper & Release)"]
-```
-
-### Specific 350M Diagnostics:
-1. **Vanishing / Exploding Gradients Across 24 Layers:** Apply rational depth attenuation:
-   $$\mathbf{x}_{\ell+1} = \mathbf{x}_\ell + \operatorname{rsqrt}(2 D) \cdot \operatorname{SubLayer}(\operatorname{AVN}(\mathbf{x}_\ell))$$
-2. **Attention Entropy Saturation at Width $d=1024$:** Calibrate query-key scale factor $\tau = \frac{1}{\sqrt{d_k}} \operatorname{rsqrt}(1 + \mu)$ or adjust attention sink $\Omega$.
-3. **ACO Preconditioner Ill-Conditioning:** Enforce algebraic diagonal damping $\hat{\mathbf{V}}_{ij} \leftarrow \hat{\mathbf{V}}_{ij} + \epsilon_{\text{curv}} \bar{r} \mathbf{I}$.
-4. **Mandatory 125M Regression Check:** Any change made to fix 350M must be evaluated on the 125M model to confirm zero performance regression. Both scales must simultaneously pass.
+Verify that the repository is clean, complete, and reproducible:
+1. **Phase File Structure:** Verify that there are **exactly nine numbered phases**, `phase1.md` through `phase9.md`, plus `README.md` in `phases/`.
+2. **Zero-Transcendental Compliance:** Confirm via AST static analysis and XLA HLO dumps that zero un-whitelisted transcendental operations exist in production modules (`src/`).
+3. **Skills Integration:** Verify that the `skills/` directory (`https://github.com/tasmaikeni13/skills`) is fully present, clean, and tracked.
+4. **Hygiene & Security Audit:** Confirm that no credentials, API keys, private tokens, temporary download caches, or oversized raw checkpoint files are tracked in Git.
+5. **Git Status:** Working tree must be clean with all modifications committed.
 
 ---
 
-## 6. Lean 4 Formal Verification Gate
+## 6. Requirement-by-Requirement Completion Matrix
 
-Compile all Lean 4 modules via `/root/.elan/bin/lake build`:
-- Verify that 24-layer composition theorems hold without `sorry`.
-- Confirm formal proof coverage in `formal/PROOF_COVERAGE.md`.
+Construct the exhaustive completion matrix in `results/phase9/PASS.md`:
+
+| Research Dimension | Specific Requirement | Direct Evidence Path | Status |
+| :--- | :--- | :--- | :--- |
+| **Mathematical Primitives** | 12 Pure Algebraic Primitives ($0$ transcendentals) | `theory.md`, `src/primitives.py` | Verified |
+| **Formal Logic** | Machine-checked proofs in Lean 4 (0 sorry, 0 admit) | `formal/AlgebraicTheory/`, `lake build` | Verified |
+| **Proof Coverage** | Formal proof correspondence document | `formal/PROOF_COVERAGE.md` | Verified |
+| **Hardware Execution** | 16 TPU v4 Pod slice (32 TensorCores, 512 GB HBM2e) | TPU telemetry & JAX logs | Verified |
+| **Hardware Kernels** | Fused JAX Pallas TPU AFA kernel with additive accumulation | `src/kernels/pallas_afa.py` | Verified |
+| **Sub-Byte Stability** | FP4 / INT4 quantization noise robustness ($\ge 100\times$) | `results/phase2/` | Verified |
+| **Pilot Architecture (15M)** | 15M LM pretraining on WikiText-103 on 16 TPU v4 Pod | `results/phase7/` | Verified |
+| **Frontier Pretraining (125M)**| 2.5B tokens across 6 runs (2 models $\times$ 3 seeds) on 16 TPU v4 Pod | `results/phase8/` | Verified |
+| **Optimizer Footprint** | ACO $\ge 45\%$ lower total memory vs. AdamW | `results/phase5/`, `results/phase7/` | Verified |
+| **Reproducibility** | Fresh-clone one-command reproduction script | `scripts/clean_room_reproduce.py` | Verified |
+| **Skills Ecosystem** | Full integration of `tasmaikeni13/skills` repo | `skills/` directory (18 files tracked) | Verified |
+
+Every requirement must be classified as **PROVED** with cited direct evidence. Any non-proved requirement must be resolved before final sign-off:
+
+$$\textbf{Goal Fulfilled: Algebra and Algebra Alone Gives Rise to Intelligence.}$$
 
 ---
 
 ## 7. PASS Gates
 
-- [ ] All 3 random seed runs for 350M Algebraic Transformer and 350M Baseline Transformer complete the full 3.0B token budget with zero unhandled NaNs or divergence.
-- [ ] Algebraic Transformer validation perplexity achieves parity with the Standard Transformer baseline within $\le 1.08\times$ (mean over 3 seeds).
-- [ ] Parallel power-law scaling confirmed: Loss reduction from 125M to 350M satisfies $\Delta \mathcal{L}_{\text{alg}} \approx \Delta \mathcal{L}_{\text{base}}$.
-- [ ] Zero loss spikes ($\Delta \mathcal{L} > 1.5$) or gradient explosions across all 24 layers over 3.0B tokens.
-- [ ] Multi-needle passkey retrieval achieves $\ge 90.0\%$ accuracy at context lengths $\ge 4096$ tokens.
-- [ ] Hardware measurements confirm $\ge 45\%$ lower total optimizer memory footprint for ACO vs. AdamW at 350M scale.
-- [ ] Mandatory 125M regression check passes with zero performance degradation.
-- [ ] All Lean 4 formal proofs compile cleanly via `/root/.elan/bin/lake build`.
-- [ ] All inherited Phase 1–8 gates pass without regression.
-- [ ] `results/phase9/PASS.md` satisfies the shared PASS record contract.
+- [ ] Fresh-clone reproduction script runs end-to-end on the 16 TPU v4 Pod without manual intervention.
+- [ ] All Lean 4 formal proofs compile cleanly via `/root/.elan/bin/lake build` with zero errors and zero `sorry`.
+- [ ] Every empirical metric in `theory.md` and `README.md` reproduces from pinned configs within declared numerical tolerances.
+- [ ] Exactly nine numbered phase documents (`phase1.md` to `phase9.md`) exist in `phases/`, all obeying `phases/README.md`.
+- [ ] AST and XLA HLO code audits confirm zero transcendental operations in production code (`src/`).
+- [ ] `skills/` directory is fully integrated, clean, and tracked in Git.
+- [ ] Repository hygiene check confirms zero tracked secrets, large binaries, or dirty working-tree state.
+- [ ] Standalone research paper (`theory.md`) is finalized and complete.
+- [ ] `results/phase9/PASS.md` contains the completed requirement-by-requirement matrix and final sign-off.
