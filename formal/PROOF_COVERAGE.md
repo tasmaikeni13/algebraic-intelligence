@@ -23,7 +23,7 @@ All formal proofs compile cleanly under Lean 4 (`v4.16.0`) with Mathlib4 via `/r
 | **Thm 7.2** | 2D Euclidean Norm Invariance: $\|\mathbf{R}(w)\mathbf{v}\|_2 = \|\mathbf{v}\|_2$ | `cayley_norm_preserving` | `AlgebraicTheory/Cayley.lean` | **Machine-Checked (Lean 4)** |
 | **Thm 5.2 (1)** | Pearson $\chi^2$ Divergence Expansion: $\frac{(y-p)^2}{p} = \frac{y^2}{p} - 2y + p$ | `pearson_chi_sq_expansion` | `AlgebraicTheory/Loss.lean` | **Machine-Checked (Lean 4)** |
 | **Thm 5.2 (2)** | Non-Negativity & Strict Propriety of $D_A$: $\frac{(y-p)^2}{p} \ge 0$ | `pearson_divergence_nonneg`, `pearson_zero_iff_equal` | `AlgebraicTheory/Loss.lean` | **Machine-Checked (Lean 4)** |
-| **Thm 12.4** | Factorized Kronecker Curvature Recovery: $\frac{(a_i \bar{b})(b_j \bar{a})}{\bar{a}\bar{b}} = a_i b_j$ | `factorized_rank1_recovery` | `AlgebraicTheory/Curvature.lean` | **Machine-Checked (Lean 4)** |
+| **Thm 10.4** | Factorized Kronecker Curvature Recovery: $\frac{(a_i \bar{b})(b_j \bar{a})}{\bar{a}\bar{b}} = a_i b_j$ | `factorized_rank1_recovery` | `AlgebraicTheory/Curvature.lean` | **Machine-Checked (Lean 4)** |
 | **Eq 62** | Rational Moment Polynomial Debiasing: $\frac{v_t}{1 - \beta^t}$ | `debiasing_identity` | `AlgebraicTheory/Curvature.lean` | **Machine-Checked (Lean 4)** |
 | **Eq 67** | Decoupled Algebraic Parameter Update Invariance | `decoupled_weight_decay_step` | `AlgebraicTheory/Curvature.lean` | **Machine-Checked (Lean 4)** |
 
@@ -31,18 +31,16 @@ All formal proofs compile cleanly under Lean 4 (`v4.16.0`) with Mathlib4 via `/r
 
 ## Analytic & Empirical Theorems
 
-The following theorems in `theory.md` involve asymptotic limits, differential geometry on manifolds, or empirical distributions, and are validated through rigorous analytic proofs and high-sample Monte Carlo simulations in `analysis/`:
+The following theorems in `theory.md` involve asymptotic limits, differential geometry on manifolds, or empirical distributions, and are validated through rigorous analytic proofs and high-sample Monte Carlo simulations:
 
-1. **Theorem 4.6 (Uniform Jacobian Operator Bound):** The diagonal derivative of A-Softmax is bounded by $\le n/4 = 2.0$. Formally verified analytically; confirmed via $10^4$ autograd Jacobian evaluations in `analysis/verify_algebraic_primitives.py`.
+1. **Theorem 4.6 (Uniform Jacobian Operator Bound):** The diagonal derivative of A-Softmax is bounded by $\le n/4 = 2.0$. Formally verified analytically.
 2. **Theorem 4.7 (Routing Sharpness at Bounded Logits):** Dynamic contrast ratio $(2 + \sqrt{5})^8 = 103,682$. Verified analytically and numerically in fp64.
 3. **Theorem 4.15 (Uniformly Bounded OACE Gradient):** Gradient magnitude bounded by $8 p_k^{-1/8} \leq 8 K^{1/8} \rho(\sqrt{K})^2$. Verified analytically and numerically at $p_k = 10^{-9}$.
-4. **Theorem 5.2 (3) (Fisher Equivalence of $D_A$ and $D_{\text{KL}}$):** Riemannian Hessian equivalence $\nabla^2 D_A = 2 \nabla^2 D_{\text{KL}}$ at $\mathbf{p} = \mathbf{y}$. Verified analytically; confirmed via numerical Hessian ratio in `analysis/verify_algebraic_primitives.py`.
+4. **Theorem 5.2 (3) (Fisher Equivalence of $D_A$ and $D_{\text{KL}}$):** Riemannian Hessian equivalence $\nabla^2 D_A = 2 \nabla^2 D_{\text{KL}}$ at $\mathbf{p} = \mathbf{y}$. Verified analytically.
 5. **Theorem 7.5 (Exact Shift Equivariance of AGO):** Relative displacement identity $\langle \mathbf{Q}_m, \mathbf{K}_n \rangle = f(n - m)$. Follows from $\mathbf{R}_k \in \mathrm{SO}(2)$; confirmed numerically across $L=4096$ positions.
-6. **Theorem 8.2 (Contractive Memory Stability of AA):** Eigenvalues of transition matrix in $(-1, 1)$, ensuring $\|\mathbf{S}_t\|_F < \infty$. Analytically derived; confirmed across $16,384$ steps.
-7. **Theorem 9.1 (Single-Pass Additive Tile Accumulation):** Pure additivity of AFA tiles without running maximums. Analytically derived; verified on 16 TPU v4 Pod in `src/kernels/pallas_afa.py`.
-8. **Theorem 10.3 (Universal Approximation of ALU-GLU):** Follows from the Leshno-Lin-Pinkus-Schocken Theorem (1993) since $K(x)$ is continuous and non-polynomial.
-9. **Theorem 12.7 (Convergence Bound of ACO):** $\mathcal{O}(1/\sqrt{T})$ convergence to a stationary point on non-convex smooth objectives. Analytically derived via Lyapunov analysis.
-10. **Theorem 13.3 (Constant-Bounded Typo Shatter of ABA):** $\|F(\mathbf{b}) - F(\mathbf{b}')\|_F = \mathcal{O}(1)$ vs BPE $\Omega(\sqrt{L})$. Analytically derived via Lipschitz composition.
+6. **Theorem 8.1 (Single-Pass Additive Tile Accumulation):** Pure additivity of AFA tiles without running maximums. Analytically derived; verified on 16 TPU v4 Pod in `src/kernels/pallas_afa.py`.
+7. **Theorem 9.3 (Universal Approximation of ALU-GLU):** Follows from the Leshno-Lin-Pinkus-Schocken Theorem (1993) since $K(x)$ is continuous and non-polynomial.
+8. **Theorem 10.7 (Convergence Bound of ACO):** $\mathcal{O}(1/\sqrt{T})$ convergence to a stationary point on non-convex smooth objectives. Analytically derived via Lyapunov analysis.
 
 ---
 

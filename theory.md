@@ -66,16 +66,14 @@ The paper is organized around the foundational layers of the Algebraic Stack:
 - **Section 5** develops the Algebraic Divergence (AD), establishing strict propriety on the simplex interior, Pearson $\chi^2$ equivalence, and elimination of gradient explosion under AVN pre-bounding.
 - **Section 6** establishes Algebraic Variance Normalization (AVN), proving the zero-parameter HBM corollary and the Coupling Identity.
 - **Section 7** presents Algebraic Geometric Ordering (AGO) via static rank-2 Cayley rotations, proving exact shift equivariance and $\mathcal{O}(1)$ autoregressive updates.
-- **Sections 8 and 9** develop Algebraic Attention (AA) and Algebraic Flash Attention (AFA), proving single-pass exactness, tile commutativity, and asynchronous, lock-free Ring Attention across multi-node clusters.
-- **Section 10** treats ALU-GLU, deriving its closed-form polynomial backward pass and universal approximation certificate.
-- **Section 11** develops the Algebraic Mixture of Experts (A-MoE), introducing the Algebraic Noise Transform (ANT) and native FP4 sparse routing.
-- **Section 12** presents the **Algebraic Curvature Optimizer (ACO)**: remaking AdamW with algebra alone, deriving factorized $\mathcal{O}(d_{\mathrm{out}} + d_{\mathrm{in}})$ curvature preconditioning, rational momentum, and the Algebraic Rational Decay Schedule (ARDS).
-- **Section 13** develops Algebraic Byte Algebra (ABA), proving constant-bounded typo shatter against adversarial BPE tokenization.
-- **Section 14** develops Algebraic Information Preservation (AIP), providing three structural anti-collapse certificates for latent-space training.
-- **Section 15** presents a foundational mathematical and philosophical treatise addressing the core research question: "Can algebra and algebra alone give rise to intelligence?".
-- **Section 16** provides an exhaustive structural comparison between empirical patches in frontier LLMs and native Algebraic Stack primitives.
-- **Section 17** synthesizes the complete Algebraic Stack in comprehensive architectural tables.
-- **Section 18** concludes the paper.
+- **Section 8** develops Algebraic Flash Attention (AFA), proving single-pass exactness, tile commutativity, and asynchronous, lock-free Ring Attention across multi-node clusters.
+- **Section 9** treats ALU-GLU, deriving its closed-form polynomial backward pass and universal approximation certificate.
+- **Section 10** presents the **Algebraic Curvature Optimizer (ACO)**: remaking AdamW with algebra alone, deriving factorized $\mathcal{O}(d_{\mathrm{out}} + d_{\mathrm{in}})$ curvature preconditioning, rational momentum, and the Algebraic Rational Decay Schedule (ARDS).
+- **Section 11** develops the **Algebraic Mixture of Experts (A-MoE)** as an architectural scaling extension for future work, introducing the Algebraic Noise Transform (ANT) and native FP4 sparse routing.
+- **Section 12** presents a foundational mathematical and philosophical treatise addressing the core research question: "Can algebra and algebra alone give rise to intelligence?".
+- **Section 13** provides an exhaustive structural comparison between empirical patches in frontier LLMs and native Algebraic Stack primitives.
+- **Section 14** synthesizes the complete Algebraic Stack in comprehensive architectural tables.
+- **Section 15** concludes the paper.
 
 ---
 
@@ -103,7 +101,7 @@ $$\hat{\mathbf{x}}\coloneqq \tau (\mathbf{x};\epsilon)\mathbf{x}. \quad (2)$$
 
 *Proof.* $\|\hat{\mathbf{x}}\|^2 = \|\mathbf{x}\|^2 \tau^2 = \|\mathbf{x}\|^2 / (\|\mathbf{x}\|^2 / d + \epsilon) \leq \|\mathbf{x}\|^2 / (\|\mathbf{x}\|^2 / d) = d$, with equality at $\epsilon = 0$. Since $\hat{x}_i^2 \leq \|\hat{\mathbf{x}}\|^2 \leq d$, the coordinate-wise bound $|\hat{x}_i| \leq \sqrt{d}$ follows immediately. $\blacksquare$
 
-Definition 2.1 is the unifying normalization primitive reused across A-Softmax (Section 4), AVN (Section 6), A-MoE routing (Section 11), and AIP anti-collapse regularizers (Section 14).
+Definition 2.1 is the unifying normalization primitive reused across A-Softmax (Section 4), AVN (Section 6), and A-MoE routing (Section 11).
 
 ### 2.3 The Algebraic Gate
 
@@ -366,73 +364,39 @@ requiring exactly 4 fused multiply-adds (FMAs) per channel pair and zero transce
 
 ---
 
-## 8 Algebraic Attention (AA)
+## 8 Algebraic Flash Attention (AFA)
 
-Algebraic Attention (AA) combines a local windowed A-Softmax track with a global linear associative memory track updated by an ALU-gated delta rule.
-
-**Definition 8.1 (Global Associative Memory Track).** The memory matrix $\mathbf{S}_t \in \mathbb{R}^{d_v \times d_k}$ updates as:
-$$\mathbf{S}_t = (1 - f_t)\mathbf{S}_{t-1} + \gamma_t (\mathbf{v}_t - \mathbf{S}_{t-1}\mathbf{k}_t)\mathbf{k}_t^\top, \quad (47)$$
-where $f_t = \beta(\mathbf{w}_f^\top \mathbf{c}_t)$ is the algebraic forget gate and $\gamma_t = \beta(\mathbf{w}_\gamma^\top \mathbf{c}_t)$ is the algebraic write gate.
-
-**Theorem 8.2 (Contractive Memory Stability).** Under normalized keys $\|\mathbf{k}_t\| = 1$, the transition matrix $\mathbf{M}_t = (1 - f_t)\mathbf{I} - \gamma_t \mathbf{k}_t \mathbf{k}_t^\top$ has eigenvalues in $(-1, 1)$, guaranteeing that $\|\mathbf{S}_t\|_F \leq \gamma_{\max} V / f_{\min}$ remains strictly bounded for all $t$.
-
----
-
-## 9 Algebraic Flash Attention (AFA)
-
-### 9.1 Elimination of the Max-Reduction Barrier
+### 8.1 Elimination of the Max-Reduction Barrier
 
 Standard FlashAttention maintains a running row-maximum $m_i$ across SRAM tiles to avoid $e^x$ overflow, requiring the cross-tile rescaling factor $e^{m_{\text{old}} - m_{\text{new}}}$. In distributed Ring Attention, communicating $m_i$ creates a serial cross-node barrier.
 
 In Algebraic Flash Attention (AFA), because the kernel $\rho(\hat{s})^8$ is strictly positive and AVN pre-bounding guarantees $|\hat{s}| \leq \sqrt{N}$, $\rho(\hat{s})^8$ is naturally bounded in FP32. No max-subtraction is needed.
 
-**Theorem 9.1 (Single-Pass Tile Additivity).** In AFA, partial numerators $\mathbf{N}_i^{(t)} = \sum_{j \in \text{tile}(t)} \rho(\hat{s}_{ij})^8 \mathbf{v}_j$ and partial denominators $D_i^{(t)} = \sum_{j \in \text{tile}(t)} \rho(\hat{s}_{ij})^8$ accumulate purely additively:
+**Theorem 8.1 (Single-Pass Tile Additivity).** In AFA, partial numerators $\mathbf{N}_i^{(t)} = \sum_{j \in \text{tile}(t)} \rho(\hat{s}_{ij})^8 \mathbf{v}_j$ and partial denominators $D_i^{(t)} = \sum_{j \in \text{tile}(t)} \rho(\hat{s}_{ij})^8$ accumulate purely additively:
 $$\mathbf{N}_i = \sum_{t} \mathbf{N}_i^{(t)}, \qquad D_i = \sum_{t} D_i^{(t)}, \qquad \mathbf{o}_i = \frac{\mathbf{N}_i}{D_i}. \quad (48)$$
 The tiled accumulation is mathematically identical to un-tiled computation in exact arithmetic.
 
-**Corollary 9.2 (Lock-Free Asynchronous Ring Attention).** Across $P$ distributed nodes, each node computes local sums $(\mathbf{N}_i^{(p)}, D_i^{(p)})$ independently. Sequence-wide attention requires only a single global $\mathrm{AllReduce}$ sum at the end, completely eliminating intermediate communication barriers between tiles.
+**Corollary 8.2 (Lock-Free Asynchronous Ring Attention).** Across $P$ distributed nodes, each node computes local sums $(\mathbf{N}_i^{(p)}, D_i^{(p)})$ independently. Sequence-wide attention requires only a single global $\mathrm{AllReduce}$ sum at the end, completely eliminating intermediate communication barriers between tiles.
 
 ---
 
-## 10 ALU-GLU: The Algebraic Feed-Forward Block
+## 9 ALU-GLU: The Algebraic Feed-Forward Block
 
-**Definition 10.1 (ALU-GLU Block).** For input $\mathbf{x} \in \mathbb{R}^d$:
+**Definition 9.1 (ALU-GLU Block).** For input $\mathbf{x} \in \mathbb{R}^d$:
 $$\mathbf{y} = \mathbf{W}_d [(\mathbf{W}_g \mathbf{x}) \odot K(\mathbf{W}_u \mathbf{x})], \quad (50)$$
 where $K(b) = \frac{b}{2}(1 + b / \sqrt{b^2 + 1}) = b \beta(b)$ is the Algebraic Linear Unit.
 
-**Theorem 10.2 (Closed-Form Polynomial Backward Graph).** With cached $u_j = b_j / \sqrt{b_j^2 + 1}$ and upstream gradient $\mathbf{g} = \partial \mathcal{L} / \partial \mathbf{y}$:
+**Theorem 9.2 (Closed-Form Polynomial Backward Graph).** With cached $u_j = b_j / \sqrt{b_j^2 + 1}$ and upstream gradient $\mathbf{g} = \partial \mathcal{L} / \partial \mathbf{y}$:
 $$\frac{\partial \mathcal{L}}{\partial \mathbf{b}} = (\mathbf{W}_d^\top \mathbf{g}) \odot \mathbf{a} \odot \frac{1}{2}(1 + 2\mathbf{u} - \mathbf{u}^{\odot 3}), \qquad \frac{\partial \mathcal{L}}{\partial \mathbf{a}} = (\mathbf{W}_d^\top \mathbf{g}) \odot K(\mathbf{b}). \quad (52)$$
 Evaluating the backward pass requires zero $\mathrm{rsqrt}$ and zero transcendental calls.
 
-**Theorem 10.3 (Universal Approximation).** Because the Algebraic Gate $\beta(x)$ is continuous, non-decreasing, and non-polynomial, feed-forward networks with ALU-GLU activations are universal approximators on compact subsets of $\mathbb{R}^d$ by the Leshno-Lin-Pinkus-Schocken theorem.
+**Theorem 9.3 (Universal Approximation).** Because the Algebraic Gate $\beta(x)$ is continuous, non-decreasing, and non-polynomial, feed-forward networks with ALU-GLU activations are universal approximators on compact subsets of $\mathbb{R}^d$ by the Leshno-Lin-Pinkus-Schocken theorem.
 
 ---
 
-## 11 Algebraic Mixture of Experts (A-MoE)
+## 10 The Algebraic Curvature Optimizer (ACO)
 
-### 11.1 The Algebraic Noise Transform (ANT)
-
-Standard MoE routing uses Gumbel-Softmax noise: $g = -\ln(-\ln U)$. This requires two transcendental logarithms. We construct the **Algebraic Noise Transform (ANT)** via inverse transform sampling on the algebraic distribution:
-
-**Definition 11.1 (Algebraic Distribution and ANT).** The algebraic distribution has CDF $F(\eta) = \beta(\eta) = \frac{1}{2}(1 + \eta / \sqrt{\eta^2 + 1})$. For uniform $U \in (0, 1)$ and regularizer $\epsilon_n > 0$, the ANT sample is:
-$$\eta = F^{-1}(U) = \frac{2U - 1}{\sqrt{1 - (2U - 1)^2 + \epsilon_n}}. \quad (57)$$
-Cost: 1 FMA, 1 $\mathrm{rsqrt}$, 1 multiplication. Zero logarithms.
-
-### 11.2 The A-MoE Router
-
-Logits are perturbed by ANT noise scaled by the token's AVN scalar $\tau_x$:
-$$\tilde{r}_j = r_j + \tau_x \eta_j, \qquad \mathbf{p} = \mathbf{S}_8(\tilde{\mathbf{r}}). \quad (58, 59)$$
-Tokens with high variance receive smaller perturbation (exploitation), while low-energy tokens receive larger noise (exploration).
-
-**Theorem 11.3 (Algebraic Anti-Collapse).** The routing gradient on AVN-bounded logits satisfies:
-$$\left|\frac{\partial p_j}{\partial \hat{r}_j}\right| \leq \frac{8 p_j}{\sqrt{\hat{r}_j^2 + 1}} \leq 8 p_j. \quad (60)$$
-The term $1 / \sqrt{\hat{r}_j^2 + 1}$ attenuates gradients for over-confident experts, structurally mitigating routing collapse without auxiliary entropy regularizers.
-
----
-
-## 12 The Algebraic Curvature Optimizer (ACO)
-
-### 12.1 The Curvature Problem and the Memory Hostility of AdamW
+### 10.1 The Curvature Problem and the Memory Hostility of AdamW
 
 The training of deep Transformer architectures exhibits severely ill-conditioned, non-convex loss landscapes characterized by anisotropic valleys with condition numbers $\kappa \gg 10^4$. First-order stochastic gradient descent (SGD) fails on these surfaces due to orthogonal gradient oscillation. AdamW resolves this by preconditioning updates with a diagonal estimate of the Fisher information matrix:
 $$\theta_t = \theta_{t-1} - \eta_t \left(\frac{\hat{m}_t}{\sqrt{\hat{v}_t} + \epsilon} + \lambda \theta_{t-1}\right).$$
@@ -444,7 +408,7 @@ However, standard AdamW introduces three structural liabilities:
 
 We now derive the **Algebraic Curvature Optimizer (ACO)**, remaking adaptive optimization entirely within algebra.
 
-### 12.2 Purely Algebraic Rational Momentum and Debiasing
+### 10.2 Purely Algebraic Rational Momentum and Debiasing
 
 In ACO, moment updates are governed by rational constants $\beta_1, \beta_2 \in \mathbb{Q}$ (e.g., $\beta_1 = 9/10, \beta_2 = 999/1000$):
 $$\mathbf{M}_t = \beta_1 \mathbf{M}_{t-1} + (1 - \beta_1) \mathbf{G}_t. \quad (61)$$
@@ -452,88 +416,83 @@ The bias-correction term is the rational polynomial:
 $$\delta_1(t) = 1 - \beta_1^t, \qquad \delta_2(t) = 1 - \beta_2^t. \quad (62)$$
 For integer step $t$, $\beta^t$ is an exact algebraic power computed in $\mathcal{O}(\log t)$ multiplications via binary exponentiation. The debiased first moment is $\hat{\mathbf{M}}_t = \mathbf{M}_t / \delta_1(t)$.
 
-### 12.3 Factorized Algebraic Preconditioning ($\mathcal{O}(d_{\mathrm{out}} + d_{\mathrm{in}})$ Memory)
+### 10.3 Factorized Algebraic Preconditioning ($\mathcal{O}(d_{\mathrm{out}} + d_{\mathrm{in}})$ Memory)
 
 To eliminate the $\mathcal{O}(d_{\mathrm{out}} \cdot d_{\mathrm{in}})$ second-moment HBM storage, ACO decomposes the curvature into row and column marginal projections.
 
-**Definition 12.1 (Factorized Curvature Accumulators).** For a weight gradient $\mathbf{G}_t \in \mathbb{R}^{d_{\mathrm{out}} \times d_{\mathrm{in}}}$, ACO maintains only two low-dimensional vectors in HBM:
+**Definition 10.1 (Factorized Curvature Accumulators).** For a weight gradient $\mathbf{G}_t \in \mathbb{R}^{d_{\mathrm{out}} \times d_{\mathrm{in}}}$, ACO maintains only two low-dimensional vectors in HBM:
 $$\mathbf{r}_t = \beta_2 \mathbf{r}_{t-1} + (1 - \beta_2) \left(\frac{1}{d_{\mathrm{in}}} \sum_{j=1}^{d_{\mathrm{in}}} \mathbf{G}_{t, \cdot, j}^{\odot 2}\right) \in \mathbb{R}^{d_{\mathrm{out}}}, \quad (63)$$
 $$\mathbf{c}_t = \beta_2 \mathbf{c}_{t-1} + (1 - \beta_2) \left(\frac{1}{d_{\mathrm{out}}} \sum_{i=1}^{d_{\mathrm{out}}} \mathbf{G}_{t, i, \cdot}^{\odot 2}\right) \in \mathbb{R}^{d_{\mathrm{in}}}. \quad (64)$$
 
 The debiased marginal second moments are:
 $$\hat{\mathbf{r}}_t = \frac{\mathbf{r}_t}{1 - \beta_2^t}, \qquad \hat{\mathbf{c}}_t = \frac{\mathbf{c}_t}{1 - \beta_2^t}. \quad (65)$$
 
-**Definition 12.2 (ACO Preconditioned Update).** The algebraic preconditioner is synthesized on-the-fly inside SRAM via the rank-1 outer product and evaluated using a single $\mathrm{rsqrt}$:
+**Definition 10.2 (ACO Preconditioned Update).** The algebraic preconditioner is synthesized on-the-fly inside SRAM via the rank-1 outer product and evaluated using a single $\mathrm{rsqrt}$:
 $$\hat{\mathbf{V}}_{t, ij} = \sqrt{\hat{r}_{t, i} \hat{c}_{t, j}}, \qquad \mathbf{U}_{t, ij} = \hat{\mathbf{M}}_{t, ij} \cdot \mathrm{rsqrt}(\hat{r}_{t, i} \hat{c}_{t, j} + \epsilon^2). \quad (66)$$
 The parameter update is:
 $$\mathbf{W}_t = \mathbf{W}_{t-1} - \eta_t \mathbf{U}_t - \eta_t \lambda \mathbf{W}_{t-1}, \quad (67)$$
 where $\lambda \in \mathbb{Q}$ is the decoupled algebraic weight decay factor.
 
-**Theorem 12.3 (Memory Compression Guarantee).** For a weight tensor $\mathbf{W} \in \mathbb{R}^{d_{\mathrm{out}} \times d_{\mathrm{in}}}$, standard AdamW stores $2 d_{\mathrm{out}} d_{\mathrm{in}}$ optimizer state scalars. ACO stores $d_{\mathrm{out}} d_{\mathrm{in}}$ scalars for momentum plus $d_{\mathrm{out}} + d_{\mathrm{in}}$ scalars for curvature. When combined with rank-1 momentum factorization $\mathbf{M} \approx \mathbf{u}_m \mathbf{v}_m^\top$, the state scales as $\mathcal{O}(d_{\mathrm{out}} + d_{\mathrm{in}})$, achieving an exact compression factor of:
+**Theorem 10.3 (Memory Compression Guarantee).** For a weight tensor $\mathbf{W} \in \mathbb{R}^{d_{\mathrm{out}} \times d_{\mathrm{in}}}$, standard AdamW stores $2 d_{\mathrm{out}} d_{\mathrm{in}}$ optimizer state scalars. ACO stores $d_{\mathrm{out}} d_{\mathrm{in}}$ scalars for momentum plus $d_{\mathrm{out}} + d_{\mathrm{in}}$ scalars for curvature. When combined with rank-1 momentum factorization $\mathbf{M} \approx \mathbf{u}_m \mathbf{v}_m^\top$, the state scales as $\mathcal{O}(d_{\mathrm{out}} + d_{\mathrm{in}})$, achieving an exact compression factor of:
 $$\frac{d_{\mathrm{out}} d_{\mathrm{in}}}{d_{\mathrm{out}} + d_{\mathrm{in}}} \approx \frac{d}{2} \gg 10^3. \quad (68)$$
 
-**Theorem 12.4 (Kronecker Fisher Spectral Alignment).** Suppose the true gradient second moment follows a Kronecker-factored distribution $\mathbb{E}[\mathbf{G}_t^{\odot 2}] = \mathbf{a} \mathbf{b}^\top$ for positive vectors $\mathbf{a} \in \mathbb{R}^{d_{\mathrm{out}}}, \mathbf{b} \in \mathbb{R}^{d_{\mathrm{in}}}$. Then the factorized estimators $\hat{\mathbf{r}}_t$ and $\hat{\mathbf{c}}_t$ satisfy:
+**Theorem 10.4 (Kronecker Fisher Spectral Alignment).** Suppose the true gradient second moment follows a Kronecker-factored distribution $\mathbb{E}[\mathbf{G}_t^{\odot 2}] = \mathbf{a} \mathbf{b}^\top$ for positive vectors $\mathbf{a} \in \mathbb{R}^{d_{\mathrm{out}}}, \mathbf{b} \in \mathbb{R}^{d_{\mathrm{in}}}$. Then the factorized estimators $\hat{\mathbf{r}}_t$ and $\hat{\mathbf{c}}_t$ satisfy:
 $$\mathbb{E}[\hat{\mathbf{r}}_t] = \bar{b} \cdot \mathbf{a}, \qquad \mathbb{E}[\hat{\mathbf{c}}_t] = \bar{a} \cdot \mathbf{b},$$
 where $\bar{a} = \frac{1}{d_{\mathrm{out}}}\sum a_i$ and $\bar{b} = \frac{1}{d_{\mathrm{in}}}\sum b_j$. Consequently:
 $$\mathbb{E}[\hat{\mathbf{r}}_{t, i}] \cdot \mathbb{E}[\hat{\mathbf{c}}_{t, j}] = (\bar{a}\bar{b}) \cdot (\mathbf{a}\mathbf{b}^\top)_{ij},$$
 proving that the synthesized curvature $\sqrt{\hat{r}_i \hat{c}_j}$ is an exact spectral estimator of the true diagonal Fisher information matrix up to a global scalar.
 
-### 12.4 Algebraic Rational Decay Schedule (ARDS)
+### 10.4 Algebraic Rational Decay Schedule (ARDS)
 
 Practitioners rely on transcendental cosine annealing $\frac{1}{2}(1 + \cos(\pi t / T))$ to decay the learning rate. We eliminate cosine entirely by introducing the **Algebraic Rational Decay Schedule (ARDS)**:
 
-**Definition 12.5 (ARDS).** For maximum learning rate $\eta_{\max}$, warmup steps $T_{\mathrm{warm}}$, decay scale $T_{\mathrm{decay}}$, and curvature parameter $\alpha > 0$:
+**Definition 10.5 (ARDS).** For maximum learning rate $\eta_{\max}$, warmup steps $T_{\mathrm{warm}}$, decay scale $T_{\mathrm{decay}}$, and curvature parameter $\alpha > 0$:
 $$\eta(t) = \eta_{\max} \cdot \min\left(1, \frac{t}{T_{\mathrm{warm}}}\right) \cdot \mathrm{rsqrt}\left(1 + \alpha \left[\frac{\max(0, t - T_{\mathrm{warm}})}{T_{\mathrm{decay}}}\right]^2\right). \quad (69)$$
 
-**Proposition 12.6 (Properties of ARDS).**
+**Proposition 10.6 (Properties of ARDS).**
 1. **Smoothness:** $\eta(t)$ is continuous and piecewise smooth.
 2. **Warmup linearity:** For $t \leq T_{\mathrm{warm}}$, $\eta(t) = \eta_{\max}(t / T_{\mathrm{warm}})$.
 3. **Algebraic decay:** For $t > T_{\mathrm{warm}}$, $\eta(t) \sim \mathcal{O}(1/t)$, matching the optimal theoretical rate for non-convex stochastic optimization.
 4. **Hardware cost:** Evaluated in 1 subtraction, 1 square, 1 FMA, and 1 hardware $\mathrm{rsqrt}$. Zero trigonometric functions.
 
-### 12.5 Global Convergence of the Algebraic Curvature Optimizer
+### 10.5 Global Convergence of the Algebraic Curvature Optimizer
 
-**Theorem 12.7 (Convergence Bound on Smooth Non-Convex Objectives).** Let $\mathcal{L}: \mathbb{R}^P \to \mathbb{R}$ be $L$-Lipschitz smooth ($\|\nabla \mathcal{L}(\theta) - \nabla \mathcal{L}(\theta')\| \leq L\|\theta - \theta'\|$) and bounded below by $\mathcal{L}^*$. Let the stochastic gradient estimates have bounded variance $\mathbb{E}[\|\mathbf{G}_t - \nabla \mathcal{L}(\theta_t)\|^2] \leq \sigma^2$. Under the ACO update (Definition 12.2) with learning rate schedule $\eta_t = \eta_0 / \sqrt{t}$, the sequence of iterates satisfies:
+**Theorem 10.7 (Convergence Bound on Smooth Non-Convex Objectives).** Let $\mathcal{L}: \mathbb{R}^P \to \mathbb{R}$ be $L$-Lipschitz smooth ($\|\nabla \mathcal{L}(\theta) - \nabla \mathcal{L}(\theta')\| \leq L\|\theta - \theta'\|$) and bounded below by $\mathcal{L}^*$. Let the stochastic gradient estimates have bounded variance $\mathbb{E}[\|\mathbf{G}_t - \nabla \mathcal{L}(\theta_t)\|^2] \leq \sigma^2$. Under the ACO update (Definition 10.2) with learning rate schedule $\eta_t = \eta_0 / \sqrt{t}$, the sequence of iterates satisfies:
 $$\frac{1}{T} \sum_{t=1}^T \mathbb{E}[\|\nabla \mathcal{L}(\theta_t)\|^2] \leq \frac{C_1 (\mathcal{L}(\theta_0) - \mathcal{L}^*)}{\sqrt{T}} + \frac{C_2 \sigma^2 \ln(T)}{\sqrt{T}} = \mathcal{O}\left(\frac{1}{\sqrt{T}}\right), \quad (70)$$
 guaranteeing convergence to a stationary point at the minimax optimal rate.
 
 ---
 
-## 13 Algebraic Byte Algebra (ABA)
+## 11 Future Architectural Extensions: Algebraic Mixture of Experts (A-MoE)
 
-Byte-Pair Encoding (BPE) tokenization is a non-Lipschitz, discrete pre-processing step. A single-character typo can cause the tokenizer to partition an entire sequence into completely different token IDs, a vulnerability we term **Typo Shatter**.
+While the core dense language model architecture (evaluated in our empirical pretraining benchmarks) relies on dense ALU-GLU feed-forward networks, we present the theoretical formulation of the **Algebraic Mixture of Experts (A-MoE)** as an architectural scaling extension for future work. A-MoE replaces transcendental Gumbel noise and exponential routing with purely algebraic noise and degree-8 rational gating.
 
-**Theorem 13.1 (BPE Typo Shatter Lower Bound).** For any BPE tokenizer over an adversarial alphabet, a single-byte substitution creates an embedding displacement growing as $\Omega(\sqrt{L})$.
+### 11.1 The Algebraic Noise Transform (ANT)
 
-**Definition 13.2 (Algebraic Byte Algebra Layer).** ABA ingests raw bytes $b_j \in \{0, \dots, 255\}$:
-$$\mathbf{e}_j = \mathbf{E}[b_j] + \mathbf{P}[j \bmod W], \quad \mathbf{h}_j = \mathbf{W}_d [(\mathbf{W}_g \mathbf{e}_j) \odot K(\mathbf{W}_u \mathbf{e}_j)], \quad \mathbf{x}_i = \mathbf{W}_o \left(\frac{1}{W}\sum_{j \in \mathrm{patch}(i)} \mathbf{h}_j\right). \quad (71)$$
+Standard MoE routing uses Gumbel-Softmax noise: $g = -\ln(-\ln U)$. This requires two transcendental logarithms. We construct the **Algebraic Noise Transform (ANT)** via inverse transform sampling on the algebraic distribution:
 
-**Theorem 13.3 (Constant-Bounded Typo Shatter).** Under a single-byte perturbation, the output perturbation of ABA satisfies:
-$$\|F(\mathbf{b}) - F(\mathbf{b}')\|_F \leq \frac{1}{W}(1 + L_K)\|\mathbf{W}_g\|_2 \|\mathbf{W}_u\|_2 \|\mathbf{W}_o\|_2 (M_E + M_P) = \mathcal{O}(1), \quad (72)$$
-which is strictly bounded by a constant independent of sequence length $L$.
+**Definition 11.1 (Algebraic Distribution and ANT).** The algebraic distribution has CDF $F(\eta) = \beta(\eta) = \frac{1}{2}(1 + \eta / \sqrt{\eta^2 + 1})$. For uniform $U \in (0, 1)$ and regularizer $\epsilon_n > 0$, the ANT sample is:
+$$\eta = F^{-1}(U) = \frac{2U - 1}{\sqrt{1 - (2U - 1)^2 + \epsilon_n}}. \quad (71)$$
+Cost: 1 FMA, 1 $\mathrm{rsqrt}$, 1 multiplication. Zero logarithms.
 
----
+### 11.2 The A-MoE Router
 
-## 14 Algebraic Information Preservation (AIP)
+Logits are perturbed by ANT noise scaled by the token's AVN scalar $\tau_x$:
+$$\tilde{r}_j = r_j + \tau_x \eta_j, \qquad \mathbf{p} = \mathbf{S}_8(\tilde{\mathbf{r}}). \quad (72, 73)$$
+Tokens with high variance receive smaller perturbation (exploitation), while low-energy tokens receive larger noise (exploration).
 
-To prevent representation collapse in self-supervised or latent-predictive architectures without transcendental VICReg hinges or Barlow Twins logarithms, we introduce **Algebraic Information Preservation (AIP)**:
-
-1. **Anti-Roughness (Lipschitz Certificate):** Algebraic power iteration uses $\mathrm{rsqrt}$ to estimate spectral norms without division:
-   $$\mathbf{u}_{t+1} = \mathbf{W} \mathbf{v}_t \cdot \mathrm{rsqrt}(\mathbf{v}_t^\top \mathbf{W}^\top \mathbf{W} \mathbf{v}_t), \qquad \mathbf{v}_{t+1} = \mathbf{W}^\top \mathbf{u}_{t+1} \cdot \mathrm{rsqrt}(\mathbf{u}_{t+1}^\top \mathbf{W} \mathbf{W}^\top \mathbf{u}_{t+1}). \quad (74)$$
-   Spectrally normalized layers ensure $\operatorname{Lip}(\Phi) \leq L_K^D \approx (1.0445)^D$.
-2. **Anti-Dimensional Collapse (Algebraic Covariance Divergence):** For correlation matrix $\mathbf{C} = \frac{1}{N}\mathbf{Z}^\top \mathbf{Z}$ with unit diagonal:
-   $$\mathcal{L}_{\mathrm{AIP}}(\mathbf{Z}) = \frac{1}{2}\left(\operatorname{Tr}(\mathbf{C}^2) - d\right) = \frac{1}{2}\|\mathbf{C} - \mathbf{I}\|_F^2 = \frac{1}{2}\sum_{i \neq j} C_{ij}^2. \quad (76)$$
-   $\mathcal{L}_{\mathrm{AIP}} = 0 \iff \mathbf{C} = \mathbf{I}$, guaranteeing full-rank representations via a pure polynomial.
-3. **Anti-Mode Collapse (AVN Repulsion Field):** Differentiating the AVN scalar $\tau = (v + \epsilon)^{-1/2}$ yields $|\partial \tau / \partial v| = \frac{1}{2}(v + \epsilon)^{-3/2} \to \frac{1}{2\epsilon^{3/2}}$ as $v \to 0$, providing an automatic repulsive potential that pushes collapsed clusters apart.
+**Theorem 11.2 (Algebraic Anti-Collapse).** The routing gradient on AVN-bounded logits satisfies:
+$$\left|\frac{\partial p_j}{\partial \hat{r}_j}\right| \leq \frac{8 p_j}{\sqrt{\hat{r}_j^2 + 1}} \leq 8 p_j. \quad (74)$$
+The term $1 / \sqrt{\hat{r}_j^2 + 1}$ attenuates gradients for over-confident experts, structurally mitigating routing collapse without auxiliary entropy regularizers.
 
 ---
 
-## 15 Foundational Analysis: Can Algebra and Algebra Alone Give Rise to Intelligence?
+## 12 Foundational Analysis: Can Algebra and Algebra Alone Give Rise to Intelligence?
 
 Having constructed the complete Algebraic Stack, we now directly address the core research direction:
 $$\textbf{Can algebra and algebra alone give rise to intelligence?}$$
 
-### 15.1 The Historical Transcendental Dogma
+### 12.1 The Historical Transcendental Dogma
 
 For over seven decades, machine learning has operated under the implicit assumption that transcendental functions are indispensable prerequisites for intelligence:
 - The exponential $e^x$ was assumed necessary to define Gibbs-Boltzmann probability distributions over discrete states.
@@ -543,17 +502,17 @@ For over seven decades, machine learning has operated under the implicit assumpt
 
 This assumption is historically contingent, not mathematically necessary. Transcendentals entered computation because 19th-century mathematicians lacked digital silicon and relied on continuous analytic functions whose infinitesimal derivatives admitted paper-and-pencil closed forms. Digital accelerators, however, operate on discrete finite-precision registers. In this regime, transcendentals become liabilities: they require range-reduction polynomials, suffer from exponential dynamic range explosion, and create serial communication barriers.
 
-### 15.2 The Algebraic Completeness of Neural Representation
+### 12.2 The Algebraic Completeness of Neural Representation
 
 Can algebraic operations approximate arbitrary cognitive functions? We state and prove the Algebraic Universality Theorem:
 
-**Theorem 15.1 (Algebraic Universality on Compact Sets).** Let $\mathcal{K} \subset \mathbb{R}^d$ be a compact domain, and let $f \in C(\mathcal{K}, \mathbb{R})$ be any continuous target function. Let $\mathcal{A}_{\mathrm{alg}}$ denote the family of single-hidden-layer networks whose activations are restricted to the Algebraic Linear Unit $K(x) = \frac{x}{2}(1 + x/\sqrt{x^2+1})$:
+**Theorem 12.1 (Algebraic Universality on Compact Sets).** Let $\mathcal{K} \subset \mathbb{R}^d$ be a compact domain, and let $f \in C(\mathcal{K}, \mathbb{R})$ be any continuous target function. Let $\mathcal{A}_{\mathrm{alg}}$ denote the family of single-hidden-layer networks whose activations are restricted to the Algebraic Linear Unit $K(x) = \frac{x}{2}(1 + x/\sqrt{x^2+1})$:
 $$\mathcal{A}_{\mathrm{alg}} = \left\{ g(\mathbf{x}) = \sum_{i=1}^M c_i K(\mathbf{w}_i^\top \mathbf{x} + b_i) : c_i, b_i \in \mathbb{R}, \mathbf{w}_i \in \mathbb{R}^d, M \in \mathbb{N} \right\}.$$
 Then $\mathcal{A}_{\mathrm{alg}}$ is uniformly dense in $C(\mathcal{K}, \mathbb{R})$: for every $\epsilon > 0$, there exists $g \in \mathcal{A}_{\mathrm{alg}}$ such that $\sup_{\mathbf{x} \in \mathcal{K}} |f(\mathbf{x}) - g(\mathbf{x})| < \epsilon$.
 
 *Proof.* By the Leshno-Lin-Pinkus-Schocken Theorem (1993), an activation function $\sigma: \mathbb{R} \to \mathbb{R}$ achieves universal approximation in $C(\mathcal{K})$ if and only if $\sigma$ is not an algebraic polynomial. The ALU activation $K(x) = \frac{x}{2}(1 + x/\sqrt{x^2+1})$ involves the square root radical $\sqrt{x^2+1}$. Suppose for contradiction that $K(x)$ were a polynomial $P(x) \in \mathbb{R}[x]$. Then $x/\sqrt{x^2+1} = 2P(x)/x - 1$ would be a rational function $Q(x) \in \mathbb{R}(x)$, implying $x^2 / (x^2 + 1) = Q(x)^2$, so $x^2(Q_{\mathrm{den}}(x))^2 = (x^2+1)(Q_{\mathrm{num}}(x))^2$. But $x^2 + 1$ is irreducible over $\mathbb{R}[x]$ and has simple roots $\pm i$, whereas in any square of a polynomial in $\mathbb{R}[x]$, all complex roots have even multiplicity. This contradiction proves that $K(x)$ is not a polynomial. Since $K(x)$ is continuous and non-polynomial, $\mathcal{A}_{\mathrm{alg}}$ is dense in $C(\mathcal{K})$. $\blacksquare$
 
-### 15.3 Group-Theoretic Equivariance via Pure Algebra
+### 12.3 Group-Theoretic Equivariance via Pure Algebra
 
 Intelligence requires representing symmetries—specifically the translation group $(\mathbb{R}, +)$ in temporal and spatial reasoning. RoPE relies on the Lie group isomorphism $(\mathbb{R}, +) \to \mathrm{SO}(2)$ via the transcendental exponential map $\theta \mapsto \exp(\theta \mathbf{J}) = \cos \theta \mathbf{I} + \sin \theta \mathbf{J}$.
 
@@ -561,17 +520,17 @@ Theorem 7.2 and 7.3 prove that the Cayley transform $\operatorname{Cay}(\omega \
 $$\mathbf{R}_k(m) = (\mathbf{R}_k)^m.$$
 Because $\mathbf{R}_k(m)^\top \mathbf{R}_k(n) = \mathbf{R}_k^{n-m}$, relative displacement is represented exactly without transcendentals. Symmetries in machine intelligence do not require continuous analytic functions; they are exact algebraic properties of orthogonal matrices.
 
-### 15.4 Information Geometry Without Logarithms
+### 12.4 Information Geometry Without Logarithms
 
 Does information measurement require the logarithm? The historical justification for $-\sum p \ln p$ is Shannon's additivity axiom for independent events: $I(A \cap B) = I(A) + I(B)$. However, in neural training, the loss function is an optimization surrogate whose purpose is to provide a steep, non-vanishing gradient signal aligned with the Riemannian Fisher information metric.
 
 Theorem 5.2 establishes that the Algebraic Divergence $D_A(\mathbf{y} \| \mathbf{p}) = \sum y_i^2 / p_i - 1$ has a Riemannian Hessian equal to $2 \nabla^2 D_{\mathrm{KL}}$ at the optimum. Theorem 4.15 proves that the Octo-Algebraic Cross-Entropy $\mathcal{L}_{1/8} = 8(p_k^{-1/8} - 1)$ possesses a strictly bounded gradient $8 p_k^{-1/8} \leq 8 K^{1/8}\rho(\sqrt{K})^2$, completely eliminating the numerical instability of logarithmic loss. Information geometry on the probability simplex is an algebraic Riemannian geometry.
 
-### 15.5 Curvature-Aware Optimization Without Continuous Transcendentals
+### 12.5 Curvature-Aware Optimization Without Continuous Transcendentals
 
-Does adaptive optimization require continuous exponential integrals? Theorem 12.4 proves that factorized row-column projections $\mathbf{r}_t \otimes \mathbf{c}_t$ approximate the diagonal Fisher information matrix with spectral fidelity under Kronecker covariance. The learning rate schedule ARDS decays as $1/\sqrt{1 + \alpha t^2} \sim 1/t$, matching the optimal asymptotic convergence rate for stochastic non-convex optimization (Theorem 12.7) with zero trigonometric calls.
+Does adaptive optimization require continuous exponential integrals? Theorem 10.4 proves that factorized row-column projections $\mathbf{r}_t \otimes \mathbf{c}_t$ approximate the diagonal Fisher information matrix with spectral fidelity under Kronecker covariance. The learning rate schedule ARDS decays as $1/\sqrt{1 + \alpha t^2} \sim 1/t$, matching the optimal asymptotic convergence rate for stochastic non-convex optimization (Theorem 10.7) with zero trigonometric calls.
 
-### 15.6 The Affirmative Answer
+### 12.6 The Affirmative Answer
 
 We conclude:
 $$\textbf{Yes: Algebra and algebra alone can give rise to intelligence.}$$
@@ -580,7 +539,7 @@ Intelligence does not reside in the transcendental nature of $e^x$ or $\ln x$. I
 1. **Multilinear compositional capacity** (dense matrix multiplications).
 2. **Continuous, non-polynomial thresholding** (the Algebraic Gate $\beta$ and ALU).
 3. **Projective normalization on bounded manifolds** (AVN).
-4. **Relational routing and associative memory** (A-Softmax and AA).
+4. **Relational routing and contextual attention** (A-Softmax and AFA).
 5. **Exact rotational group actions** (AGO Cayley rotations).
 6. **Curvature-aligned Riemannian preconditioning** (ACO).
 
@@ -588,7 +547,7 @@ Every one of these mechanisms is purely algebraic. By purging transcendentals, w
 
 ---
 
-## 16 Structural Comparison with State-of-the-Art
+## 13 Structural Comparison with State-of-the-Art
 
 Frontier deployments have developed complex engineering heuristics to patch the structural failures of transcendental architectures. Table 1 demonstrates that each heuristic is an ad-hoc fix for a transcendental defect, whereas the Algebraic Stack provides the solution natively.
 
@@ -600,20 +559,18 @@ Frontier deployments have developed complex engineering heuristics to patch the 
 | **Positional Encoding** | Trigonometric RoPE ($\sin, \cos$) | Algebraic Geometric Ordering (AGO) | Static Cayley $\mathbf{R}_k = (\mathbf{I} + \omega_k\mathbf{J})(\mathbf{I} - \omega_k\mathbf{J})^{-1}$ via 4 FMAs |
 | **Ring Attention Sync** | Serial max-reduction across nodes | Algebraic Flash Attention (AFA) | Strictly positive $\rho^8$ allows single-pass lock-free AllReduce |
 | **Quantization Outliers** | QAT outlier suppression / carve-outs | 2-Lipschitz A-Softmax | $\operatorname{Var}(\rho(X)) \leq 4\operatorname{Var}(X)$; uniform $n/4$ Jacobian bound |
-| **MoE Routing Collapse** | Auxiliary entropy / load-balance loss | A-MoE Router | $w_j = (1 + \hat{r}_j^2)^{-1/2}$ naturally attenuates confident experts |
+| **MoE Routing Collapse** | Auxiliary entropy / load-balance loss | A-MoE Router* (Future Work) | $w_j = (1 + \hat{r}_j^2)^{-1/2}$ naturally attenuates confident experts |
 | **MoE Gumbel Noise** | Transcendental $g = -\ln(-\ln U)$ | Algebraic Noise Transform (ANT) | Inverse-CDF $\eta = (2U-1)/\sqrt{1 - (2U-1)^2 + \epsilon_n}$ |
 | **HBM Normalization** | Learnable $\boldsymbol{\gamma}$ vector in HBM | AVN Layer | Zero-parameter projection; Coupling Identity $\beta(x; v) = \beta(\hat{x}; 1)$ |
 | **Optimizer Memory** | Full $\mathcal{O}(d_{\mathrm{out}} d_{\mathrm{in}})$ AdamW state | Algebraic Curvature Optimizer (ACO) | Factorized row-column projections in $\mathcal{O}(d_{\mathrm{out}} + d_{\mathrm{in}})$ memory |
 | **Learning Rate Schedule**| Cosine Annealing $\frac{1}{2}(1 + \cos(\pi t / T))$ | Algebraic Rational Decay (ARDS) | Rational decay $\eta_t \propto \mathrm{rsqrt}(1 + \alpha t^2)$ via 1 $\mathrm{rsqrt}$ |
 | **Loss Gradient Explosion**| Gradient clipping / Logit soft-capping | Octo-Algebraic Cross-Entropy (OACE) | Gradient bounded by $8 p_k^{-1/8} \leq 8 K^{1/8} \rho(\sqrt{K})^2$ |
-| **Typo Shatter in Tokens**| Character fallbacks / Subword heuristic | Algebraic Byte Algebra (ABA) | Constant-bounded Lipschitz shatter norm $\mathcal{O}(1)$ |
-| **Latent Mode Collapse** | Barlow Twins log / VICReg hinge | Algebraic Information Preservation (AIP) | Off-diagonal norm $\|\mathbf{C} - \mathbf{I}\|_F^2$ and AVN repulsive field |
 
 ---
 
-## 17 The Complete Algebraic Stack: Summary
+## 14 The Complete Algebraic Stack: Summary
 
-Table 2 presents the twelve unified primitives of the Algebraic Stack, their transcendental targets, and their proved theorems.
+Table 2 presents the core primitives and extensions of the Algebraic Stack, their transcendental targets, and their proved theorems.
 
 **Table 2: Complete specification of the Algebraic Stack.**
 
@@ -625,19 +582,16 @@ Table 2 presents the twelve unified primitives of the Algebraic Stack, their tra
 | **AD** | KL Divergence | $D_A(\mathbf{y} \| \mathbf{p}) = \sum y_i^2 / p_i - 1$ | Pearson $\chi^2$ equivalence; Riemannian Fisher equivalence; Bounded gradient (Thm 5.2, 5.3) |
 | **AVN** | LayerNorm, RMSNorm | $\tau = \mathrm{rsqrt}(m_2(\mathbf{x}) + \epsilon), \hat{\mathbf{x}} = \tau \mathbf{x}$ | Zero parameters; Coupling Identity $\beta(x; v) = \beta(\hat{x}; 1)$ (Def 6.1, Thm 6.2) |
 | **AGO** | RoPE, Sinusoidal PE | $\mathbf{R}_k = (\mathbf{I} + \omega_k\mathbf{J})(\mathbf{I} - \omega_k\mathbf{J})^{-1}$ | Exact shift equivariance $\langle\mathbf{Q}_m,\mathbf{K}_n\rangle = f(n - m)$; $\mathcal{O}(1)$ decode (Thm 7.5, 7.6) |
-| **AA** | Softmax Attention | Dual-track: local A-Softmax + ALU delta rule | Linear global associative memory; contractive stability $\|\mathbf{S}_t\|_F < \infty$ (Thm 8.2) |
-| **AFA** | FlashAttention-2 | Additive tile accumulation without max reduction | Lock-free asynchronous Ring Attention via single AllReduce (Thm 9.1, Cor 9.2) |
-| **ALU-GLU** | SwiGLU, GeGLU | $\mathbf{W}_d [(\mathbf{W}_g \mathbf{x}) \odot K(\mathbf{W}_u \mathbf{x})]$ | Polynomial backward in cached $u$; Universal approximation (Thm 10.2, 10.3) |
-| **A-MoE** | Softmax + Gumbel MoE | AVN-bounded $\rho^8$ routing + ANT noise | Native FP4 routing; variance-adaptive exploration; anti-collapse (Thm 11.3, Cor 4.10) |
-| **ACO** | AdamW Optimizer | Factorized curvature $r_i \otimes c_j$ + ARDS schedule | $\mathcal{O}(d_{\mathrm{out}} + d_{\mathrm{in}})$ memory; rational momentum; $\mathcal{O}(1/\sqrt{T})$ rate (Thm 12.3, 12.7) |
-| **ABA** | BPE Tokenizer | Patch-pooled ALU-GLU on raw bytes | Constant-bounded typo shatter $\mathcal{O}(1)$ vs BPE $\Omega(\sqrt{L})$ (Thm 13.3) |
-| **AIP** | VICReg, Barlow Twins | Power iteration + $\|\mathbf{C} - \mathbf{I}\|_F^2$ + AVN repulsion | Structural anti-roughness, anti-dimension, and anti-mode collapse (Section 14) |
+| **AFA** | FlashAttention-2 | Additive tile accumulation without max reduction | Lock-free asynchronous Ring Attention via single AllReduce (Thm 8.1, Cor 8.2) |
+| **ALU-GLU** | SwiGLU, GeGLU | $\mathbf{W}_d [(\mathbf{W}_g \mathbf{x}) \odot K(\mathbf{W}_u \mathbf{x})]$ | Polynomial backward in cached $u$; Universal approximation (Thm 9.2, 9.3) |
+| **ACO** | AdamW Optimizer | Factorized curvature $r_i \otimes c_j$ + ARDS schedule | $\mathcal{O}(d_{\mathrm{out}} + d_{\mathrm{in}})$ memory; rational momentum; $\mathcal{O}(1/\sqrt{T})$ rate (Thm 10.3, 10.7) |
+| **A-MoE\*** | Softmax + Gumbel MoE | AVN-bounded $\rho^8$ routing + ANT noise | Future extension: Native FP4 routing; variance-adaptive exploration; anti-collapse (Thm 11.2, Cor 4.10) |
 
 Every component shares the identical execution profile: dense matrix multiplications, additions, fused multiply-adds, and hardware-pipelined inverse square roots. The backward graph of every component is a polynomial in cached forward state.
 
 ---
 
-## 18 Conclusion
+## 15 Conclusion
 
 This paper has investigated the foundational question: **Can algebra and algebra alone give rise to intelligence?**
 

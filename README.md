@@ -69,7 +69,7 @@ All autonomous research and verification in this repository is governed by [`pha
 
 ---
 
-## The Twelve Algebraic Primitives
+## Core Algebraic Primitives & Architectural Foundations
 
 | Component | Standard Target Replaced | Algebraic Formulation | Defining Mathematical Guarantee |
 | :--- | :--- | :--- | :--- |
@@ -79,13 +79,12 @@ All autonomous research and verification in this repository is governed by [`pha
 | **AD** | KL Divergence | $D_A(\mathbf{y} \| \mathbf{p}) = \sum y_i^2 / p_i - 1$ | Pearson $\chi^2$ equivalence; Riemannian Fisher equivalence; Bounded gradient (Thm 5.2, 5.3) |
 | **AVN** | LayerNorm, RMSNorm | $\tau = \mathrm{rsqrt}(m_2(\mathbf{x}) + \epsilon), \hat{\mathbf{x}} = \tau \mathbf{x}$ | Zero parameters; Coupling Identity $\beta(x; v) = \beta(\hat{x}; 1)$ (Def 6.1, Thm 6.2) |
 | **AGO** | RoPE, Sinusoidal PE | $\mathbf{R}_k = (\mathbf{I} + \omega_k\mathbf{J})(\mathbf{I} - \omega_k\mathbf{J})^{-1}$ | Exact shift equivariance $\langle\mathbf{Q}_m,\mathbf{K}_n\rangle = f(n - m)$; $\mathcal{O}(1)$ decode (Thm 7.5, 7.6) |
-| **AA** | Softmax Attention | Dual-track: local A-Softmax + ALU delta rule | Linear global associative memory; contractive stability $\|\mathbf{S}_t\|_F < \infty$ (Thm 8.2) |
-| **AFA** | FlashAttention-2 | Additive tile accumulation without max reduction | Lock-free asynchronous Ring Attention via single AllReduce (Thm 9.1, Cor 9.2) |
-| **ALU-GLU** | SwiGLU, GeGLU | $\mathbf{W}_d [(\mathbf{W}_g \mathbf{x}) \odot K(\mathbf{W}_u \mathbf{x})]$ | Polynomial backward in cached $u$; Universal approximation (Thm 10.2, 10.3) |
-| **A-MoE** | Softmax + Gumbel MoE | AVN-bounded $\rho^8$ routing + ANT noise | Native FP4 routing; variance-adaptive exploration; anti-collapse (Thm 11.3, Cor 4.10) |
-| **ACO** | AdamW Optimizer | Factorized curvature $\frac{r_i c_j}{\bar{r}}$ + ARDS schedule | $\mathcal{O}(d_{\mathrm{out}} + d_{\mathrm{in}})$ memory; rational momentum; $\mathcal{O}(1/\sqrt{T})$ rate (Thm 12.3, 12.7) |
-| **ABA** | BPE Tokenizer | Patch-pooled ALU-GLU on raw bytes | Constant-bounded typo shatter $\mathcal{O}(1)$ vs BPE $\Omega(\sqrt{L})$ (Thm 13.3) |
-| **AIP** | VICReg, Barlow Twins | Power iteration + $\|\mathbf{C} - \mathbf{I}\|_F^2$ + AVN repulsion | Structural anti-roughness, anti-dimension, and anti-mode collapse (Section 14) |
+| **AFA** | FlashAttention-2 | Additive tile accumulation without max reduction | Lock-free asynchronous Ring Attention via single AllReduce (Thm 8.1, Cor 8.2) |
+| **ALU-GLU** | SwiGLU, GeGLU | $\mathbf{W}_d [(\mathbf{W}_g \mathbf{x}) \odot K(\mathbf{W}_u \mathbf{x})]$ | Polynomial backward in cached $u$; Universal approximation (Thm 9.2, 9.3) |
+| **ACO** | AdamW Optimizer | Factorized curvature $\frac{r_i c_j}{\bar{r}}$ + ARDS schedule | $\mathcal{O}(d_{\mathrm{out}} + d_{\mathrm{in}})$ memory; rational momentum; $\mathcal{O}(1/\sqrt{T})$ rate (Thm 10.3, 10.7) |
+| **A-MoE\*** | Softmax + Gumbel MoE | AVN-bounded $\rho^8$ routing + ANT noise | Native FP4 routing; variance-adaptive exploration; anti-collapse (Thm 11.2) |
+
+*\* Note: A-MoE is formulated mathematically in `theory.md` as future work / extension for sparse scaling; the current empirical campaign focuses strictly on dense causal language modeling (`AlgebraicTransformerLM`).*
 
 ---
 
