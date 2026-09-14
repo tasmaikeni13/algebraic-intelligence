@@ -80,6 +80,7 @@ Execute the Phase 2 verification suite in `tests/test_attention.py`:
 | **FP4 Quantization Robustness** | $\frac{\Delta_{\text{exp}}}{\Delta_{\text{alg}}}$ under quantization noise $\sigma = 0.05$ | $\geq 100.0\times$ (measured: $228.17\times$) |
 | **Simplex Boundedness** | $\sum_{i=1}^K p_i$ with and without sink $\Omega$ | $\leq 1.000000$ strictly |
 | **Reciprocal Identity Error** | $\|(s+x)(s-x) - 1.0\|_\infty$ across $10^5$ samples | $\leq 5.0 \times 10^{-14}$ |
+| **A-Softmax vs. Softmax Benchmark** | Head-to-head forward/backward microbenchmark of A-Softmax ($\kappa_8$) vs. standard Softmax across context lengths $L \in [128, 4096]$ | Throughput $\ge 90\%$ of Softmax; attention distribution at par or slightly down ($\le 5\%$ Wasserstein-1 delta); $\ge 100\times$ FP4 noise suppression |
 | **Zero Transcendental Audit** | AST inspection of attention kernel | Exactly $0$ calls to `exp`, `softmax` |
 
 ---
@@ -106,5 +107,6 @@ When a test or gate fails in Phase 2:
 - [ ] Sub-byte FP4 quantization sensitivity confirms $\ge 100\times$ noise reduction over Softmax.
 - [ ] Attention output sum is strictly bounded on the simplex $\leq 1.0$.
 - [ ] Reciprocal symmetry error $\le 5.0 \times 10^{-14}$.
+- [ ] Head-to-head benchmark against standard Softmax verifies throughput $\ge 90\%$ and attention quality at par or within $\le 5\%$ tolerance.
 - [ ] Zero transcendental audit passes with 0 occurrences in `src/attention.py`.
 - [ ] `results/phase2/PASS.md` satisfies the shared PASS record contract.

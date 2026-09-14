@@ -68,6 +68,7 @@ Execute the Phase 4 test suite in `tests/test_loss.py`:
 | **Fisher Information Ratio** | Hessian ratio $H(D_A) / H(D_{\text{KL}})$ at $\mathbf{p} = \mathbf{y}$ | Exactly $[2.0, 2.0, \dots, 2.0]$ |
 | **Strict Propriety & Monotonicity** | Verify $\frac{\partial \mathcal{L}_{1/8}}{\partial p_k} < 0$ across $10^5$ samples | Monotonically decreasing on $(0, 1]$ |
 | **Minimum Value** | Evaluate $\min_{p_k \in (0, 1]} \mathcal{L}_{1/8}(p_k)$ | Exactly $0.000000$ at $p_k = 1.0$ |
+| **OACE vs. Cross-Entropy Benchmark** | Training convergence rate and gradient variance on classification benchmarks vs. standard Cross-Entropy ($-\ln p$) | Final convergence loss at par or slightly down ($\le 5\%$ margin vs. Cross-Entropy); gradient variance strictly lower under label noise |
 | **Zero Transcendental Audit** | Grep of loss module for `log`, `ln`, `cross_entropy` | Exactly $0$ occurrences |
 
 ---
@@ -91,5 +92,6 @@ When a test or gate fails in Phase 4:
 - [ ] Simplex boundary evaluation confirms zero gradient singularities at $p_k = 10^{-9}$.
 - [ ] Fisher information equivalence ratio is identically $2.0$.
 - [ ] OACE loss strictly proper, monotonic, and zero at $p_k = 1.0$.
+- [ ] Direct benchmark against standard Cross-Entropy confirms optimization convergence at par or within $\le 5\%$ margin.
 - [ ] Zero log calls verified in loss codebase.
 - [ ] `results/phase4/PASS.md` satisfies the shared PASS record contract.

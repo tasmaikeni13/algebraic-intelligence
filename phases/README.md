@@ -61,7 +61,31 @@ The autonomous research lifecycle is organized into **exactly ten sequential pha
 
 ---
 
-## 4. Evidence Hierarchy
+## 4. Component-by-Component Baseline Benchmarking & Universal Parity Principle
+
+Every algebraic primitive in this stack is designed as a direct algebraic drop-in replacement for a standard transcendental deep learning component. Across all phases, the evaluation protocol mandates direct, head-to-head benchmarking against the standard baseline.
+
+### 4.1 Standard Baseline Mapping & Parity Thresholds
+
+The defining acceptance gate for every algebraic primitive is the **Universal Parity Standard**:
+> **Core Passing Gate Standard:** An algebraic component passes if it mathematically purges transcendental functions, guarantees numerical stability/boundedness, and performs **at par or within an acceptable minor tolerance ("a little down is acceptable")** relative to the standard transcendental component. The gains in numerical stability, hardware throughput, and memory savings offset minor metric differences.
+
+| Phase | Algebraic Component | Standard Baseline Replaced | Comparative Benchmark Protocol | Acceptance Gate ("At Par or Minor Degradation Permitted") |
+| :--- | :--- | :--- | :--- | :--- |
+| **Phase 1** | **ALU** | GELU, Swish / SiLU | Direct forward/backward throughput & gradient flow vs. standard GELU | Throughput $\ge 90\%$ of GELU; gradient flow at par or within $\le 5\%$ variance delta. |
+| **Phase 1** | **AVN** | RMSNorm, LayerNorm | Variance stabilization & memory overhead vs. standard RMSNorm | Throughput $\ge 95\%$ of RMSNorm; zero parameter footprint in HBM. |
+| **Phase 2** | **A-Softmax** | Softmax | Attention score distribution & FP4 quantization noise vs. Softmax | Throughput $\ge 90\%$ of Softmax; attention distribution within $\le 5\%$ Wasserstein-1 delta; $\ge 100\times$ lower quantization noise in FP4. |
+| **Phase 3** | **AGO** | RoPE ($\sin, \cos$) | Cayley rotary embedding throughput & associative recall vs. RoPE | Throughput $\ge 90\%$ of RoPE; associative recall retrieval at par or within $\le 3\%$ margin. |
+| **Phase 4** | **OACE** | Cross-Entropy ($-\ln p$) | Optimization loss trajectory & label noise sensitivity vs. Cross-Entropy | Final convergence loss at par or within $\le 5\%$ of Cross-Entropy; $\le 50\%$ gradient variance under label noise. |
+| **Phase 5** | **ACO** | AdamW | Non-convex stochastic optimization (Rosenbrock & Rastrigin) vs. AdamW | Final loss within $5\%$ of AdamW; $\ge 45\%$ optimizer memory reduction ($\ge 1024\times$ curvature compression). |
+| **Phase 6** | **AFA** | FlashAttention-2 | Fused Pallas TPU kernel throughput & tile streaming vs. FlashAttention-2 | Throughput $\ge 85\%$ of FlashAttention-2; sustained HBM bandwidth $\ge 70\%$ peak. |
+| **Phase 7** | **Pilot (15M)** | Standard Transformer (15M) | $10^5$-step pretraining on WikiText-103 under identical token order | Validation perplexity within $\le 1.08\times$ ($\le 8\%$ degradation); throughput $\ge 90\%$. |
+| **Phase 8** | **Sweep** | Standard Transformer | 48 equal-budget trials (24/arch) on 100M FineWeb-Edu tokens | Fair apples-to-apples hyperparameter discovery for both architectures. |
+| **Phase 9** | **Full (125M)** | Standard Transformer (125M) | 2.5B FineWeb-Edu tokens across Seeds 42, 43, 44 | Validation perplexity within $\le 1.08\times$ ($\le 8\%$ degradation); downstream zero-shot reasoning within $2.0\%$ absolute margin. |
+
+---
+
+## 5. Evidence Hierarchy
 
 Use current files, raw execution logs, serialized tensors, checkpoints, and hardware-level measurements as authoritative evidence. Treat prose, theoretical expectations, and prior passing reports as hypotheses until reproduced.
 
@@ -72,7 +96,7 @@ Use current files, raw execution logs, serialized tensors, checkpoints, and hard
 
 ---
 
-## 5. Mandatory Adaptive Failure-Repair & Bidirectional Dependency Cascading Protocol
+## 6. Mandatory Adaptive Failure-Repair & Bidirectional Dependency Cascading Protocol
 
 Whenever any assertion, Lean proof, numerical tolerance, training loss criterion, parity threshold, or inherited gate fails, the autonomous agent must execute this **adaptive feedback loop**.
 
@@ -108,7 +132,7 @@ graph TD
     S -- "Yes" --> T["9. Generate results/phaseN/PASS.md & Advance"]
 ```
 
-### 5.1 Step-by-Step Adaptive Execution Rules
+### 6.1 Step-by-Step Adaptive Execution Rules
 
 1. **Freeze the evidence.** Save the failing configuration, seed, execution command, environment fingerprint, raw traceback, metrics, and minimal reproducible test case.
 2. **Classify the failure & trace dependencies.** Determine if the failure is:
@@ -136,7 +160,7 @@ graph TD
 
 ---
 
-## 6. Target Codebase Architecture for 16 TPU v4 Pod
+## 7. Target Codebase Architecture for 16 TPU v4 Pod
 
 To cleanly isolate and execute the research lifecycle, all implementation files for the 16 TPU v4 Pod must be structured as follows:
 
@@ -179,7 +203,7 @@ algebraic-intelligence/
 
 ---
 
-## 7. Gate Amendment Discipline
+## 8. Gate Amendment Discipline
 
 A gate may change **only** when preserved empirical evidence proves that its underlying scientific claim is false or its evaluation harness is mathematically invalid.
 - Never lower a threshold because a training run is slow, expensive, or disappointing.
@@ -189,7 +213,7 @@ A gate may change **only** when preserved empirical evidence proves that its und
 
 ---
 
-## 8. Reproducibility & Dual-Pillar Verification Contracts
+## 9. Reproducibility & Dual-Pillar Verification Contracts
 
 1. **Deterministic Pinning:** Pin random seeds across Python, NumPy, and JAX (`jax.random.PRNGKey`). Pin dataset shard hashes, tokenizer versions, and model configurations.
 2. **The fp64 Oracle Standard:** Double precision (`numpy.float64` / `jax.numpy.float64`) on CPU is the authoritative numerical ground truth. Reduced precision is evaluated under condition-aware tolerances $\text{Tol}(\kappa) = C \cdot \epsilon_{\text{mach}} \cdot \kappa$.
@@ -198,7 +222,7 @@ A gate may change **only** when preserved empirical evidence proves that its und
 
 ---
 
-## 9. Target Substrate Contract: 16 TPU v4 Pod Slice
+## 10. Target Substrate Contract: 16 TPU v4 Pod Slice
 
 1. **Hardware Specification:** Dedicated Google Cloud TPU v4 Pod slice with 16 TPU v4 chips (32 TensorCores, 512 GB unified aggregate HBM2e, 19.2 TB/s aggregate memory bandwidth, 4.8 Tbps bi-directional optical ICI interconnect).
 2. **JAX / Pallas Exclusivity:** All hardware-fused kernels and distributed models must be implemented using JAX and JAX Pallas (`pallas.tpu`). Non-portable GPU-specific or vendor-locked proprietary libraries are strictly forbidden.
@@ -207,7 +231,7 @@ A gate may change **only** when preserved empirical evidence proves that its und
 
 ---
 
-## 10. PASS Record Contract
+## 11. PASS Record Contract
 
 Each phase officially concludes only when `results/phaseN/PASS.md` is generated, containing:
 1. Complete list of phase gates and exact relative paths to direct evidence;
@@ -221,7 +245,7 @@ Each phase officially concludes only when `results/phaseN/PASS.md` is generated,
 
 ---
 
-## 11. Master Execution Commands
+## 12. Master Execution Commands
 
 ```bash
 # 1. Compile formal Lean 4 proofs:

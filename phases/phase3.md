@@ -71,6 +71,7 @@ Execute the Phase 3 verification suite in `tests/test_ago.py`:
 | **Cayley Determinant Error** | $10^5$ frequency samples $w \in [10^{-5}, 10^2]$, measure $|\det(\mathbf{R}(w)) - 1.0|$ | $\leq 1.0 \times 10^{-15}$ |
 | **Column Orthogonality Error** | Inner product $|\mathbf{c}_1 \cdot \mathbf{c}_2|$ across $10^5$ samples | $\leq 1.0 \times 10^{-15}$ |
 | **Associative Recall on Out-of-Dist Context** | Train on $L=256$, test on $L=1024$ and $L=2048$ | Retrieval accuracy $\ge 95.0\%$ |
+| **AGO vs. RoPE Benchmark** | Direct head-to-head microbenchmark of AGO vs. standard trigonometric RoPE on rotary embedding latency and associative recall | Throughput $\ge 90\%$ of RoPE; associative recall retrieval at par or slightly down ($\le 3\%$ absolute accuracy delta) |
 | **Zero Trigonometric Audit** | Grep of AGO module for `sin`, `cos` | Exactly $0$ occurrences |
 
 ---
@@ -96,5 +97,6 @@ When a test or gate fails in Phase 3:
 - [ ] Determinant is verified to be identically $1.0$ (error $\le 1.0 \times 10^{-15}$).
 - [ ] Column orthogonality error $\le 1.0 \times 10^{-15}$.
 - [ ] Out-of-distribution associative recall reaches $\ge 95\%$ accuracy.
+- [ ] Head-to-head benchmark against standard trigonometric RoPE confirms throughput $\ge 90\%$ and retrieval accuracy at par or within $\le 3\%$ margin.
 - [ ] Zero trigonometric calls verified in code.
 - [ ] `results/phase3/PASS.md` satisfies the shared PASS record contract.

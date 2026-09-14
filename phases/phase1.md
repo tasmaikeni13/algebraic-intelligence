@@ -83,6 +83,8 @@ Execute the verification suite via `python3 scripts/run_verify_primitives.py` an
 | **Backward Pass Exactness** | $\|\frac{dK}{dx}_{\text{poly}} - \frac{dK}{dx}_{\text{autograd}}\|_\infty$ | $\leq 5.0 \times 10^{-16}$ |
 | **Max Jacobian / Lipschitz Bound** | Empirical supremum $\sup_{x} |K'(x)|$ | $\leq 1.05$ (theorized: $\approx 1.044331$) |
 | **Inflection Point Alignment** | Numerical verification of $K''(x) = 0$ at $x = -\sqrt{2}$ | $|K''(-\sqrt{2})| \leq 1.0 \times 10^{-15}$ |
+| **ALU vs. GELU/Swish Benchmark** | Direct microbenchmark of ALU vs. standard GELU and Swish on forward/backward throughput and gradient dynamics | Throughput $\ge 90\%$ of standard GELU; gradient flow at par or slightly down ($\le 5\%$ variance delta) |
+| **AVN vs. RMSNorm Benchmark** | Feature variance preservation and backward latency vs. standard RMSNorm (with learnable $\boldsymbol{\gamma}$) | Throughput $\ge 95\%$ of RMSNorm; zero parameter overhead in HBM |
 | **Zero Transcendental Audit** | AST call inspection + regex grep of code logic | Exactly $0$ occurrences of `exp`, `log`, `sin`, `cos` |
 
 ---
@@ -110,5 +112,6 @@ When a test or gate fails in Phase 1:
 - [ ] Deep gradient flow across 8, 16, 24, 32 layers confirms bounded gradient ratio $\in [0.2, 5.0]$.
 - [ ] Reflection symmetry error $\leq 1.0 \times 10^{-15}$ and autograd backward error $\leq 5.0 \times 10^{-16}$.
 - [ ] Max Lipschitz constant bounded by $\le 1.05$.
+- [ ] Side-by-side benchmark of ALU vs. GELU/Swish and AVN vs. RMSNorm confirms performance at par or within acceptable tolerance (throughput $\ge 90\%$, gradient stability at par or slightly down within $\le 5\%$).
 - [ ] Codebase AST audit confirms exactly zero transcendental calls in `src/primitives.py`.
 - [ ] `results/phase1/PASS.md` satisfies the shared PASS record contract.
