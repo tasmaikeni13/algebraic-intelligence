@@ -42,9 +42,9 @@ All empirical simulations, kernel executions, distributed scaling, and pretraini
 
 ---
 
-## 3. The Nine Research & Verification Phases
+## 3. The Ten Research & Verification Phases
 
-The autonomous research lifecycle is organized into **exactly nine sequential phases** (`phase1.md` through `phase9.md`):
+The autonomous research lifecycle is organized into **exactly ten sequential phases** (`phase1.md` through `phase10.md`):
 
 | Phase File | Phase Title | Primary Focus & Verification Milestone |
 | :--- | :--- | :--- |
@@ -55,8 +55,9 @@ The autonomous research lifecycle is organized into **exactly nine sequential ph
 | [**`phase5.md`**](phase5.md) | **Factorized Curvature Optimization & Rational Scheduling** | ACO $\mathcal{O}(d_{\text{out}} + d_{\text{in}})$ curvature preconditioning, $\ge 45\%$ optimizer memory reduction, and ARDS rational decay schedule $\operatorname{rsqrt}(1 + \alpha t^2)$. |
 | [**`phase6.md`**](phase6.md) | **Hardware-Fused Kernels & Algebraic FlashAttention (Pallas / XLA HLO)** | Fused JAX Pallas TPU kernels on TPU v4 VMU/MXU for AFA, sustaining $> 70\%$ peak HBM bandwidth and pure additive tile accumulation without running-max sync. |
 | [**`phase7.md`**](phase7.md) | **Full Architecture Assembly & Pilot Pretraining** | Complete `AlgebraicTransformerLM` assembly and $10^5$-step pilot pretraining (15M parameters on WikiText-103 on 16 TPU v4 chips) vs. `StandardTransformerLM`. |
-| [**`phase8.md`**](phase8.md) | **Frontier Pretraining: 125M Parameters on 2.5B Tokens** | Head-to-head pretraining across 6 runs (2 architectures $\times$ 3 paired seeds) on 2.5B FineWeb-Edu tokens across 16 TPU v4 chips; statistical significance (mean $\pm$ SEM) across downstream reasoning probes. |
-| [**`phase9.md`**](phase9.md) | **Comprehensive Research Paper, Clean-Room Replication, & Release** | Clean-room fresh-clone replication on 16 TPU v4 Pod slice, standalone paper finalization (`theory.md`), full completion matrix, and open-source publication package. |
+| [**`phase8.md`**](phase8.md) | **Systematic Hyperparameter Sweeping & Architecture Tuning** | Equal-budget 48-trial Pareto tuning study on 100M-token FineWeb-Edu slice on 16 TPU v4 Pod to discover optimal hyperparameters for both architectures. |
+| [**`phase9.md`**](phase9.md) | **Frontier Pretraining: 125M Parameters on 2.5B Tokens** | Head-to-head pretraining across 6 runs (2 architectures $\times$ Seeds 42, 43, 44) on 2.5B FineWeb-Edu tokens across 16 TPU v4 chips; statistical significance (mean $\pm$ SEM). |
+| [**`phase10.md`**](phase10.md) | **Comprehensive Research Paper, Clean-Room Replication, & Release** | Clean-room fresh-clone replication on 16 TPU v4 Pod slice, standalone paper finalization (`theory.md`), full completion matrix, and open-source publication package. |
 
 ---
 
@@ -96,7 +97,7 @@ graph TD
     M --> N["5b. Implement Twice (fp64 CPU Oracle vs JAX/Pallas TPU)"]
     N --> O{"Does Repair Change Upstream or Downstream Contracts?"}
     
-    O -- "Changes Downstream (N+1 .. 9)" --> P["6b. Forward-Cascade: Adapt downstream models, kernels & tests to match new interface"]
+    O -- "Changes Downstream (N+1 .. 10)" --> P["6b. Forward-Cascade: Adapt downstream models, kernels & tests to match new interface"]
     P --> Q["7b. Test Mechanism & Regression Suite"]
     
     O -- "Internal Only" --> Q
@@ -121,7 +122,7 @@ graph TD
    - Re-run Phase $M$ verification suite until PASS.
    - **Cascade forward:** Systematically adapt all intermediate phases $M+1, \dots, N$ to accommodate the updated primitive. Update their interfaces, regression tests, and documentation.
 4. **Downstream Propagation (if Phase $N$ interface changes):**
-   - If a repair in Phase $N$ modifies an interface (such as adding an attention sink parameter $\Omega$, altering Horner cubic cache layout $u$, modifying factorized curvature matrix shapes, or updating Pallas block tile sizes), the agent **MUST immediately update all downstream components** (Phases $N+1$ through $9$) that consume that interface.
+   - If a repair in Phase $N$ modifies an interface (such as adding an attention sink parameter $\Omega$, altering Horner cubic cache layout $u$, modifying factorized curvature matrix shapes, or updating Pallas block tile sizes), the agent **MUST immediately update all downstream components** (Phases $N+1$ through $10$) that consume that interface.
    - Downstream models, test scripts, and benchmark configurations must be updated in lockstep before proceeding.
 5. **Implement twice where feasible:**
    - First, implement in an independent `float64` CPU reference path (`numpy` / standard Python).
@@ -145,9 +146,9 @@ algebraic-intelligence/
 │   ├── AlgebraicTheory.lean
 │   ├── AlgebraicTheory/             # Gate, Variance, Kernel, Cayley, Loss, Curvature
 │   └── PROOF_COVERAGE.md
-├── phases/                          # Autonomous phase instruction specifications (1-9)
+├── phases/                          # Autonomous phase instruction specifications (1-10)
 │   ├── README.md
-│   ├── phase1.md ... phase9.md
+│   ├── phase1.md ... phase10.md
 ├── skills/                          # Autonomous research skills
 ├── src/                             # Core JAX / Pallas TPU codebase
 │   ├── __init__.py
@@ -162,16 +163,18 @@ algebraic-intelligence/
 │   └── mesh.py                      # 16 TPU v4 3D Torus mesh sharding (SPMD, shard_map)
 ├── tests/                           # Verification & regression test suites
 │   ├── test_primitives.py           # Phase 1-5 verification tests (fp64 vs JAX, AST audit)
-│   └── test_kernel_parity.py        # Phase 6 Pallas TPU AFA vs exact reference
+│   ├── test_kernel_parity.py        # Phase 6 Pallas TPU AFA vs exact reference
+│   └── test_hparam_contracts.py     # Phase 8 hyperparameter contract verification
 ├── scripts/                         # Pretraining & benchmark scripts for 16 TPU v4 Pod
 │   ├── run_verify_primitives.py     # Verification runner for Phase 1-5
 │   ├── run_benchmark_pallas.py      # Benchmark runner for Phase 6 AFA on TPU v4
 │   ├── audit_xla_hlo.py             # Static XLA HLO opcode and fusion inspector
 │   ├── run_pilot_15m.py             # Phase 7: 15M LM pretraining on WikiText-103
-│   ├── run_pretrain_125m.py         # Phase 8: 125M LM on 2.5B FineWeb-Edu tokens (6 runs)
-│   └── clean_room_reproduce.py      # Phase 9: One-command end-to-end audit
+│   ├── run_hparam_sweep.py          # Phase 8: Systematic 48-trial hyperparameter sweep
+│   ├── run_pretrain_125m.py         # Phase 9: 125M LM on 2.5B FineWeb-Edu tokens (Seeds 42, 43, 44)
+│   └── clean_room_reproduce.py      # Phase 10: One-command end-to-end audit
 └── results/                         # Empirical records and PASS logs
-    ├── phase1/PASS.md ... phase9/PASS.md
+    ├── phase1/PASS.md ... phase10/PASS.md
 ```
 
 ---

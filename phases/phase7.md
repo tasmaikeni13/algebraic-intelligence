@@ -128,8 +128,8 @@ When an architectural or convergence failure occurs during pilot pretraining:
    - **Early training divergence:** Backtrack to **Phase 5**, calibrate rational learning rate warmup $\eta_t = \eta_0 \frac{t}{T_{\text{warm}}}$, or enforce diagonal damping $\epsilon_{\text{curv}}$ in ACO.
    - **Attention logit explosion:** Backtrack to **Phase 2**, verify logit scaling $\tau = \operatorname{rsqrt}(d_k)$ and attention sink $\Omega$.
 2. **Forward Dependency Cascading:**
-   - The verified `AlgebraicTransformerLM` configuration, sharding specification in `src/mesh.py`, and training hyperparameters establish the foundational template for **Phase 8 (125M / 2.5B tokens across 6 runs)**.
-   - Any architectural amendment made in Phase 7 must be immediately reflected in Phase 8 specifications.
+   - The verified `AlgebraicTransformerLM` configuration, sharding specification in `src/mesh.py`, and base hyperparameters establish the foundational template for **Phase 8 (Systematic Hyperparameter Sweeping)** and **Phase 9 (125M / 2.5B tokens across Seeds 42, 43, 44)**.
+   - Any architectural amendment made in Phase 7 must be immediately reflected in Phase 8 and Phase 9 specifications.
 
 ---
 
