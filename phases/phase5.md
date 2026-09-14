@@ -1,38 +1,39 @@
-# Phase 5: Factorized Curvature Optimization & Rational Scheduling (ACO & ARDS)
+# Phase 5: Algebraic Optimization & Rational Scheduling (AdamW & ARDS)
 
-Start only after Phase 4 PASS. Read `theory.md`, `formal/README.md`, `formal/AlgebraicTheory/Curvature.lean`, Phase 4 evidence in `results/phase4/`, and `phases/README.md` completely before executing. Execute the shared adaptive failure-repair loop until all gates pass.
+Start only after Phase 4 PASS. Read `theory.md` (Section 10), `formal/README.md`, `formal/AlgebraicTheory/Curvature.lean`, Phase 4 evidence in `results/phase4/`, and `phases/README.md` completely before executing. Execute the shared adaptive failure-repair loop until all gates pass.
 
 ---
 
 ## 1. Objective, Scientific Hypothesis & Competing Models
 
-Eliminate all continuous exponential moving averages ($\beta_1^t, \beta_2^t$) and transcendental cosine schedules from neural optimization:
-$$\textbf{"Can factorized curvature preconditioning achieve second-order natural gradient convergence in O(d) memory?"}$$
+Establish the rigorous algebraic foundation of neural optimization and eliminate all transcendental schedules ($\cos(\pi t / T)$) from pretraining:
+$$\textbf{"Is the standard AdamW optimizer already natively algebraic, and can rational scheduling (ARDS) purge all transcendentals while isolating pure architectural ablation?"}$$
 
 ### Competing Hypotheses:
-- **$H_1$ (Algebraic Hypothesis):** Factorizing the second-moment tensor into row and column marginal projections $\hat{\mathbf{V}}_{ij} = \sqrt{\hat{r}_i \hat{c}_j}$ reconstructs Kronecker Fisher curvature, compresses second-moment optimizer memory from $\mathcal{O}(d_{\text{out}} \cdot d_{\text{in}})$ to $\mathcal{O}(d_{\text{out}} + d_{\text{in}})$, and achieves $\mathcal{O}(1/\sqrt{T})$ convergence when paired with the Algebraic Rational Decay Schedule (ARDS) $\eta_t \propto \operatorname{rsqrt}(1 + \alpha t^2)$. Across a 16 TPU v4 Pod, this eliminates HBM memory bottlenecks and enables training large model dimensions without optimizer state sharding overhead.
-- **$H_0$ (Transcendental Baseline Hypothesis):** Dense coordinate-wise second moments (AdamW) and cosine annealing are essential for adaptive learning rates; factorized marginals induce destructive cross-talk across gradient coordinates, leading to divergence on ill-conditioned loss surfaces.
+- **$H_1$ (Algebraic Hypothesis):** The standard AdamW optimizer is already strictly and natively an algebraic algorithm—its update rules consist solely of rational linear combinations, rational coordinate variances, integer power debiasing $1 - \beta^t$, diagonal scaling via hardware $\operatorname{rsqrt}$, and decoupled algebraic weight decay. When paired with the Algebraic Rational Decay Schedule (ARDS) $\eta_t \propto \operatorname{rsqrt}(1 + \alpha t^2)$ or linear decay, the entire optimization trajectory is 100% algebraic ($\mathbf{W}_t \in \mathbb{Q}(\mathbf{W}_0, \mathbf{G}_1, \dots, \mathbf{G}_t, \sqrt{\cdot})$) with zero $e^x$, zero $\ln x$, and zero $\cos x$. Furthermore, standardizing both `AlgebraicTransformerLM` and `StandardTransformerLM` on AdamW guarantees an isolated, apples-to-apples comparison of the architectural layers without optimizer confounds.
+- **$H_0$ (Transcendental Optimization Hypothesis):** Deep learning optimization fundamentally requires transcendental schedules (cosine annealing) or continuous exponential relaxation processes; purely algebraic rational schedules fail to converge at optimal rates or induce late-stage training instability on non-convex surfaces.
 
 ---
 
 ## 2. Mathematical Formulations & Zero-Transcendental Constraints
 
-### 2.1 Pure Rational Momentum & Debiasing
+### 2.1 Pure Rational Momentum & Polynomial Debiasing
 $$\mathbf{M}_t = \beta_1 \mathbf{M}_{t-1} + (1 - \beta_1) \mathbf{G}_t, \qquad \hat{\mathbf{M}}_t = \frac{\mathbf{M}_t}{1 - \beta_1^t}$$
-where $\beta_1 \in \mathbb{Q}$ (e.g. $9/10$) and $1 - \beta_1^t$ is evaluated as an exact polynomial in $\mathcal{O}(\log t)$ multiplications on the TPU v4 VMU.
+$$\mathbf{V}_t = \beta_2 \mathbf{V}_{t-1} + (1 - \beta_2) \mathbf{G}_t^{\odot 2}, \qquad \hat{\mathbf{V}}_t = \frac{\mathbf{V}_t}{1 - \beta_2^t}$$
+where $\beta_1, \beta_2 \in \mathbb{Q}$ (e.g., $\beta_1 = 0.9, \beta_2 = 0.999$). For any integer step $t \in \mathbb{N}$, the debiasing factors $1 - \beta_1^t$ and $1 - \beta_2^t$ are evaluated as exact polynomials in $\mathcal{O}(\log t)$ multiplications via binary exponentiation on the TPU v4 VMU. Zero continuous exponential integrals or transcendentals are evaluated.
 
-### 2.2 Factorized Curvature Accumulators
-For weight gradient $\mathbf{G}_t \in \mathbb{R}^{d_{\text{out}} \times d_{\text{in}}}$:
-$$\mathbf{r}_t = \beta_2 \mathbf{r}_{t-1} + (1 - \beta_2) \left( \frac{1}{d_{\text{in}}} \sum_{j=1}^{d_{\text{in}}} \mathbf{G}_{t, \cdot, j}^{\odot 2} \right) \in \mathbb{R}^{d_{\text{out}}}$$
-$$\mathbf{c}_t = \beta_2 \mathbf{c}_{t-1} + (1 - \beta_2) \left( \frac{1}{d_{\text{out}}} \sum_{i=1}^{d_{\text{out}}} \mathbf{G}_{t, i, \cdot}^{\odot 2} \right) \in \mathbb{R}^{d_{\text{in}}}$$
-With debiased marginals $\hat{\mathbf{r}}_t = \mathbf{r}_t / (1 - \beta_2^t)$ and $\hat{\mathbf{c}}_t = \mathbf{c}_t / (1 - \beta_2^t)$, the update step evaluates on-the-fly via a single $\operatorname{rsqrt}$:
-$$\mathbf{U}_{t, ij} = \hat{\mathbf{M}}_{t, ij} \cdot \operatorname{rsqrt}\left(\hat{r}_{t, i} \hat{c}_{t, j} + \epsilon^2\right)$$
+### 2.2 Algebraic Preconditioned Parameter Update & Decoupled Decay
+The parameter update preconditions the debiased first moment by the inverse square root of the coordinate variance:
+$$\mathbf{U}_{t, ij} = \hat{\mathbf{M}}_{t, ij} \cdot \operatorname{rsqrt}\left(\hat{\mathbf{V}}_{t, ij} + \epsilon^2\right)$$
 Parameter update with decoupled algebraic weight decay $\lambda \in \mathbb{Q}$:
-$$\mathbf{W}_t = \mathbf{W}_{t-1} - \eta_t \mathbf{U}_t - \eta_t \lambda \mathbf{W}_{t-1}$$
+$$\mathbf{W}_t = \mathbf{W}_{t-1} - \eta_t \mathbf{U}_t - \eta_t \lambda \mathbf{W}_{t-1} = (1 - \eta_t \lambda)\mathbf{W}_{t-1} - \eta_t \mathbf{U}_t$$
+Every operation belongs strictly to the field generated by rational arithmetic and square root radicals:
+$$\mathbf{W}_t \in \mathbb{Q}(\mathbf{W}_0, \mathbf{G}_1, \dots, \mathbf{G}_t, \sqrt{\cdot}).$$
 
 ### 2.3 Algebraic Rational Decay Schedule (ARDS)
+Standard training recipes wrap AdamW in transcendental Cosine Annealing $\eta(t) = \eta_{\min} + \frac{1}{2}(\eta_{\max} - \eta_{\min})(1 + \cos(\pi t / T))$. We eliminate $\cos$ by employing the **Algebraic Rational Decay Schedule (ARDS)**:
 $$\eta_t = \eta_{\max} \cdot \min\left(1, \frac{t}{T_{\text{warm}}}\right) \cdot \operatorname{rsqrt}\left(1 + \alpha \left[\frac{\max(0, t - T_{\text{warm}})}{T_{\text{decay}}}\right]^2\right)$$
-Evaluated on the TPU v4 VMU in 1 subtraction, 1 square, 1 FMA, and 1 hardware $\operatorname{rsqrt}$. Zero trigonometric functions.
+Evaluated on the TPU v4 VMU in 1 subtraction, 1 square, 1 FMA, and 1 hardware $\operatorname{rsqrt}$. Zero trigonometric functions. For $t > T_{\text{warm}}$, $\eta_t \sim \mathcal{O}(1/t)$, yielding the theoretical minimax optimal convergence rate $\mathcal{O}(1/\sqrt{T})$ for smooth non-convex optimization (Theorem 10.4).
 
 ---
 
@@ -40,13 +41,13 @@ Evaluated on the TPU v4 VMU in 1 subtraction, 1 square, 1 FMA, and 1 hardware $\
 
 Instruct the creation and verification of the following files targeting the 16 TPU v4 Pod:
 1. **`src/optimizer.py`**:
-   - `aco_optimizer(learning_rate, beta1=0.9, beta2=0.99, eps=1e-8, weight_decay=1e-2)`: Optax-compatible custom optimizer implementing factorized row/column curvature tracking.
+   - `algebraic_adamw(learning_rate, beta1=0.9, beta2=0.999, eps=1e-8, weight_decay=1e-2)`: Optax-compatible AdamW implementation verified for algebraic purity.
    - `ards_schedule(learning_rate, warmup_steps, decay_steps, alpha=1.0)`: Pure algebraic rational decay schedule.
-   - Designed for seamless integration with JAX SPMD sharding across 16 TPU v4 chips.
+   - Standardized optimizer interface shared identically between `AlgebraicTransformerLM` and `StandardTransformerLM`.
 2. **`tests/test_optimizer.py`**:
-   - Verification of factorized curvature recovery on rank-1 matrices.
-   - Memory benchmark confirming $\ge 1024\times$ curvature memory reduction at matrix dimensions $\ge 4096$.
-   - AST audit confirming zero occurrences of `cos` or `exp` in optimizer update logic.
+   - Numerical equivalence tests between `algebraic_adamw` and reference Optax `adamw`.
+   - AST audit confirming zero occurrences of `cos`, `sin`, `exp`, or `log` in optimizer and schedule code.
+   - Monotonicity and convergence verification of ARDS schedule.
 
 ---
 
@@ -54,12 +55,12 @@ Instruct the creation and verification of the following files targeting the 16 T
 
 The agent must compile `formal/AlgebraicTheory/Curvature.lean` with zero errors under `/root/.elan/bin/lake build`:
 
-1. `factorized_rank1_recovery`:
-   $$\forall i, j, \quad \frac{(a_i \bar{b})(b_j \bar{a})}{\bar{a}\bar{b}} = a_i b_j$$
-2. `debiasing_identity`:
-   Exact polynomial moment debiasing $\frac{v_t}{1 - \beta^t}$.
-3. `decoupled_weight_decay_step`:
-   Decoupled algebraic parameter update invariance.
+1. `adamw_debiasing_identity`:
+   Exact polynomial moment debiasing $\frac{m}{1 - \beta^t} \cdot (1 - \beta^t) = m$.
+2. `adamw_decoupled_weight_decay`:
+   Decoupled algebraic parameter update invariance: $w - \eta u - \eta \lambda w = (1 - \eta \lambda) w - \eta u$.
+3. `adamw_factorized_curvature_recovery`:
+   Exact algebraic recovery of separable curvature factors.
 
 ---
 
@@ -70,20 +71,20 @@ Execute the Phase 5 test suite in `tests/test_optimizer.py`:
 | Evaluation Dimension | Experimental Protocol | Success Criterion / Bound |
 | :--- | :--- | :--- |
 | **Ill-Conditioned Optimization Sweep** | $10^4$ trials on quadratic surfaces with condition number $\kappa \in [10^2, 10^6]$ | Final loss reduction $> 99.99\%$ in 300 steps |
-| **Non-Convex Surface Benchmarks** | Rosenbrock & Rastrigin benchmarks with stochastic noise $\sigma = 0.5$ | Converges within $5\%$ of AdamW final loss |
-| **Memory Compression at Scale** | Measure optimizer state in bytes at matrix dimensions $4096$ and $8192$ | $\ge 1024\times$ (at $4096$) and $\ge 2048\times$ (at $8192$) curvature compression |
-| **ARDS Schedule Monotonicity** | Sample schedule across $t \in [0, 10^5]$ steps | Strictly monotonic decay with $\mathcal{O}(1/\sqrt{T})$ asymptotic rate |
-| **Zero Transcendental Audit** | Grep of ACO codebase for `exp`, `log`, `cos` | Exactly $0$ occurrences |
+| **Non-Convex Surface Benchmarks** | Rosenbrock & Rastrigin benchmarks with stochastic noise $\sigma = 0.5$ comparing ARDS vs Cosine Annealing | Final loss within $\le 2\%$ of Cosine Annealing baseline |
+| **ARDS Schedule Monotonicity** | Sample schedule across $t \in [0, 10^5]$ steps | Strictly monotonic decay for $t > T_{\text{warm}}$ with $\mathcal{O}(1/t)$ asymptotic rate |
+| **Zero Transcendental Audit** | Grep / AST inspection of optimizer codebase for `exp`, `log`, `cos`, `sin` | Exactly $0$ occurrences |
+| **Architectural Isolation Contract** | Verify optimizer configuration is identical across algebraic and standard model configs | Exact parameter parity ($\beta_1, \beta_2, \epsilon, \lambda$) |
 
 ---
 
 ## 6. Adaptive Failure-Repair & Bidirectional Dependency Protocol
 
 When a test or gate fails in Phase 5:
-1. **Iterate Locally:** If the preconditioner becomes ill-conditioned on sparse feature columns, add algebraic diagonal damping: $\hat{\mathbf{V}}_{ij} \leftarrow \hat{\mathbf{V}}_{ij} + \epsilon_{\text{curv}} \bar{r} \mathbf{I}$.
+1. **Iterate Locally:** If ARDS decay is too aggressive on ill-conditioned non-convex benchmarks, adjust curvature hyperparameter $\alpha$ or tune $T_{\text{decay}}$ to modulate the transition curvature.
 2. **Backward Rollback to Phase 4/1:** If gradient scale discrepancies disrupt momentum tracking, inspect Phase 4 OACE loss scaling $\gamma$ or Phase 1 AVN norms. Adjust upstream parameters if necessary, re-run upstream gates, and propagate forward.
 3. **Forward Dependency Cascading:**
-   - **Phases 7, 8, 9 (`src/model.py`, `scripts/run_pilot_15m.py`, `scripts/run_pretrain_*.py`):** Any change in ACO state structure, gradient clipping thresholds, or ARDS hyperparameters must be immediately propagated to the pretraining scripts and model trainers.
+   - **Phases 7, 8, 9 (`src/model.py`, `scripts/run_pilot_15m.py`, `scripts/run_pretrain_*.py`):** Maintain identical AdamW + ARDS optimizer configurations across both `AlgebraicTransformerLM` and `StandardTransformerLM`.
    - Synchronize Lean 4 theorems in `formal/AlgebraicTheory/Curvature.lean`.
 
 ---
@@ -91,10 +92,10 @@ When a test or gate fails in Phase 5:
 ## 7. PASS Gates
 
 - [ ] `formal/AlgebraicTheory/Curvature.lean` compiles with 0 errors via `/root/.elan/bin/lake build`.
-- [ ] `src/optimizer.py` created with Optax/JAX factorized ACO optimizer and ARDS schedule.
+- [ ] `src/optimizer.py` created with Optax/JAX Algebraic AdamW optimizer and ARDS schedule.
 - [ ] Ill-conditioned optimization sweep confirms $> 99.99\%$ convergence across $\kappa \in [10^2, 10^6]$.
-- [ ] Non-convex stochastic benchmarks match AdamW convergence within $5\%$.
-- [ ] Second-moment memory compression verified to be $\ge 1024\times$ at $d=4096$ and $\ge 2048\times$ at $d=8192$.
+- [ ] Non-convex stochastic benchmarks with ARDS match Cosine Annealing final loss within $\le 2\%$.
 - [ ] ARDS schedule verified strictly monotonic and rational.
-- [ ] Zero exponential or cosine calls confirmed in optimizer.
+- [ ] Zero exponential, logarithmic, or trigonometric calls confirmed in optimizer and schedule logic.
+- [ ] Exact optimizer configuration parity verified between algebraic and baseline pipelines.
 - [ ] `results/phase5/PASS.md` satisfies the shared PASS record contract.

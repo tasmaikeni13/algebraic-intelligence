@@ -23,7 +23,7 @@ The core architecture constructed, verified, and scaled across this repository i
 6. **Algebraic Geometric Ordering (AGO):** Static skew generator $\mathbf{A}_k = \omega_k \mathbf{J}$ on $\mathfrak{so}(2)$, rational Cayley transform $\mathbf{R}_k = (\mathbf{I} + \omega_k \mathbf{J})(\mathbf{I} - \omega_k \mathbf{J})^{-1}$, unimodular $\mathrm{SO}(2)$ rotation ($\det = 1$), exact relative shift equivariance $\langle \mathbf{Q}_m, \mathbf{K}_n \rangle = f(n - m)$, and $\mathcal{O}(1)$ autoregressive decode updates via 4 FMAs.
 7. **Algebraic FlashAttention (AFA):** Strictly positive kernel $\rho^8$ enabling pure additive tile accumulation without running-max subtraction $\exp(m_{\text{old}} - m_{\text{new}})$, and single-pass lock-free asynchronous Ring Attention via a single global AllReduce over the Inter-Chip Interconnect (ICI).
 8. **ALU-GLU:** Feed-forward network $\mathbf{W}_d [(\mathbf{W}_g \mathbf{x}) \odot K(\mathbf{W}_u \mathbf{x})]$ with polynomial backward graph in cached $u$ and universal approximation certificate.
-9. **Algebraic Curvature Optimizer (ACO):** Factorized $\mathcal{O}(d_{\text{out}} + d_{\text{in}})$ curvature preconditioning $\hat{\mathbf{V}}_{ij} = \sqrt{\hat{r}_i \hat{c}_j}$, rational momentum, polynomial debiasing, and Algebraic Rational Decay Schedule (ARDS) $\eta_t \propto \operatorname{rsqrt}(1 + \alpha t^2)$.
+9. **Algebraic Optimization (AdamW + ARDS):** The standard AdamW optimizer is natively algebraic, employing rational momentum $\mathbf{M}_t$, rational coordinate variance $\mathbf{V}_t$, exact polynomial debiasing $\delta(t) = 1 - \beta^t$ via integer powers, coordinate scaling via hardware $\operatorname{rsqrt}$, decoupled algebraic weight decay, and Algebraic Rational Decay Schedule (ARDS) $\eta_t \propto \operatorname{rsqrt}(1 + \alpha t^2)$—holding the optimizer strictly constant across both architectures to isolate pure architectural effects without transcendental functions ($e^x, \ln x, \cos x$).
 
 ---
 
@@ -52,7 +52,7 @@ The autonomous research lifecycle is organized into **exactly ten sequential pha
 | [**`phase2.md`**](phase2.md) | **Octic Algebraic Attention & 2-Lipschitz Bounds** | A-Softmax 3-stage squaring ($\kappa_8$), uniform Jacobian bound $\le n/4 = 2.0$, dynamic contrast $> 10^5$, and $\ge 100\times$ FP4/INT4 quantization noise reduction. |
 | [**`phase3.md`**](phase3.md) | **Algebraic Geometric Oscillators & Shift Equivariance** | AGO Cayley transform on $\mathfrak{so}(2)$, unimodular rotation ($\det=1$), relative shift equivariance, and $\mathcal{O}(1)$ autoregressive decode updates. |
 | [**`phase4.md`**](phase4.md) | **Algebraic Loss Functionals & Information Metrics** | OACE $\mathcal{L}_{1/8}$ via 3 $\operatorname{rsqrt}$ calls, bounded gradient $8 p_k^{-1/8}$, Pearson $\chi^2$ divergence, and Fisher information equivalence $2 \nabla^2 D_{\text{KL}}$. |
-| [**`phase5.md`**](phase5.md) | **Factorized Curvature Optimization & Rational Scheduling** | ACO $\mathcal{O}(d_{\text{out}} + d_{\text{in}})$ curvature preconditioning, $\ge 45\%$ optimizer memory reduction, and ARDS rational decay schedule $\operatorname{rsqrt}(1 + \alpha t^2)$. |
+| [**`phase5.md`**](phase5.md) | **Algebraic Optimization & Rational Scheduling** | AdamW algebraic purity verification (zero $e^x, \ln x$), decoupled weight decay invariance, and ARDS rational decay schedule $\operatorname{rsqrt}(1 + \alpha t^2)$. |
 | [**`phase6.md`**](phase6.md) | **Hardware-Fused Kernels & Algebraic FlashAttention (Pallas / XLA HLO)** | Fused JAX Pallas TPU kernels on TPU v4 VMU/MXU for AFA, sustaining $> 70\%$ peak HBM bandwidth and pure additive tile accumulation without running-max sync. |
 | [**`phase7.md`**](phase7.md) | **Full Architecture Assembly & Pilot Pretraining** | Complete `AlgebraicTransformerLM` assembly and $10^5$-step pilot pretraining (15M parameters on WikiText-103 on 16 TPU v4 chips) vs. `StandardTransformerLM`. |
 | [**`phase8.md`**](phase8.md) | **Systematic Hyperparameter Sweeping & Architecture Tuning** | Equal-budget 48-trial Pareto tuning study on 100M-token FineWeb-Edu slice on 16 TPU v4 Pod to discover optimal hyperparameters for both architectures. |
@@ -77,7 +77,7 @@ The defining acceptance gate for every algebraic primitive is the **Universal Pa
 | **Phase 2** | **A-Softmax** | Softmax | Attention score distribution & FP4 quantization noise vs. Softmax | Throughput $\ge 90\%$ of Softmax; attention distribution within $\le 5\%$ Wasserstein-1 delta; $\ge 100\times$ lower quantization noise in FP4. |
 | **Phase 3** | **AGO** | RoPE ($\sin, \cos$) | Cayley rotary embedding throughput & associative recall vs. RoPE | Throughput $\ge 90\%$ of RoPE; associative recall retrieval at par or within $\le 3\%$ margin. |
 | **Phase 4** | **OACE** | Cross-Entropy ($-\ln p$) | Optimization loss trajectory & label noise sensitivity vs. Cross-Entropy | Final convergence loss at par or within $\le 5\%$ of Cross-Entropy; $\le 50\%$ gradient variance under label noise. |
-| **Phase 5** | **ACO** | AdamW | Non-convex stochastic optimization (Rosenbrock & Rastrigin) vs. AdamW | Final loss within $5\%$ of AdamW; $\ge 45\%$ optimizer memory reduction ($\ge 1024\times$ curvature compression). |
+| **Phase 5** | **AdamW + ARDS** | AdamW + Cosine | Non-convex stochastic optimization (Rosenbrock & Rastrigin) with ARDS rational decay vs. Cosine Annealing | Final loss within $\le 2\%$ of Cosine Annealing; strictly zero transcendental function calls. |
 | **Phase 6** | **AFA** | FlashAttention-2 | Fused Pallas TPU kernel throughput & tile streaming vs. FlashAttention-2 | Throughput $\ge 85\%$ of FlashAttention-2; sustained HBM bandwidth $\ge 70\%$ peak. |
 | **Phase 7** | **Pilot (15M)** | Standard Transformer (15M) | $10^5$-step pretraining on WikiText-103 under identical token order | Validation perplexity within $\le 1.08\times$ ($\le 8\%$ degradation); throughput $\ge 90\%$. |
 | **Phase 8** | **Sweep** | Standard Transformer | 48 equal-budget trials (24/arch) on 100M FineWeb-Edu tokens | Fair apples-to-apples hyperparameter discovery for both architectures. |
@@ -146,7 +146,7 @@ graph TD
    - Re-run Phase $M$ verification suite until PASS.
    - **Cascade forward:** Systematically adapt all intermediate phases $M+1, \dots, N$ to accommodate the updated primitive. Update their interfaces, regression tests, and documentation.
 4. **Downstream Propagation (if Phase $N$ interface changes):**
-   - If a repair in Phase $N$ modifies an interface (such as adding an attention sink parameter $\Omega$, altering Horner cubic cache layout $u$, modifying factorized curvature matrix shapes, or updating Pallas block tile sizes), the agent **MUST immediately update all downstream components** (Phases $N+1$ through $10$) that consume that interface.
+   - If a repair in Phase $N$ modifies an interface (such as adding an attention sink parameter $\Omega$, altering Horner cubic cache layout $u$, modifying optimizer state layouts, or updating Pallas block tile sizes), the agent **MUST immediately update all downstream components** (Phases $N+1$ through $10$) that consume that interface.
    - Downstream models, test scripts, and benchmark configurations must be updated in lockstep before proceeding.
 5. **Implement twice where feasible:**
    - First, implement in an independent `float64` CPU reference path (`numpy` / standard Python).
@@ -182,7 +182,7 @@ algebraic-intelligence/
 │   │   ├── __init__.py
 │   │   └── pallas_afa.py            # Custom JAX Pallas TPU kernel for AFA (VMEM/MXU)
 │   ├── loss.py                      # OACE (L₁/₈) via 3 rsqrt, Pearson χ² divergence
-│   ├── optimizer.py                 # Factorized ACO optimizer & ARDS schedule in Optax/JAX
+│   ├── optimizer.py                 # Algebraic AdamW optimizer & ARDS schedule in Optax/JAX
 │   ├── model.py                     # AlgebraicTransformerLM & StandardTransformerLM in Flax
 │   └── mesh.py                      # 16 TPU v4 3D Torus mesh sharding (SPMD, shard_map)
 ├── tests/                           # Verification & regression test suites

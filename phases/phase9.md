@@ -106,7 +106,7 @@ Evaluate checkpoints using standard zero-shot reasoning probes:
 ### 4.4 Systems & Efficiency Telemetry on 16 TPU v4 Pod
 - Sustained training throughput (tokens/second) on 16 TPU v4 chips.
 - Peak HBM memory allocation during training.
-- Optimizer memory state bytes: Confirm that ACO reduces second-moment memory from $\approx 500\text{ MB}$ to $< 1\text{ MB}$, saving $\ge 45\%$ total optimizer memory in HBM.
+- Optimizer telemetry & purity: Confirm that AdamW operates identically across both models, with zero transcendentals evaluated throughout pretraining.
 
 ---
 
@@ -136,7 +136,7 @@ When an issue occurs during 125M / 2.5B token pretraining:
 - [ ] Algebraic Transformer validation perplexity on FineWeb-Edu achieves parity with the Standard Transformer baseline within $\le 1.08\times$ (mean over Seeds 42, 43, 44).
 - [ ] Perplexity variance across seeds is low and stable: $\operatorname{SEM} \le 0.15$.
 - [ ] Downstream zero-shot reasoning benchmarks (ARC-Easy, HellaSwag, PIQA, LAMBADA) are within $2.0\%$ absolute margin of the Standard Transformer baseline.
-- [ ] Hardware measurements on 16 TPU v4 Pod confirm $\ge 45\%$ lower optimizer memory footprint for ACO compared to AdamW.
+- [ ] Optimizer parity and telemetry confirm identical AdamW optimizer state dynamics across both architectures with zero transcendental calls.
 - [ ] Strict Zero-Transcendental audit confirms 0 transcendental function calls across all 125M Algebraic checkpoints and training traces.
 - [ ] All Lean 4 formal proofs compile cleanly via `/root/.elan/bin/lake build`.
 - [ ] All inherited Phase 1–8 gates pass without regression.

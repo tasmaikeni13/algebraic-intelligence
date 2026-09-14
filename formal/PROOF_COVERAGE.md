@@ -23,9 +23,8 @@ All formal proofs compile cleanly under Lean 4 (`v4.16.0`) with Mathlib4 via `/r
 | **Thm 7.2** | 2D Euclidean Norm Invariance: $\|\mathbf{R}(w)\mathbf{v}\|_2 = \|\mathbf{v}\|_2$ | `cayley_norm_preserving` | `AlgebraicTheory/Cayley.lean` | **Machine-Checked (Lean 4)** |
 | **Thm 5.2 (1)** | Pearson $\chi^2$ Divergence Expansion: $\frac{(y-p)^2}{p} = \frac{y^2}{p} - 2y + p$ | `pearson_chi_sq_expansion` | `AlgebraicTheory/Loss.lean` | **Machine-Checked (Lean 4)** |
 | **Thm 5.2 (2)** | Non-Negativity & Strict Propriety of $D_A$: $\frac{(y-p)^2}{p} \ge 0$ | `pearson_divergence_nonneg`, `pearson_zero_iff_equal` | `AlgebraicTheory/Loss.lean` | **Machine-Checked (Lean 4)** |
-| **Thm 10.4** | Factorized Kronecker Curvature Recovery: $\frac{(a_i \bar{b})(b_j \bar{a})}{\bar{a}\bar{b}} = a_i b_j$ | `factorized_rank1_recovery` | `AlgebraicTheory/Curvature.lean` | **Machine-Checked (Lean 4)** |
-| **Eq 62** | Rational Moment Polynomial Debiasing: $\frac{v_t}{1 - \beta^t}$ | `debiasing_identity` | `AlgebraicTheory/Curvature.lean` | **Machine-Checked (Lean 4)** |
-| **Eq 67** | Decoupled Algebraic Parameter Update Invariance | `decoupled_weight_decay_step` | `AlgebraicTheory/Curvature.lean` | **Machine-Checked (Lean 4)** |
+| **Thm 10.1** | Rational Moment Polynomial Debiasing: $\frac{v_t}{1 - \beta^t}$ | `debiasing_identity` | `AlgebraicTheory/Curvature.lean` | **Machine-Checked (Lean 4)** |
+| **Thm 10.1** | Decoupled Algebraic Parameter Update Invariance | `decoupled_weight_decay_step` | `AlgebraicTheory/Curvature.lean` | **Machine-Checked (Lean 4)** |
 
 ---
 
@@ -40,7 +39,7 @@ The following theorems in `theory.md` involve asymptotic limits, differential ge
 5. **Theorem 7.5 (Exact Shift Equivariance of AGO):** Relative displacement identity $\langle \mathbf{Q}_m, \mathbf{K}_n \rangle = f(n - m)$. Follows from $\mathbf{R}_k \in \mathrm{SO}(2)$; confirmed numerically across $L=4096$ positions.
 6. **Theorem 8.1 (Single-Pass Additive Tile Accumulation):** Pure additivity of AFA tiles without running maximums. Analytically derived; verified on 16 TPU v4 Pod in `src/kernels/pallas_afa.py`.
 7. **Theorem 9.3 (Universal Approximation of ALU-GLU):** Follows from the Leshno-Lin-Pinkus-Schocken Theorem (1993) since $K(x)$ is continuous and non-polynomial.
-8. **Theorem 10.7 (Convergence Bound of ACO):** $\mathcal{O}(1/\sqrt{T})$ convergence to a stationary point on non-convex smooth objectives. Analytically derived via Lyapunov analysis.
+8. **Theorem 10.4 (Convergence Bound of Algebraic AdamW):** $\mathcal{O}(1/\sqrt{T})$ convergence to a stationary point on non-convex smooth objectives. Analytically derived via Lyapunov analysis.
 
 ---
 

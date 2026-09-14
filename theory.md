@@ -18,9 +18,9 @@ We answer this question affirmatively by constructing the **Algebraic Stack**: a
 2. **Cross-node synchronization.** The Algebraic Softmax (A-Softmax) kernel $\rho(x) = x + \sqrt{x^{2} + 1}$ is strictly positive and bounded above under AVN pre-bounding, so Algebraic Flash Attention (AFA) requires no running-maximum subtraction. Its tile accumulation is purely additive, enabling asynchronous, lock-free Ring Attention across multi-node clusters with a single global All-Reduce, eliminating the per-tile serialization barrier that dominates large-context training.
 3. **Quantization robustness.** The algebraic kernel $\rho$ is globally 2-Lipschitz, guaranteeing $\operatorname{Var}(\rho(X)) \leq 4 \operatorname{Var}(X)$ for any input distribution. After AVN pre-bounding, the A-Softmax operator has a Jacobian magnitude strictly bounded by $n / 4$, where $n$ is the algebraic sharpening exponent. Setting $n = 8 = 2^{3}$ yields routing ratios of order $10^{5}$ in three hardware squaring operations while preserving a 2-Lipschitz operator. Routing logits, attention scores, and MoE expert weights are natively representable in INT4 and FP4 without per-group calibration scales or QAT-time outlier suppression, provided block-level denominators are accumulated in FP32 SRAM scratch.
 4. **Shift equivariance.** Algebraic Geometric Ordering (AGO) is constructed from static, per-head, content-independent frequency generators $\mathbf{A}_k = \omega_k \mathbf{J}$ on the rank-2 skew subalgebra $\mathfrak{so}(2)$. The Cayley transform yields a closed-form orthogonal rotation matrix $\mathbf{R}_k$ whose $m$-th power computes the absolute position-$m$ encoding and whose Gram product $\mathbf{R}_k^{n - m}$ enforces the relative attention identity $\langle \mathbf{Q}_m, \mathbf{K}_n \rangle = \mathbf{x}_q^{\top} \mathbf{R}_k^{n - m} \mathbf{x}_k$. Autoregressive decoding maintains $\mathcal{O}(1)$ complexity per token through cached $\mathbf{R}_k^{m - 1} \mapsto \mathbf{R}_k \mathbf{R}_k^{m - 1}$ matrix-vector updates without evaluating $\sin$ or $\cos$.
-5. **Loss-landscape curvature without transcendentals.** The Algebraic Curvature Optimizer (ACO) remakes AdamW entirely within algebra. It replaces the full $\mathcal{O}(d_{\mathrm{out}} \cdot d_{\mathrm{in}})$ second-moment tensor with factorized algebraic row-column preconditioning in $\mathcal{O}(d_{\mathrm{out}} + d_{\mathrm{in}})$ HBM memory, computes moment updates and polynomial debiasing via exact rational algebra, schedules learning rates via an inverse-square-root rational decay schedule (ARDS) without cosine annealing, and enforces decoupled algebraic weight decay.
+5. **Loss-landscape curvature within algebra.** We establish that the standard AdamW optimizer is already strictly and natively an algebraic algorithm. Its moment accumulators are rational polynomial combinations, its bias correction $(1 - \beta^t)$ is an integer power, and its preconditioning is an inverse square root ($\mathrm{rsqrt}$). It contains zero transcendental functions ($e^x, \ln x$). To eliminate transcendental Cosine Annealing, we pair AdamW with the Algebraic Rational Decay Schedule (ARDS) or linear decay, preserving complete algebraic purity across the optimization loop while holding the optimizer strictly constant between architectural comparisons.
 
-Every component is given complete mathematical derivations: closed-form gradients, Lipschitz certificates, shift-equivariance and orthogonality theorems, factorized preconditioning guarantees, and explicit backward graphs that contain no rsqrt, no division, and no transcendental function. We provide formal machine-checked proofs in Lean 4 and rigorous empirical verification in Python, demonstrating that pure algebraic architectures converge stably, match the expressive capacity of transcendental Transformers, and open a new foundation for memory-frugal, synchronization-free machine intelligence.
+Every component is given complete mathematical derivations: closed-form gradients, Lipschitz certificates, shift-equivariance and orthogonality theorems, and explicit backward graphs that contain no rsqrt, no division, and no transcendental function. We provide formal machine-checked proofs in Lean 4 and rigorous empirical verification in Python, demonstrating that pure algebraic architectures converge stably, match the expressive capacity of transcendental Transformers, and open a new foundation for memory-frugal, synchronization-free machine intelligence.
 
 ---
 
@@ -28,19 +28,19 @@ Every component is given complete mathematical derivations: closed-form gradient
 
 ### 1.1 The Structural Cost of Transcendentals
 
-A contemporary large-scale Transformer is, at its arithmetic core, a composition of transcendental functions layered atop dense matrix multiplication. The attention mechanism normalizes query-key scores through a softmax whose per-element kernel is the exponential $e^{x}$. Every feed-forward block, in its dominant SwiGLU or GeGLU variant, gates through a Swish or GELU non-linearity, both of which embed $e^{x}$ inside a tensor four to eight times wider than the model dimension. Positional encoding—whether sinusoidal or rotary (RoPE)—requires $\sin$ and $\cos$. The training loss evaluates $-\ln p$ in its cross-entropy component and $\ln (y / p)$ whenever a Kullback-Leibler divergence is present. Mixture-of-experts routing contributes $E$ exponentials per token per layer, plus two logarithms per sample for Gumbel noise. Finally, the optimizer (AdamW) updates parameters using exponential moving averages and relies on transcendental cosine annealing schedules for convergence.
+A contemporary large-scale Transformer is, at its arithmetic core, a composition of transcendental functions layered atop dense matrix multiplication. The attention mechanism normalizes query-key scores through a softmax whose per-element kernel is the exponential $e^{x}$. Every feed-forward block, in its dominant SwiGLU or GeGLU variant, gates through a Swish or GELU non-linearity, both of which embed $e^{x}$ inside a tensor four to eight times wider than the model dimension. Positional encoding—whether sinusoidal or rotary (RoPE)—requires $\sin$ and $\cos$. The training loss evaluates $-\ln p$ in its cross-entropy component and $\ln (y / p)$ whenever a Kullback-Leibler divergence is present. Mixture-of-experts routing contributes $E$ exponentials per token per layer, plus two logarithms per sample for Gumbel noise. Finally, standard training recipes frequently rely on transcendental cosine annealing schedules for optimization.
 
 It is tempting to view this stack of transcendentals primarily through the lens of arithmetic latency. Each invocation of $e^{x}$ or $\ln x$ on contemporary silicon compiles to a range-reduced minimax polynomial, typically requiring tens of pipeline cycles per element, executed on a dedicated Special Function Unit (SFU). At the scale of frontier models with hundreds of billions of parameters, the cumulative SFU cost is non-trivial.
 
-On modern accelerators, however, the inverse square root $\mathrm{rsqrt}$ and $e^{x}$ have nearly identical SFU pipeline latencies, and SFU throughput is rarely the binding constraint of a well-tuned training step. The genuinely dominant resources are high-bandwidth memory (HBM) capacity, cross-node synchronization bandwidth, and the dynamic range of sub-byte numerical formats. To these three hardware regimes we must add two purely algorithmic requirements that determine whether a deep architecture can learn long-horizon representations: shift equivariance in positional encoding (so that the model learns translation-invariant linguistic regularities and decodes autoregressively in $\mathcal{O}(1)$ per token), and curvature-aware preconditioning in optimization (so that gradient descent converges on ill-conditioned loss surfaces). It is in precisely these five regimes that transcendental operations exact their true structural cost.
+On modern accelerators, however, the inverse square root $\mathrm{rsqrt}$ and $e^{x}$ have nearly identical SFU pipeline latencies, and SFU throughput is rarely the binding constraint of a well-tuned training step. The genuinely dominant resources are high-bandwidth memory (HBM) capacity, cross-node synchronization bandwidth, and the dynamic range of sub-byte numerical formats. To these three hardware regimes we must add two purely algorithmic requirements that determine whether a deep architecture can learn long-horizon representations: shift equivariance in positional encoding (so that the model learns translation-invariant linguistic regularities and decodes autoregressively in $\mathcal{O}(1)$ per token), and curvature-aware preconditioning in optimization (so that gradient descent converges on ill-conditioned loss surfaces). It is in precisely these regimes that transcendental operations exact their true structural cost.
 
 ### 1.2 Five Structural Hostilities
 
-1. **HBM capacity inflation.** Standard normalization layers (LayerNorm, RMSNorm) compute a per-token statistic, divide by it, discard the statistic, and then multiply by a learnable channel-wise scale $\boldsymbol{\gamma} \in \mathbb{R}^d$. The scale vector is loaded from HBM for every token of every layer of every forward and backward pass. On memory-bandwidth-bound inference workloads (such as KV-cached autoregressive decoding), the cumulative bandwidth cost is substantial. Furthermore, AdamW inflates HBM footprint by maintaining an uncompressed $\mathcal{O}(d_{\mathrm{out}} \cdot d_{\mathrm{in}})$ second-moment tensor per weight matrix, doubling or tripling the memory required to host model state.
+1. **HBM capacity inflation.** Standard normalization layers (LayerNorm, RMSNorm) compute a per-token statistic, divide by it, discard the statistic, and then multiply by a learnable channel-wise scale $\boldsymbol{\gamma} \in \mathbb{R}^d$. The scale vector is loaded from HBM for every token of every layer of every forward and backward pass. On memory-bandwidth-bound inference workloads (such as KV-cached autoregressive decoding), the cumulative bandwidth cost is substantial.
 2. **Cross-node synchronization barriers.** Softmax, as implemented in every numerically stable framework, is not a pointwise function: it is a global reduction. The inner loop subtracts the row-wise maximum from every score before exponentiating, in order to prevent floating-point overflow in $e^x$. This max-subtraction is a strict synchronization barrier: no element of the row can be normalized until the maximum of the entire row has been established. Inside a single GPU's SRAM, this is an intra-tile reduction. Across a multi-node cluster running Ring Attention—where each device holds a slice of keys and values and must accumulate partial attention contributions sequentially around the ring—the max-reduction collapses to a strict serial dependence between tile transitions. Every tile transition demands cross-device communication of the running maximum and a multiplicative correction of the running denominator. At a scale of thousands of accelerators, this barrier dominates wall-clock time per attention call.
 3. **Sub-byte quantization range inflation.** The exponential function is an extreme variance inflator: it maps linear input scales to exponential output scales, converting modest outliers in the logit distribution into outputs that dominate the entire softmax mass. For FP32 or FP16 inference, this is manageable. For INT4 and FP4 quantization of KV caches, attention scores, and MoE routing logits, a single outlier in the score distribution forces the per-group calibration scale to widen by orders of magnitude, destroying the precision of all non-outlier values in the same group. Quantization-Aware Training (QAT) recipes for sub-byte Transformers routinely mandate complex outlier suppression specifically to tame exponential amplification.
 4. **Loss of shift equivariance under non-transcendental approximations.** Standard positional encodings rely on trigonometric rotations $(\sin m\theta, \cos m\theta)$ to achieve shift equivariance $\langle \mathbf{Q}_m, \mathbf{K}_n \rangle = f(\mathbf{x}_q, \mathbf{x}_k, n - m)$. Prior non-trigonometric approaches often introduced content-dependent or learned positional embeddings that break exact relative translation invariance, preventing length extrapolation and inflating decode latency. Any pure algebraic replacement must produce an orthogonal rotation per position, satisfy the Gram product identity $\mathbf{R}_m^\top \mathbf{R}_n = \mathbf{R}_{n - m}$, and extend autoregressively at $\mathcal{O}(1)$ cost per token without evaluating trigonometric series.
-5. **Loss of curvature-aware preconditioning without transcendental optimizer state.** Adaptive optimizers succeed on Transformer training not because they reduce gradient noise, but because they precondition by an estimate of the inverse Fisher information matrix, restoring step size in directions where the loss surface is flat and shrinking step size where it is sharp. AdamW's $\sqrt{\hat{v}}$ denominator is a diagonal Fisher estimate; its cost is the full $\mathcal{O}(d_{\mathrm{out}} \cdot d_{\mathrm{in}})$ second-moment tensor per weight matrix in HBM, updated via continuous exponential moving averages. Furthermore, training relies on transcendental cosine annealing schedules to decay learning rates. Eliminating transcendentals while preserving curvature awareness requires a purely algebraic optimizer that factorizes curvature into $\mathcal{O}(d_{\mathrm{out}} + d_{\mathrm{in}})$ memory and schedules learning rates via rational decay.
+5. **Transcendental scheduling in adaptive optimization.** Adaptive optimizers succeed on Transformer training because they precondition by an estimate of the inverse Fisher information matrix, restoring step size in directions where the loss surface is flat and shrinking step size where it is sharp. While AdamW's update rule is natively algebraic (rational polynomials and $\mathrm{rsqrt}$), practitioners routinely rely on transcendental cosine annealing schedules to decay learning rates. Eliminating transcendentals while preserving curvature awareness requires recognizing AdamW's native algebraic structure and pairing it with rational decay.
 
 ### 1.3 The Core Research Direction: Can Algebra and Algebra Alone Give Rise to Intelligence?
 
@@ -68,7 +68,7 @@ The paper is organized around the foundational layers of the Algebraic Stack:
 - **Section 7** presents Algebraic Geometric Ordering (AGO) via static rank-2 Cayley rotations, proving exact shift equivariance and $\mathcal{O}(1)$ autoregressive updates.
 - **Section 8** develops Algebraic Flash Attention (AFA), proving single-pass exactness, tile commutativity, and asynchronous, lock-free Ring Attention across multi-node clusters.
 - **Section 9** treats ALU-GLU, deriving its closed-form polynomial backward pass and universal approximation certificate.
-- **Section 10** presents the **Algebraic Curvature Optimizer (ACO)**: remaking AdamW with algebra alone, deriving factorized $\mathcal{O}(d_{\mathrm{out}} + d_{\mathrm{in}})$ curvature preconditioning, rational momentum, and the Algebraic Rational Decay Schedule (ARDS).
+- **Section 10** establishes the **Algebraic Foundation of the AdamW Optimizer**, demonstrating that standard AdamW is already natively algebraic, and details the Algebraic Rational Decay Schedule (ARDS).
 - **Section 11** develops the **Algebraic Mixture of Experts (A-MoE)** as an architectural scaling extension for future work, introducing the Algebraic Noise Transform (ANT) and native FP4 sparse routing.
 - **Section 12** presents a foundational mathematical and philosophical treatise addressing the core research question: "Can algebra and algebra alone give rise to intelligence?".
 - **Section 13** provides an exhaustive structural comparison between empirical patches in frontier LLMs and native Algebraic Stack primitives.
@@ -394,72 +394,60 @@ Evaluating the backward pass requires zero $\mathrm{rsqrt}$ and zero transcenden
 
 ---
 
-## 10 The Algebraic Curvature Optimizer (ACO)
+## 10 The Algebraic Foundation of the AdamW Optimizer
 
-### 10.1 The Curvature Problem and the Memory Hostility of AdamW
+### 10.1 The Transcendental Myth of Adaptive Optimization
 
-The training of deep Transformer architectures exhibits severely ill-conditioned, non-convex loss landscapes characterized by anisotropic valleys with condition numbers $\kappa \gg 10^4$. First-order stochastic gradient descent (SGD) fails on these surfaces due to orthogonal gradient oscillation. AdamW resolves this by preconditioning updates with a diagonal estimate of the Fisher information matrix:
-$$\theta_t = \theta_{t-1} - \eta_t \left(\frac{\hat{m}_t}{\sqrt{\hat{v}_t} + \epsilon} + \lambda \theta_{t-1}\right).$$
+In the machine learning literature, adaptive optimizers (Adam, AdamW) are frequently characterized as continuous, exponential relaxation processes motivated by continuous physical thermodynamics ($e^{-\Delta t / \tau}$). Furthermore, contemporary training recipes almost universally wrap AdamW in transcendental Cosine Annealing schedules ($\cos(\pi t / T)$), reinforcing the assumption that adaptive optimization fundamentally depends on transcendental calculus.
 
-However, standard AdamW introduces three structural liabilities:
-1. **Memory hostility:** It maintains two full state tensors ($m_t, v_t \in \mathbb{R}^{d_{\mathrm{out}} \times d_{\mathrm{in}}}$) in HBM for every 2D weight matrix, consuming $2 \times$ the parameter footprint and bottlenecking training on memory-capacity-limited hardware.
-2. **Transcendental reliance:** The moving average updates are historically motivated by continuous exponential decay $e^{-\Delta t / \tau}$, and bias correction $(1 - \beta^t)$ is treated as exponential relaxation.
-3. **Transcendental learning rate scheduling:** Practitioners rely on transcendental schedules, notably Cosine Annealing $\eta_t = \eta_{\min} + \frac{1}{2}(\eta_{\max} - \eta_{\min})(1 + \cos(\pi t / T))$, introducing $\cos$ into the optimization loop.
+We demystify this assumption: **the standard AdamW optimizer is already strictly and technically an algebraic algorithm.** It contains zero continuous integrals, zero matrix exponentials, and zero transcendental calls.
 
-We now derive the **Algebraic Curvature Optimizer (ACO)**, remaking adaptive optimization entirely within algebra.
+### 10.2 Algebraic Moment Updates and Rational Debiasing
 
-### 10.2 Purely Algebraic Rational Momentum and Debiasing
+Consider the standard AdamW update equations for parameter tensor $\mathbf{W} \in \mathbb{R}^{d_{\mathrm{out}} \times d_{\mathrm{in}}}$ and gradient $\mathbf{G}_t \in \mathbb{R}^{d_{\mathrm{out}} \times d_{\mathrm{in}}}$ under rational hyperparameters $\beta_1, \beta_2 \in \mathbb{Q}$ (typically $\beta_1 = 9/10, \beta_2 = 999/1000$):
+$$\mathbf{M}_t = \beta_1 \mathbf{M}_{t-1} + (1 - \beta_1) \mathbf{G}_t, \quad (61)$$
+$$\mathbf{V}_t = \beta_2 \mathbf{V}_{t-1} + (1 - \beta_2) \mathbf{G}_t^{\odot 2}. \quad (62)$$
 
-In ACO, moment updates are governed by rational constants $\beta_1, \beta_2 \in \mathbb{Q}$ (e.g., $\beta_1 = 9/10, \beta_2 = 999/1000$):
-$$\mathbf{M}_t = \beta_1 \mathbf{M}_{t-1} + (1 - \beta_1) \mathbf{G}_t. \quad (61)$$
-The bias-correction term is the rational polynomial:
-$$\delta_1(t) = 1 - \beta_1^t, \qquad \delta_2(t) = 1 - \beta_2^t. \quad (62)$$
-For integer step $t$, $\beta^t$ is an exact algebraic power computed in $\mathcal{O}(\log t)$ multiplications via binary exponentiation. The debiased first moment is $\hat{\mathbf{M}}_t = \mathbf{M}_t / \delta_1(t)$.
+Both $\mathbf{M}_t$ and $\mathbf{V}_t$ are rational linear and quadratic combinations evaluated using pure additions, subtractions, and multiplications (FMAs).
 
-### 10.3 Factorized Algebraic Preconditioning ($\mathcal{O}(d_{\mathrm{out}} + d_{\mathrm{in}})$ Memory)
+The debiasing factors are rational polynomials:
+$$\delta_1(t) = 1 - \beta_1^t, \qquad \delta_2(t) = 1 - \beta_2^t. \quad (63)$$
+For any integer training step $t \in \mathbb{N}$, $\beta^t$ is an exact algebraic power computed in $\mathcal{O}(\log t)$ scalar multiplications via binary exponentiation. Zero continuous exponential integrals are evaluated. The debiased moments are:
+$$\hat{\mathbf{M}}_t = \frac{\mathbf{M}_t}{1 - \beta_1^t}, \qquad \hat{\mathbf{V}}_t = \frac{\mathbf{V}_t}{1 - \beta_2^t}. \quad (64)$$
 
-To eliminate the $\mathcal{O}(d_{\mathrm{out}} \cdot d_{\mathrm{in}})$ second-moment HBM storage, ACO decomposes the curvature into row and column marginal projections.
+### 10.3 The Algebraic Preconditioned Parameter Update
 
-**Definition 10.1 (Factorized Curvature Accumulators).** For a weight gradient $\mathbf{G}_t \in \mathbb{R}^{d_{\mathrm{out}} \times d_{\mathrm{in}}}$, ACO maintains only two low-dimensional vectors in HBM:
-$$\mathbf{r}_t = \beta_2 \mathbf{r}_{t-1} + (1 - \beta_2) \left(\frac{1}{d_{\mathrm{in}}} \sum_{j=1}^{d_{\mathrm{in}}} \mathbf{G}_{t, \cdot, j}^{\odot 2}\right) \in \mathbb{R}^{d_{\mathrm{out}}}, \quad (63)$$
-$$\mathbf{c}_t = \beta_2 \mathbf{c}_{t-1} + (1 - \beta_2) \left(\frac{1}{d_{\mathrm{out}}} \sum_{i=1}^{d_{\mathrm{out}}} \mathbf{G}_{t, i, \cdot}^{\odot 2}\right) \in \mathbb{R}^{d_{\mathrm{in}}}. \quad (64)$$
+The parameter update step preconditions the debiased first moment by the inverse square root of the diagonal curvature estimate:
+$$\mathbf{U}_{t, ij} = \hat{\mathbf{M}}_{t, ij} \cdot \mathrm{rsqrt}(\hat{\mathbf{V}}_{t, ij} + \epsilon^2). \quad (65)$$
+The parameter update with decoupled weight decay $\lambda \in \mathbb{Q}$ is:
+$$\mathbf{W}_t = \mathbf{W}_{t-1} - \eta_t \mathbf{U}_t - \eta_t \lambda \mathbf{W}_{t-1} = (1 - \eta_t \lambda)\mathbf{W}_{t-1} - \eta_t \mathbf{U}_t. \quad (66)$$
 
-The debiased marginal second moments are:
-$$\hat{\mathbf{r}}_t = \frac{\mathbf{r}_t}{1 - \beta_2^t}, \qquad \hat{\mathbf{c}}_t = \frac{\mathbf{c}_t}{1 - \beta_2^t}. \quad (65)$$
+Every operation in equations (61)–(66) belongs strictly to the field of real numbers generated by rational arithmetic and square root radicals:
+$$\mathbf{W}_t \in \mathbb{Q}(\mathbf{W}_0, \mathbf{G}_1, \dots, \mathbf{G}_t, \sqrt{\cdot}).$$
+Zero $e^x$, zero $\ln x$, zero $\sin x$, and zero $\cos x$ are evaluated.
 
-**Definition 10.2 (ACO Preconditioned Update).** The algebraic preconditioner is synthesized on-the-fly inside SRAM via the rank-1 outer product and evaluated using a single $\mathrm{rsqrt}$:
-$$\hat{\mathbf{V}}_{t, ij} = \sqrt{\hat{r}_{t, i} \hat{c}_{t, j}}, \qquad \mathbf{U}_{t, ij} = \hat{\mathbf{M}}_{t, ij} \cdot \mathrm{rsqrt}(\hat{r}_{t, i} \hat{c}_{t, j} + \epsilon^2). \quad (66)$$
-The parameter update is:
-$$\mathbf{W}_t = \mathbf{W}_{t-1} - \eta_t \mathbf{U}_t - \eta_t \lambda \mathbf{W}_{t-1}, \quad (67)$$
-where $\lambda \in \mathbb{Q}$ is the decoupled algebraic weight decay factor.
+**Theorem 10.1 (Algebraic Nature of AdamW).** Let $\beta_1, \beta_2, \lambda, \epsilon \in \mathbb{Q}$ and let the learning rate $\eta_t$ be an algebraic function of step $t$. Then the complete AdamW trajectory $\{\mathbf{W}_t\}_{t=1}^T$ is a purely algebraic sequence computable exclusively via additions, multiplications, divisions, and the hardware $\mathrm{rsqrt}$ primitive.
 
-**Theorem 10.3 (Memory Compression Guarantee).** For a weight tensor $\mathbf{W} \in \mathbb{R}^{d_{\mathrm{out}} \times d_{\mathrm{in}}}$, standard AdamW stores $2 d_{\mathrm{out}} d_{\mathrm{in}}$ optimizer state scalars. ACO stores $d_{\mathrm{out}} d_{\mathrm{in}}$ scalars for momentum plus $d_{\mathrm{out}} + d_{\mathrm{in}}$ scalars for curvature. When combined with rank-1 momentum factorization $\mathbf{M} \approx \mathbf{u}_m \mathbf{v}_m^\top$, the state scales as $\mathcal{O}(d_{\mathrm{out}} + d_{\mathrm{in}})$, achieving an exact compression factor of:
-$$\frac{d_{\mathrm{out}} d_{\mathrm{in}}}{d_{\mathrm{out}} + d_{\mathrm{in}}} \approx \frac{d}{2} \gg 10^3. \quad (68)$$
-
-**Theorem 10.4 (Kronecker Fisher Spectral Alignment).** Suppose the true gradient second moment follows a Kronecker-factored distribution $\mathbb{E}[\mathbf{G}_t^{\odot 2}] = \mathbf{a} \mathbf{b}^\top$ for positive vectors $\mathbf{a} \in \mathbb{R}^{d_{\mathrm{out}}}, \mathbf{b} \in \mathbb{R}^{d_{\mathrm{in}}}$. Then the factorized estimators $\hat{\mathbf{r}}_t$ and $\hat{\mathbf{c}}_t$ satisfy:
-$$\mathbb{E}[\hat{\mathbf{r}}_t] = \bar{b} \cdot \mathbf{a}, \qquad \mathbb{E}[\hat{\mathbf{c}}_t] = \bar{a} \cdot \mathbf{b},$$
-where $\bar{a} = \frac{1}{d_{\mathrm{out}}}\sum a_i$ and $\bar{b} = \frac{1}{d_{\mathrm{in}}}\sum b_j$. Consequently:
-$$\mathbb{E}[\hat{\mathbf{r}}_{t, i}] \cdot \mathbb{E}[\hat{\mathbf{c}}_{t, j}] = (\bar{a}\bar{b}) \cdot (\mathbf{a}\mathbf{b}^\top)_{ij},$$
-proving that the synthesized curvature $\sqrt{\hat{r}_i \hat{c}_j}$ is an exact spectral estimator of the true diagonal Fisher information matrix up to a global scalar.
+By deploying standard AdamW across both our baseline and algebraic pretraining runs, we maintain absolute algebraic purity while eliminating the optimizer as an experimental confound, guaranteeing a strictly controlled, apples-to-apples evaluation of the architectural innovations (ALU-GLU, AVN, A-Softmax, AGO, and OACE).
 
 ### 10.4 Algebraic Rational Decay Schedule (ARDS)
 
-Practitioners rely on transcendental cosine annealing $\frac{1}{2}(1 + \cos(\pi t / T))$ to decay the learning rate. We eliminate cosine entirely by introducing the **Algebraic Rational Decay Schedule (ARDS)**:
+While the AdamW update rule is natively algebraic, common practice injects transcendentals via Cosine Annealing $\eta(t) = \eta_{\min} + \frac{1}{2}(\eta_{\max} - \eta_{\min})(1 + \cos(\pi t / T))$. We eliminate cosine entirely by employing either standard linear decay or the **Algebraic Rational Decay Schedule (ARDS)**:
 
-**Definition 10.5 (ARDS).** For maximum learning rate $\eta_{\max}$, warmup steps $T_{\mathrm{warm}}$, decay scale $T_{\mathrm{decay}}$, and curvature parameter $\alpha > 0$:
-$$\eta(t) = \eta_{\max} \cdot \min\left(1, \frac{t}{T_{\mathrm{warm}}}\right) \cdot \mathrm{rsqrt}\left(1 + \alpha \left[\frac{\max(0, t - T_{\mathrm{warm}})}{T_{\mathrm{decay}}}\right]^2\right). \quad (69)$$
+**Definition 10.2 (ARDS).** For maximum learning rate $\eta_{\max}$, warmup steps $T_{\mathrm{warm}}$, decay scale $T_{\mathrm{decay}}$, and curvature parameter $\alpha > 0$:
+$$\eta(t) = \eta_{\max} \cdot \min\left(1, \frac{t}{T_{\mathrm{warm}}}\right) \cdot \mathrm{rsqrt}\left(1 + \alpha \left[\frac{\max(0, t - T_{\mathrm{warm}})}{T_{\mathrm{decay}}}\right]^2\right). \quad (67)$$
 
-**Proposition 10.6 (Properties of ARDS).**
+**Proposition 10.3 (Properties of ARDS).**
 1. **Smoothness:** $\eta(t)$ is continuous and piecewise smooth.
 2. **Warmup linearity:** For $t \leq T_{\mathrm{warm}}$, $\eta(t) = \eta_{\max}(t / T_{\mathrm{warm}})$.
 3. **Algebraic decay:** For $t > T_{\mathrm{warm}}$, $\eta(t) \sim \mathcal{O}(1/t)$, matching the optimal theoretical rate for non-convex stochastic optimization.
 4. **Hardware cost:** Evaluated in 1 subtraction, 1 square, 1 FMA, and 1 hardware $\mathrm{rsqrt}$. Zero trigonometric functions.
 
-### 10.5 Global Convergence of the Algebraic Curvature Optimizer
+### 10.5 Global Convergence of Algebraic AdamW
 
-**Theorem 10.7 (Convergence Bound on Smooth Non-Convex Objectives).** Let $\mathcal{L}: \mathbb{R}^P \to \mathbb{R}$ be $L$-Lipschitz smooth ($\|\nabla \mathcal{L}(\theta) - \nabla \mathcal{L}(\theta')\| \leq L\|\theta - \theta'\|$) and bounded below by $\mathcal{L}^*$. Let the stochastic gradient estimates have bounded variance $\mathbb{E}[\|\mathbf{G}_t - \nabla \mathcal{L}(\theta_t)\|^2] \leq \sigma^2$. Under the ACO update (Definition 10.2) with learning rate schedule $\eta_t = \eta_0 / \sqrt{t}$, the sequence of iterates satisfies:
-$$\frac{1}{T} \sum_{t=1}^T \mathbb{E}[\|\nabla \mathcal{L}(\theta_t)\|^2] \leq \frac{C_1 (\mathcal{L}(\theta_0) - \mathcal{L}^*)}{\sqrt{T}} + \frac{C_2 \sigma^2 \ln(T)}{\sqrt{T}} = \mathcal{O}\left(\frac{1}{\sqrt{T}}\right), \quad (70)$$
-guaranteeing convergence to a stationary point at the minimax optimal rate.
+**Theorem 10.4 (Convergence Bound on Smooth Non-Convex Objectives).** Let $\mathcal{L}: \mathbb{R}^P \to \mathbb{R}$ be $L$-Lipschitz smooth ($\|\nabla \mathcal{L}(\theta) - \nabla \mathcal{L}(\theta')\| \leq L\|\theta - \theta'\|$) and bounded below by $\mathcal{L}^*$. Let the stochastic gradient estimates have bounded variance $\mathbb{E}[\|\mathbf{G}_t - \nabla \mathcal{L}(\theta_t)\|^2] \leq \sigma^2$. Under the AdamW update (Equations 61–66) with learning rate schedule $\eta_t = \eta_0 / \sqrt{t}$, the sequence of iterates satisfies:
+$$\frac{1}{T} \sum_{t=1}^T \mathbb{E}[\|\nabla \mathcal{L}(\theta_t)\|^2] \leq \frac{C_1 (\mathcal{L}(\theta_0) - \mathcal{L}^*)}{\sqrt{T}} + \frac{C_2 \sigma^2 \ln(T)}{\sqrt{T}} = \mathcal{O}\left(\frac{1}{\sqrt{T}}\right), \quad (68)$$
+guaranteeing convergence to a stationary point at the minimax optimal rate within algebra alone.
 
 ---
 
@@ -528,7 +516,7 @@ Theorem 5.2 establishes that the Algebraic Divergence $D_A(\mathbf{y} \| \mathbf
 
 ### 12.5 Curvature-Aware Optimization Without Continuous Transcendentals
 
-Does adaptive optimization require continuous exponential integrals? Theorem 10.4 proves that factorized row-column projections $\mathbf{r}_t \otimes \mathbf{c}_t$ approximate the diagonal Fisher information matrix with spectral fidelity under Kronecker covariance. The learning rate schedule ARDS decays as $1/\sqrt{1 + \alpha t^2} \sim 1/t$, matching the optimal asymptotic convergence rate for stochastic non-convex optimization (Theorem 10.7) with zero trigonometric calls.
+Does adaptive optimization require continuous exponential integrals? As established in Section 10, the standard AdamW optimizer is already natively algebraic: its moment accumulations are rational polynomials, its debiasing is an exact integer power, and its preconditioner is an inverse square root ($\mathrm{rsqrt}$). When paired with the Algebraic Rational Decay Schedule (ARDS) or linear decay, the optimization trajectory achieves the minimax optimal asymptotic $\mathcal{O}(1/\sqrt{T})$ convergence rate (Theorem 10.4) with zero transcendental function calls.
 
 ### 12.6 The Affirmative Answer
 
@@ -541,7 +529,7 @@ Intelligence does not reside in the transcendental nature of $e^x$ or $\ln x$. I
 3. **Projective normalization on bounded manifolds** (AVN).
 4. **Relational routing and contextual attention** (A-Softmax and AFA).
 5. **Exact rotational group actions** (AGO Cayley rotations).
-6. **Curvature-aligned Riemannian preconditioning** (ACO).
+6. **Curvature-aligned Riemannian preconditioning** (Algebraic AdamW).
 
 Every one of these mechanisms is purely algebraic. By purging transcendentals, we do not compromise expressive power; we gain numerical stability, HBM efficiency, and synchronization-free distributed scaling.
 
@@ -562,7 +550,7 @@ Frontier deployments have developed complex engineering heuristics to patch the 
 | **MoE Routing Collapse** | Auxiliary entropy / load-balance loss | A-MoE Router* (Future Work) | $w_j = (1 + \hat{r}_j^2)^{-1/2}$ naturally attenuates confident experts |
 | **MoE Gumbel Noise** | Transcendental $g = -\ln(-\ln U)$ | Algebraic Noise Transform (ANT) | Inverse-CDF $\eta = (2U-1)/\sqrt{1 - (2U-1)^2 + \epsilon_n}$ |
 | **HBM Normalization** | Learnable $\boldsymbol{\gamma}$ vector in HBM | AVN Layer | Zero-parameter projection; Coupling Identity $\beta(x; v) = \beta(\hat{x}; 1)$ |
-| **Optimizer Memory** | Full $\mathcal{O}(d_{\mathrm{out}} d_{\mathrm{in}})$ AdamW state | Algebraic Curvature Optimizer (ACO) | Factorized row-column projections in $\mathcal{O}(d_{\mathrm{out}} + d_{\mathrm{in}})$ memory |
+| **Optimizer Transcendental Myth** | Assumed continuous exponential integrals | Algebraic AdamW | Natively algebraic: rational momentum + $\mathrm{rsqrt}$; zero $e^x, \ln x$ |
 | **Learning Rate Schedule**| Cosine Annealing $\frac{1}{2}(1 + \cos(\pi t / T))$ | Algebraic Rational Decay (ARDS) | Rational decay $\eta_t \propto \mathrm{rsqrt}(1 + \alpha t^2)$ via 1 $\mathrm{rsqrt}$ |
 | **Loss Gradient Explosion**| Gradient clipping / Logit soft-capping | Octo-Algebraic Cross-Entropy (OACE) | Gradient bounded by $8 p_k^{-1/8} \leq 8 K^{1/8} \rho(\sqrt{K})^2$ |
 
@@ -584,7 +572,7 @@ Table 2 presents the core primitives and extensions of the Algebraic Stack, thei
 | **AGO** | RoPE, Sinusoidal PE | $\mathbf{R}_k = (\mathbf{I} + \omega_k\mathbf{J})(\mathbf{I} - \omega_k\mathbf{J})^{-1}$ | Exact shift equivariance $\langle\mathbf{Q}_m,\mathbf{K}_n\rangle = f(n - m)$; $\mathcal{O}(1)$ decode (Thm 7.5, 7.6) |
 | **AFA** | FlashAttention-2 | Additive tile accumulation without max reduction | Lock-free asynchronous Ring Attention via single AllReduce (Thm 8.1, Cor 8.2) |
 | **ALU-GLU** | SwiGLU, GeGLU | $\mathbf{W}_d [(\mathbf{W}_g \mathbf{x}) \odot K(\mathbf{W}_u \mathbf{x})]$ | Polynomial backward in cached $u$; Universal approximation (Thm 9.2, 9.3) |
-| **ACO** | AdamW Optimizer | Factorized curvature $r_i \otimes c_j$ + ARDS schedule | $\mathcal{O}(d_{\mathrm{out}} + d_{\mathrm{in}})$ memory; rational momentum; $\mathcal{O}(1/\sqrt{T})$ rate (Thm 10.3, 10.7) |
+| **AdamW** | Standard Optimizer | Rational moments $\mathbf{M}_t, \mathbf{V}_t$ + $\mathrm{rsqrt}$ curvature | Natively algebraic; zero transcendentals; $\mathcal{O}(1/\sqrt{T})$ convergence (Thm 10.1, 10.4) |
 | **A-MoE\*** | Softmax + Gumbel MoE | AVN-bounded $\rho^8$ routing + ANT noise | Future extension: Native FP4 routing; variance-adaptive exploration; anti-collapse (Thm 11.2, Cor 4.10) |
 
 Every component shares the identical execution profile: dense matrix multiplications, additions, fused multiply-adds, and hardware-pipelined inverse square roots. The backward graph of every component is a polynomial in cached forward state.
@@ -597,11 +585,11 @@ This paper has investigated the foundational question: **Can algebra and algebra
 
 Through the construction and formalization of the **Algebraic Stack**, we have established that transcendental operations ($e^x, \ln x, \sin x, \cos x$, exponential moving averages, cosine schedules) are entirely dispensable in deep learning. Their entrenchment was a historical artifact of continuous analytic physics rather than a computational necessity for intelligence.
 
-By remaking the entire architecture—from the Algebraic Linear Unit (ALU) and Algebraic Softmax (A-Softmax) to Algebraic Geometric Ordering (AGO), the Octo-Algebraic Cross-Entropy (OACE), and the Algebraic Curvature Optimizer (ACO)—purely within algebra:
+By remaking the entire architecture—from the Algebraic Linear Unit (ALU) and Algebraic Softmax (A-Softmax) to Algebraic Geometric Ordering (AGO), the Octo-Algebraic Cross-Entropy (OACE), and recognizing that AdamW is natively algebraic—purely within algebra:
 1. We eliminate the max-reduction synchronization barrier in FlashAttention and Ring Attention, enabling lock-free distributed scaling.
 2. We eliminate the exponential variance inflation of softmax, enabling native sub-byte (FP4/INT4) inference and training without outlier suppression.
-3. We eliminate the $\mathcal{O}(d_{\mathrm{out}} \cdot d_{\mathrm{in}})$ memory bloat of AdamW, replacing it with factorized $\mathcal{O}(d_{\mathrm{out}} + d_{\mathrm{in}})$ algebraic curvature.
-4. We preserve exact shift equivariance, universal approximation, and optimal stochastic non-convex convergence rates.
+3. We preserve exact shift equivariance, universal approximation, and optimal stochastic non-convex convergence rates.
+4. We isolate the architectural comparison against standard Transformers by holding the optimizer strictly constant under AdamW.
 
 Algebra and algebra alone is sufficient to construct robust, scalable, and memory-frugal artificial intelligence.
 

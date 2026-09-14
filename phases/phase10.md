@@ -111,7 +111,7 @@ Construct the exhaustive completion matrix in `results/phase10/PASS.md`:
 | **Pilot Architecture (15M)** | 15M LM pretraining on WikiText-103 on 16 TPU v4 Pod | `results/phase7/` | Verified |
 | **Equal-Budget Sweep** | 48-trial Pareto tuning study for apples-to-apples fairness | `results/phase8/` | Verified |
 | **Frontier Pretraining (125M)**| 2.5B tokens across 6 runs (2 models $\times$ Seeds 42, 43, 44) on 16 TPU v4 Pod | `results/phase9/` | Verified |
-| **Optimizer Footprint** | ACO $\ge 45\%$ lower total memory vs. AdamW | `results/phase5/`, `results/phase7/` | Verified |
+| **Optimizer Purity & Parity** | Algebraic AdamW + ARDS (zero transcendentals, exact architecture isolation) | `theory.md` (Sec 10), `results/phase5/` | Verified |
 | **Reproducibility** | Fresh-clone one-command reproduction script | `scripts/clean_room_reproduce.py` | Verified |
 | **Skills Ecosystem** | Full integration of `tasmaikeni13/skills` repo | `skills/` directory (18 files tracked) | Verified |
 

@@ -41,7 +41,7 @@ We answer this question affirmatively by constructing and verifying the **Algebr
 │       ├── Kernel.lean             # Algebraic Kernel rho: reciprocal symmetry, 3-squaring power
 │       ├── Cayley.lean             # AGO Cayley transform: SO(2) orthogonality, det=1, shift-equivariance
 │       ├── Loss.lean               # Algebraic Divergence (Pearson chi^2) expansion & OACE power chain
-│       ├── Curvature.lean          # ACO factorized curvature preconditioning & debiasing
+│       ├── Curvature.lean          # AdamW algebraic properties: debiasing, decoupled decay, and curvature
 │       └── Variance.lean           # AVN bounded normalization & Coupling Identity
 ├── skills/                         # Autonomous Scientific Research Skills & Frameworks
 └── phases/                         # Autonomous Research Execution & Self-Correction Engine
@@ -59,7 +59,7 @@ All autonomous research and verification in this repository is governed by [`pha
 - [**Phase 2: Octic Algebraic Attention & 2-Lipschitz Bounds**](phases/phase2.md) (A-Softmax 3-Stage Squaring $\kappa_8$, Uniform $\le n/4$ Jacobian, FP4 Quantization)
 - [**Phase 3: Algebraic Geometric Oscillators & Shift Equivariance**](phases/phase3.md) (AGO Cayley Rotations on $\mathfrak{so}(2)$, Unimodular $\det=1$, $\mathcal{O}(1)$ Decode)
 - [**Phase 4: Algebraic Loss Functionals & Information Metrics**](phases/phase4.md) (OACE $\mathcal{L}_{1/8}$, Bounded Gradient $8 p_k^{-1/8}$, Pearson $\chi^2$, Fisher Equivalence)
-- [**Phase 5: Factorized Curvature Optimization & Rational Scheduling**](phases/phase5.md) (ACO $\mathcal{O}(d_{\text{out}} + d_{\text{in}})$ Curvature, ARDS Rational Decay Schedule)
+- [**Phase 5: Algebraic Optimization & Rational Scheduling**](phases/phase5.md) (AdamW Native Algebraic Verification, ARDS Rational Decay Schedule)
 - [**Phase 6: Hardware-Fused Kernels & Algebraic FlashAttention on 16 TPU v4 Pod**](phases/phase6.md) (JAX Pallas TPU Kernel on VMU/MXU, XLA HLO Lowering, Additive Tile Accumulation)
 - [**Phase 7: Full Architecture Assembly & Pilot Pretraining**](phases/phase7.md) (15M LM on WikiText-103 across $10^5$ Steps on 16 TPU v4 Pod, Head-to-Head Comparison)
 - [**Phase 8: Systematic Hyperparameter Sweeping & Architecture Tuning**](phases/phase8.md) (Equal-Budget 48-Trial Sweep on 100M FineWeb-Edu Tokens on 16 TPU v4 Pod for Apples-to-Apples Parity)
@@ -81,7 +81,7 @@ All autonomous research and verification in this repository is governed by [`pha
 | **AGO** | RoPE, Sinusoidal PE | $\mathbf{R}_k = (\mathbf{I} + \omega_k\mathbf{J})(\mathbf{I} - \omega_k\mathbf{J})^{-1}$ | Exact shift equivariance $\langle\mathbf{Q}_m,\mathbf{K}_n\rangle = f(n - m)$; $\mathcal{O}(1)$ decode (Thm 7.5, 7.6) |
 | **AFA** | FlashAttention-2 | Additive tile accumulation without max reduction | Lock-free asynchronous Ring Attention via single AllReduce (Thm 8.1, Cor 8.2) |
 | **ALU-GLU** | SwiGLU, GeGLU | $\mathbf{W}_d [(\mathbf{W}_g \mathbf{x}) \odot K(\mathbf{W}_u \mathbf{x})]$ | Polynomial backward in cached $u$; Universal approximation (Thm 9.2, 9.3) |
-| **ACO** | AdamW Optimizer | Factorized curvature $\frac{r_i c_j}{\bar{r}}$ + ARDS schedule | $\mathcal{O}(d_{\mathrm{out}} + d_{\mathrm{in}})$ memory; rational momentum; $\mathcal{O}(1/\sqrt{T})$ rate (Thm 10.3, 10.7) |
+| **AdamW + ARDS** | AdamW + Cosine Decay | Rational moments + $\mathrm{rsqrt}$ update with ARDS rational decay | Fully algebraic optimizer ($\mathcal{O}(1/\sqrt{T})$ rate, zero transcendentals, Thm 10.1, 10.4) |
 | **A-MoE\*** | Softmax + Gumbel MoE | AVN-bounded $\rho^8$ routing + ANT noise | Native FP4 routing; variance-adaptive exploration; anti-collapse (Thm 11.2) |
 
 *\* Note: A-MoE is formulated mathematically in `theory.md` as future work / extension for sparse scaling; the current empirical campaign focuses strictly on dense causal language modeling (`AlgebraicTransformerLM`).*
@@ -104,7 +104,7 @@ Key formally verified theorems:
 4. `kernel_reciprocal_identity`: $(x + s)(s - x) = 1$ when $s^2 = x^2 + 1$.
 5. `cayley_column_norm_one` & `cayley_determinant_one`: Rational Cayley transform produces an exact orthogonal rotation in $\mathrm{SO}(2)$ with $\det = 1$.
 6. `pearson_divergence_expansion`: $(y - p)^2 / p = y^2/p - 2y + p$, proving the Pearson $\chi^2$ expansion.
-7. `aco_factorized_curvature_recovery`: $\frac{(a_i \bar{b})(b_j \bar{a})}{\bar{a}\bar{b}} = a_i b_j$, proving exact recovery of Kronecker Fisher curvature.
+7. `adamw_debiasing_identity` & `adamw_decoupled_weight_decay`: Mathematical algebraic structure of AdamW bias correction and decoupled weight updates without transcendental functions.
 8. `avn_bounded_norm` & `avn_coupling_identity`: Bounded variance normalization and coupling with downstream algebraic gates.
 
 ---
@@ -131,9 +131,9 @@ pytest tests/
    - **Transcendental Baseline:** Reached 100.0% accuracy.
    - **Conclusion:** Pure algebra alone matches transcendental Transformers on fundamental sequence learning.
 
-2. **Optimizer Memory Footprint (ACO vs AdamW):**
-   - At matrix dimension $4096 \times 4096$: AdamW state = **128.00 MB**, ACO state = **64.03 MB** (compression factor: 2.0x, factorized: 2048x).
-   - At matrix dimension $8192 \times 8192$: AdamW state = **512.00 MB**, ACO state = **256.06 MB** (factorized: 4096x).
+2. **Algebraic Optimizer Purity (AdamW + ARDS):**
+   - **Zero Transcendental Functions:** Verified $0$ occurrences of $e^x, \ln x, \sin x, \cos x$ in AdamW updates and ARDS decay schedule $\eta_t = \eta_0 \cdot \mathrm{rsqrt}(1 + \alpha t^2)$.
+   - **Isolate Architectural Ablation:** Standardizing both `AlgebraicTransformerLM` and `StandardTransformerLM` on AdamW guarantees that performance differences reflect purely the architectural algebra (ALU, A-Softmax, AVN, AGO, OACE) rather than optimizer confounds.
 
 3. **Sub-Byte (FP4/INT4) Quantization Stability:**
    - Output displacement under logit quantization noise: Softmax = **0.0141**, A-Softmax = **0.0001**.
