@@ -47,10 +47,9 @@ We answer this question affirmatively by constructing and verifying the **Algebr
 │   ├── README.md                   # Master governing protocol, 9-step failure-repair loop, and phase index
 │   └── phase1.md to phase10.md     # Exactly 10 sequential phases through 350M scaling & publication
 ├── skills/                         # Autonomous Scientific Research Skills & Frameworks
-└── analysis/                       # Empirical and Numerical Mathematical Suite
-    ├── algebraic_stack.py          # 100% Pure Algebraic PyTorch reference implementation
-    ├── verify_algebraic_primitives.py # Numerical verification of all mathematical theorems
-    └── benchmark_algebraic_vs_transcendental.py # Controlled empirical benchmarks vs standard Transformers
+└── phases/                         # Autonomous Research Execution & Self-Correction Engine
+    ├── README.md                   # Master governing protocol, adaptive dependency cascading, and phase index
+    └── phase1.md to phase10.md     # Exactly 10 sequential phases through 350M scaling & publication on 16 TPU v4 Pod
 ```
 
 ---
@@ -64,11 +63,11 @@ All autonomous research and verification in this repository is governed by [`pha
 - [**Phase 3: Algebraic Geometric Oscillators & Shift Equivariance**](phases/phase3.md) (AGO Cayley Rotations on $\mathfrak{so}(2)$, Unimodular $\det=1$, $\mathcal{O}(1)$ Decode)
 - [**Phase 4: Algebraic Loss Functionals & Information Metrics**](phases/phase4.md) (OACE $\mathcal{L}_{1/8}$, Bounded Gradient $8 p_k^{-1/8}$, Pearson $\chi^2$, Fisher Equivalence)
 - [**Phase 5: Factorized Curvature Optimization & Rational Scheduling**](phases/phase5.md) (ACO $\mathcal{O}(d_{\text{out}} + d_{\text{in}})$ Curvature, ARDS Rational Decay Schedule)
-- [**Phase 6: Hardware-Fused Kernels & Algebraic FlashAttention on MI300X**](phases/phase6.md) (CDNA3 Wave64 HIP/Triton AFA Kernel, Additive Accumulation, $> 3.5\text{ TB/s}$)
-- [**Phase 7: Full Architecture Assembly & Pilot Pretraining**](phases/phase7.md) (15M LM on WikiText-103 across $10^5$ Steps on MI300X, Head-to-Head Comparison)
-- [**Phase 8: Frontier Pretraining: 125M Parameters on 1.0B Tokens**](phases/phase8.md) (3 Paired Seeds on FineWeb-Edu on 1x MI300X, Downstream Zero-Shot Reasoning)
+- [**Phase 6: Hardware-Fused Kernels & Algebraic FlashAttention on 16 TPU v4 Pod**](phases/phase6.md) (JAX Pallas TPU Kernel on VMU/MXU, Additive Tile Accumulation, $> 70\%$ Peak HBM Bandwidth)
+- [**Phase 7: Full Architecture Assembly & Pilot Pretraining**](phases/phase7.md) (15M LM on WikiText-103 across $10^5$ Steps on 16 TPU v4 Pod, Head-to-Head Comparison)
+- [**Phase 8: Frontier Pretraining: 125M Parameters on 1.0B Tokens**](phases/phase8.md) (3 Paired Seeds on FineWeb-Edu on 16 TPU v4 Pod, Downstream Zero-Shot Reasoning)
 - [**Phase 9: Scaled Pretraining: 350M Parameters on 3.0B Tokens & Scaling Laws**](phases/phase9.md) (24 Layers, Width 1024, Power-Law Scaling, Hierarchical Back-Propagation Loop)
-- [**Phase 10: Comprehensive Research Paper, Clean-Room Replication, & Release**](phases/phase10.md) (Fresh-Clone Reproduction on MI300X, Standalone Manuscript, Full Completion Matrix)
+- [**Phase 10: Comprehensive Research Paper, Clean-Room Replication, & Release**](phases/phase10.md) (Fresh-Clone Reproduction on 16 TPU v4 Pod, Standalone Manuscript, Full Completion Matrix)
 
 
 ---

@@ -1,6 +1,6 @@
 # Phase 4: Algebraic Loss Functionals & Information Metrics (OACE / $\mathcal{L}_{1/8}$)
 
-Start only after Phase 3 PASS. Read `theory.md`, `formal/README.md`, `formal/AlgebraicTheory/Loss.lean`, Phase 3 evidence in `results/phase3/`, and `phases/README.md` completely before executing. Execute the shared failure-repair loop until all gates pass.
+Start only after Phase 3 PASS. Read `theory.md`, `formal/README.md`, `formal/AlgebraicTheory/Loss.lean`, Phase 3 evidence in `results/phase3/`, and `phases/README.md` completely before executing. Execute the shared adaptive failure-repair loop until all gates pass.
 
 ---
 
@@ -20,7 +20,7 @@ $$\textbf{"Can an algebraic divergence train neural distributions without logari
 ### 2.1 The $\alpha$-Algebraic Cross-Entropy Family
 For probability distribution $\mathbf{p} \in \operatorname{int}\Delta^{K-1}$ and target index $k$:
 $$\mathcal{L}_{1/8}(p_k) = 8\left( p_k^{-1/8} - 1 \right)$$
-Evaluation proceeds strictly via 3 hardware square-root/rsqrt operations:
+Evaluation on the TPU v4 VMU proceeds strictly via 3 hardware square-root/rsqrt operations:
 $$z_1 = \operatorname{rsqrt}(p_k) = p_k^{-1/2}, \quad z_2 = \operatorname{rsqrt}(z_1^{-1}) = p_k^{-1/4}, \quad z_3 = \operatorname{rsqrt}(z_2^{-1}) = p_k^{-1/8}$$
 with zero log calls.
 
@@ -30,7 +30,21 @@ with zero log calls.
 
 ---
 
-## 3. Lean 4 Formal Verification Gate
+## 3. Implementation Target: JAX / TPU v4 Architecture
+
+Instruct the creation and verification of the following files targeting the 16 TPU v4 Pod:
+1. **`src/loss.py`**:
+   - `oace_loss(probabilities, targets, gamma=2.0)`: JAX vectorized implementation of $\mathcal{L}_{1/8}$ using 3 sequential hardware $\operatorname{rsqrt}$ operations.
+   - `pearson_divergence(p, q)`: Exact Pearson $\chi^2$ algebraic divergence in JAX.
+   - Closed-form analytical VJP preventing any transcendental decomposition.
+2. **`tests/test_loss.py`**:
+   - Gradient boundedness tests at simplex boundary $p_k = 10^{-9}$.
+   - Equivalence test verifying Riemannian Fisher metric $H(D_A) = 2 H(D_{\text{KL}})$.
+   - AST audit confirming zero calls to `jax.nn.log_softmax`, `optax.softmax_cross_entropy`, or `log`.
+
+---
+
+## 4. Lean 4 Formal Verification Gate
 
 The agent must compile `formal/AlgebraicTheory/Loss.lean` with zero errors under `/root/.elan/bin/lake build`:
 
@@ -43,9 +57,9 @@ The agent must compile `formal/AlgebraicTheory/Loss.lean` with zero errors under
 
 ---
 
-## 4. Deep Empirical & Monte Carlo Simulation Gate
+## 5. Deep Empirical & Monte Carlo Simulation Gate
 
-Execute the Phase 4 test suite in `analysis/verify_algebraic_primitives.py`:
+Execute the Phase 4 test suite in `tests/test_loss.py`:
 
 | Evaluation Dimension | Experimental Protocol | Success Criterion / Bound |
 | :--- | :--- | :--- |
@@ -58,20 +72,21 @@ Execute the Phase 4 test suite in `analysis/verify_algebraic_primitives.py`:
 
 ---
 
-## 5. Autonomous Failure Ledger & Self-Correction Playbook
+## 6. Adaptive Failure-Repair & Bidirectional Dependency Protocol
 
-- **Symptom: Gradient overflow when probability approaches zero ($p_k \to 0$):**
-  - *Root Cause:* Division by zero in unconstrained probability logits.
-  - *Correction:* Confirm that A-Softmax attention sink $\Omega > 0$ provides a strictly positive mathematical lower bound on denominator.
-- **Symptom: Optimization step size too small relative to standard CE:**
-  - *Root Cause:* Constant scale factor mismatch in $\mathcal{L}_{1/8}$.
-  - *Correction:* Scale OACE loss by rational calibration factor $\gamma = 2.0$.
+When a test or gate fails in Phase 4:
+1. **Iterate Locally:** Calibrate constant scale factor $\gamma \approx 2.0$ to align the initial gradient magnitude with standard cross-entropy step size.
+2. **Backward Rollback to Phase 2:** If probabilities reach exact zero during evaluation causing numerical faults, verify the A-Softmax attention sink $\Omega$. If $\Omega$ must be increased or modified, backtrack to Phase 2, adjust `src/attention.py`, re-run Phase 2 gates, and cascade forward to Phase 4.
+3. **Forward Dependency Cascading:**
+   - **Phases 7, 8, 9 (`src/model.py`, `scripts/run_pilot_15m.py`, `scripts/run_pretrain_*.py`):** The training loss objective and metric loggers must be updated across all downstream pretraining pipelines to reflect any changes to $\mathcal{L}_{1/8}$ or $\gamma$.
+   - Synchronize Lean 4 theorems in `formal/AlgebraicTheory/Loss.lean`.
 
 ---
 
-## 6. Passing Gate Checklist
+## 7. PASS Gates
 
 - [ ] `formal/AlgebraicTheory/Loss.lean` compiles with 0 errors via `/root/.elan/bin/lake build`.
+- [ ] `src/loss.py` created with JAX implementation of OACE $\mathcal{L}_{1/8}$ and Pearson $\chi^2$ divergence.
 - [ ] $10^5$-trial Monte Carlo label noise simulation proves $\le 50\%$ gradient variance vs. Cross-Entropy.
 - [ ] Simplex boundary evaluation confirms zero gradient singularities at $p_k = 10^{-9}$.
 - [ ] Fisher information equivalence ratio is identically $2.0$.

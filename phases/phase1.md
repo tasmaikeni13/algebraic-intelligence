@@ -1,6 +1,6 @@
 # Phase 1: Pure Algebraic Primitives & Non-Linear Gating (ALU & AVN)
 
-Read `theory.md`, `formal/README.md`, `formal/AlgebraicTheory/Gate.lean`, `formal/AlgebraicTheory/Variance.lean`, and `phases/README.md` completely before executing. Execute the shared failure-repair loop until all gates pass.
+Read `theory.md`, `formal/README.md`, `formal/AlgebraicTheory/Gate.lean`, `formal/AlgebraicTheory/Variance.lean`, and `phases/README.md` completely before executing. Execute the shared adaptive failure-repair loop until all gates pass.
 
 ---
 
@@ -20,7 +20,7 @@ $$\textbf{"Can algebra and algebra alone produce stable non-linear representatio
 ### 2.1 The Algebraic Gate Function $\beta(u)$
 With the algebraic cache variable $u \coloneqq x \cdot \operatorname{rsqrt}(1 + x^2) \in (-1, 1)$:
 $$\beta(u) = \frac{1 + u}{2}$$
-Forward evaluation requires only one multiply, one add, and one hardware $\operatorname{rsqrt}$ call.
+Forward evaluation on the TPU v4 Vector Processing Unit (VMU) requires only one multiply, one add, and one hardware $\operatorname{rsqrt}$ call.
 
 ### 2.2 Exact Polynomial Backward Pass
 The exact derivative of ALU with respect to input $x$ is expressible strictly as a cubic polynomial in the cached variable $u$:
@@ -34,11 +34,26 @@ This matches the exact negative inflection coordinate of GELU ($G''(x) = \phi(x)
 
 ### 2.4 Algebraic Variance Normalization (AVN)
 $$\operatorname{AVN}(\mathbf{x}) = \mathbf{x} \cdot \operatorname{rsqrt}\left(\frac{1}{d}\|\mathbf{x}\|_2^2 + \epsilon\right)$$
-Zero learnable parameters in HBM, strictly satisfying the Coupling Identity $\beta(x; v) = \beta(\hat{x}; 1)$ where $\hat{x} = x / \sqrt{v}$. The backward pass is an orthogonal projection along $\hat{\mathbf{x}}$ computable in dense matrix-vector operations with zero divisions and zero $\operatorname{rsqrt}$.
+Zero learnable parameters in high-bandwidth memory (HBM), strictly satisfying the Coupling Identity $\beta(x; v) = \beta(\hat{x}; 1)$ where $\hat{x} = x / \sqrt{v}$. The backward pass is an orthogonal projection along $\hat{\mathbf{x}}$ computable in dense matrix-vector operations with zero divisions and zero $\operatorname{rsqrt}$.
 
 ---
 
-## 3. Lean 4 Formal Verification Gate
+## 3. Implementation Target: JAX / TPU v4 Architecture
+
+Instruct the creation and verification of the following modular files targeting the 16 TPU v4 Pod:
+1. **`src/primitives.py`**:
+   - `alu(x)`: JAX implementation with `@jax.custom_vjp` to enforce Horner cubic backward pass using cached $u = x \cdot \operatorname{rsqrt}(1 + x^2)$.
+   - `avn(x, eps=1e-5)`: Parameter-free algebraic variance normalization in JAX with analytical VJP.
+   - Dual-mode support: compiled for TPU v4 VMU execution via `@jax.jit` and verifiable in fp64 CPU oracle mode.
+2. **`tests/test_primitives.py`**:
+   - Automated unit tests checking mathematical equivalence against fp64 CPU reference.
+   - AST parser verifying zero occurrences of `exp`, `log`, `sin`, `cos`, `tanh`, or `sigmoid` in `src/primitives.py`.
+3. **`scripts/run_verify_primitives.py`**:
+   - Standalone CLI runner executing the full Monte Carlo verification suite and emitting `results/phase1/metrics.json`.
+
+---
+
+## 4. Lean 4 Formal Verification Gate
 
 The agent must compile `formal/AlgebraicTheory/Gate.lean` and `formal/AlgebraicTheory/Variance.lean` under `/root/.elan/bin/lake build` with zero errors, zero warnings, and zero `sorry`:
 
@@ -55,9 +70,9 @@ The agent must compile `formal/AlgebraicTheory/Gate.lean` and `formal/AlgebraicT
 
 ---
 
-## 4. Deep Empirical & Monte Carlo Simulation Gate
+## 5. Deep Empirical & Monte Carlo Simulation Gate
 
-Execute the verification suite in `analysis/verify_algebraic_primitives.py` and enforce the following empirical criteria:
+Execute the verification suite via `python3 scripts/run_verify_primitives.py` and enforce the following empirical criteria:
 
 | Evaluation Dimension | Experimental Protocol | Success Criterion / Bound |
 | :--- | :--- | :--- |
@@ -72,27 +87,28 @@ Execute the verification suite in `analysis/verify_algebraic_primitives.py` and 
 
 ---
 
-## 5. Autonomous Failure Ledger & Self-Correction Playbook
+## 6. Adaptive Failure-Repair & Bidirectional Dependency Protocol
 
-- **Symptom: Activation variance expands across depth ($D \ge 16$):**
-  - *Root Cause:* Absence of AVN pre-bounding before projection layers.
-  - *Correction:* Enforce pre-layer AVN normalization: $\mathbf{h}_{\ell+1} = \mathbf{h}_\ell + \operatorname{ALU}(\mathbf{W}_1 \operatorname{AVN}(\mathbf{h}_\ell)) \odot \mathbf{W}_2 \operatorname{AVN}(\mathbf{h}_\ell)$.
-- **Symptom: Backward pass autograd mismatch ($> 5.0 \times 10^{-16}$):**
-  - *Root Cause:* Forward cache variable $u$ precision mismatch or premature rounding in Horner sequence.
-  - *Correction:* Ensure $u = x / \sqrt{1 + x^2}$ is evaluated in FP64 and the Horner sequence `0.5 + u * (1.0 - 0.5 * u * u)` is computed without intermediate casting.
-- **Symptom: Gradient vanishing across 32 layers:**
-  - *Root Cause:* Un-damped residual accumulation causing effective weights to decay.
-  - *Correction:* Apply rational depth scaling $\operatorname{rsqrt}(2D)$ on residual additions.
+When a test or gate fails in Phase 1:
+1. **Iterate Locally:** Apply the 9-step failure-repair loop, updating equations, Lean 4 proofs, and JAX code until passing.
+2. **Forward Dependency Cascading:** If fixing Phase 1 requires modifying any primitive signature or invariant (e.g. changing the AVN $\epsilon$ regularizer, altering the Horner caching layout $u$, or adding depth attenuation $\operatorname{rsqrt}(2D)$):
+   - Immediately audit all downstream phases:
+     - **Phase 2 (`src/attention.py`):** Pre-bounding logits $\hat{s}_i = s_i \cdot \operatorname{rsqrt}(m_2(\mathbf{s}) + \epsilon)$.
+     - **Phase 6 (`src/kernels/pallas_afa.py`):** Vector memory (VMEM) tile normalization inputs.
+     - **Phase 7, 8, 9 (`src/model.py`):** ALU-GLU feedforward blocks and residual connections in `AlgebraicTransformerLM`.
+   - Propagate the updated signatures and invariants forward into all downstream files.
+   - Update Lean 4 theorems in `formal/AlgebraicTheory/` to match the new definitions and verify `lake build` compiles cleanly.
 
 ---
 
-## PASS Gates
+## 7. PASS Gates
 
 - [ ] `formal/AlgebraicTheory/Gate.lean` compiles with 0 errors via `/root/.elan/bin/lake build`.
 - [ ] `formal/AlgebraicTheory/Variance.lean` compiles with 0 errors via `/root/.elan/bin/lake build`.
+- [ ] `src/primitives.py` created with JAX `@jax.custom_vjp` Horner cubic backward pass and parameter-free AVN.
 - [ ] $10^6$-sample Monte Carlo variance simulation passes within $[0.9999, 1.0001]$.
 - [ ] Deep gradient flow across 8, 16, 24, 32 layers confirms bounded gradient ratio $\in [0.2, 5.0]$.
 - [ ] Reflection symmetry error $\leq 1.0 \times 10^{-15}$ and autograd backward error $\leq 5.0 \times 10^{-16}$.
 - [ ] Max Lipschitz constant bounded by $\le 1.05$.
-- [ ] Codebase audit confirms exactly zero transcendental calls in ALU and AVN.
+- [ ] Codebase AST audit confirms exactly zero transcendental calls in `src/primitives.py`.
 - [ ] `results/phase1/PASS.md` satisfies the shared PASS record contract.

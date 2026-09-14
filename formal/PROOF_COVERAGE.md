@@ -39,7 +39,7 @@ The following theorems in `theory.md` involve asymptotic limits, differential ge
 4. **Theorem 5.2 (3) (Fisher Equivalence of $D_A$ and $D_{\text{KL}}$):** Riemannian Hessian equivalence $\nabla^2 D_A = 2 \nabla^2 D_{\text{KL}}$ at $\mathbf{p} = \mathbf{y}$. Verified analytically; confirmed via numerical Hessian ratio in `analysis/verify_algebraic_primitives.py`.
 5. **Theorem 7.5 (Exact Shift Equivariance of AGO):** Relative displacement identity $\langle \mathbf{Q}_m, \mathbf{K}_n \rangle = f(n - m)$. Follows from $\mathbf{R}_k \in \mathrm{SO}(2)$; confirmed numerically across $L=4096$ positions.
 6. **Theorem 8.2 (Contractive Memory Stability of AA):** Eigenvalues of transition matrix in $(-1, 1)$, ensuring $\|\mathbf{S}_t\|_F < \infty$. Analytically derived; confirmed across $16,384$ steps.
-7. **Theorem 9.1 (Single-Pass Additive Tile Accumulation):** Pure additivity of AFA tiles without running maximums. Analytically derived; verified on 1x MI300X in `analysis/kernels/algebraic_attention_hip.cpp`.
+7. **Theorem 9.1 (Single-Pass Additive Tile Accumulation):** Pure additivity of AFA tiles without running maximums. Analytically derived; verified on 16 TPU v4 Pod in `src/kernels/pallas_afa.py`.
 8. **Theorem 10.3 (Universal Approximation of ALU-GLU):** Follows from the Leshno-Lin-Pinkus-Schocken Theorem (1993) since $K(x)$ is continuous and non-polynomial.
 9. **Theorem 12.7 (Convergence Bound of ACO):** $\mathcal{O}(1/\sqrt{T})$ convergence to a stationary point on non-convex smooth objectives. Analytically derived via Lyapunov analysis.
 10. **Theorem 13.3 (Constant-Bounded Typo Shatter of ABA):** $\|F(\mathbf{b}) - F(\mathbf{b}')\|_F = \mathcal{O}(1)$ vs BPE $\Omega(\sqrt{L})$. Analytically derived via Lipschitz composition.

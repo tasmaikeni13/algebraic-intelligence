@@ -1,16 +1,16 @@
 # Phase 7: Full Architecture Assembly & Pilot Pretraining (15M LM on WikiText-103)
 
-Start only after Phase 6 PASS. Read `theory.md`, Phase 1–6 evidence in `results/phase1/` through `results/phase6/`, and `phases/README.md` completely before executing. Execute the shared failure-repair loop until all gates pass.
+Start only after Phase 6 PASS. Read `theory.md`, Phase 1–6 evidence in `results/phase1/` through `results/phase6/`, and `phases/README.md` completely before executing. Execute the shared adaptive failure-repair loop until all gates pass.
 
 ---
 
 ## 1. Objective, Scientific Hypothesis & Competing Models
 
-Assemble the complete, end-to-end **Algebraic Transformer** (`AlgebraicTransformerLM`) integrating all verified Phase 1–6 primitives into a unified causal language model, and conduct an empirical head-to-head pilot pretraining study against an equal-budget **Standard Causal Transformer** (`StandardTransformerLM`) on the dedicated **1x AMD Instinct MI300X GPU (192 GB HBM3)**:
+Assemble the complete, end-to-end **Algebraic Transformer** (`AlgebraicTransformerLM`) integrating all verified Phase 1–6 primitives into a unified causal language model, and conduct an empirical head-to-head pilot pretraining study against an equal-budget **Standard Causal Transformer** (`StandardTransformerLM`) on the dedicated **16 TPU v4 Pod slice (512 GB aggregate HBM)**:
 $$\textbf{"Can pure algebraic primitives compose into an end-to-end language model that converges stably and matches the standard Transformer?"}$$
 
 ### Competing Hypotheses:
-- **$H_1$ (Algebraic Hypothesis):** The assembled Algebraic Transformer (ALU-GLU, AVN, A-Softmax + AFA, AGO Cayley rotations, OACE $\mathcal{L}_{1/8}$, and ACO factorized curvature optimization + ARDS rational decay) achieves seamless forward-backward gradient flow across stacked layers, exhibits zero gradient singularities via OACE, maintains activation norm stability via parameter-free AVN, and achieves validation perplexity within $\le 1.08\times$ of the Standard Transformer baseline on WikiText-103 while consuming $\ge 45\%$ less optimizer state memory in HBM.
+- **$H_1$ (Algebraic Hypothesis):** The assembled Algebraic Transformer (ALU-GLU, AVN, A-Softmax + Pallas AFA, AGO Cayley rotations, OACE $\mathcal{L}_{1/8}$, and ACO factorized curvature optimization + ARDS rational decay) achieves seamless forward-backward gradient flow across stacked layers, exhibits zero gradient singularities via OACE, maintains activation norm stability via parameter-free AVN, and achieves validation perplexity within $\le 1.08\times$ of the Standard Transformer baseline on WikiText-103 while consuming $\ge 45\%$ less optimizer state memory in HBM.
 - **$H_0$ (Transcendental Baseline Hypothesis):** Stacking non-exponential algebraic primitives across multiple layers will cause deep signal degradation, gradient vanishing/explosion, or optimization stalling due to non-exponential softmax contrast or non-logarithmic loss gradients, resulting in divergence or severe perplexity collapse relative to the SwiGLU + RMSNorm + Softmax + AdamW baseline.
 
 ---
@@ -26,7 +26,7 @@ graph TD
         Emb1 --> Blk1["L Block Layers (x 6)"]
         subgraph "Algebraic Block"
             Blk1 --> NormA1["AVN (Parameter-Free)"]
-            NormA1 --> Attn1["A-Softmax (κ₈) + AGO Cayley + AFA"]
+            NormA1 --> Attn1["A-Softmax (κ₈) + AGO Cayley + Pallas AFA"]
             Attn1 --> Add1["Additive Residual (+)"]
             Add1 --> NormA2["AVN (Parameter-Free)"]
             NormA2 --> FFN1["ALU-GLU (Horner Cubic Backward)"]
@@ -65,7 +65,7 @@ graph TD
 - **Vocabulary Size ($V$):** $50,257$ (GPT-2 standard BPE tokenizer).
 - **Context Length ($T$):** $512$ tokens.
 - **Dataset:** WikiText-103 raw character-level / BPE tokens ($10^5$ training steps).
-- **Batch Size:** Global batch size of $32,768$ tokens ($64$ sequences $\times 512$ context tokens).
+- **Global Batch Size:** $32,768$ tokens ($64$ sequences $\times 512$ context tokens), distributed across the 16 TPU v4 chips via JAX data-parallel sharding.
 
 ### 2.2 Component Breakdown
 | Architectural Subsystem | Pure Algebraic Transformer (`AlgebraicTransformerLM`) | Standard Causal Transformer (`StandardTransformerLM`) |
@@ -75,14 +75,27 @@ graph TD
 | **Normalization** | Parameter-Free AVN: $\mathbf{x} \cdot \operatorname{rsqrt}(m_2(\mathbf{x}) + \epsilon)$ | RMSNorm with learnable $\boldsymbol{\gamma} \in \mathbb{R}^d$ |
 | **Attention Kernel** | Octic A-Softmax: $\kappa_8(s) = (s + \sqrt{1 + s^2})^8$ with $\Omega = 0.5$ | Exponential Softmax: $\exp(s) / \sum \exp(s_j)$ |
 | **Positional Encoding** | AGO: Cayley rotation $\mathbf{R}_k = (\mathbf{I} + \omega_k \mathbf{J})(\mathbf{I} - \omega_k \mathbf{J})^{-1}$ | RoPE: Trigonometric rotation $(\cos(m\theta), \sin(m\theta))$ |
-| **Attention Hardware Execution** | Fused AFA kernel (pure additive accumulation) | FlashAttention-2 (running max rescaling) |
+| **Attention Execution** | Fused Pallas AFA kernel (pure additive accumulation on TPU v4) | FlashAttention-2 (running max rescaling) |
 | **Training Loss Functional** | OACE: $\mathcal{L}_{1/8}(p_k) = 8(p_k^{-1/8} - 1)$ scaled by $\gamma = 2.0$ | Cross-Entropy: $\mathcal{L}_{\text{CE}} = -\ln p_k$ |
 | **Optimizer** | ACO: Factorized $\mathcal{O}(d_{\text{out}} + d_{\text{in}})$ curvature preconditioning | AdamW: Full elementwise second moments $\mathbf{v} \in \mathbb{R}^{d_{\text{out}} \times d_{\text{in}}}$ |
 | **Learning Rate Schedule** | ARDS: $\eta_t = \eta_0 \cdot \operatorname{rsqrt}(1 + \alpha t^2)$ | Cosine Annealing: $\eta_t = \eta_{\min} + \frac{1}{2}(\eta_0 - \eta_{\min})(1 + \cos(\pi t / T))$ |
 
 ---
 
-## 3. Lean 4 Formal Verification Gate
+## 3. Implementation Target: JAX / TPU v4 Architecture
+
+Instruct the creation and verification of the following files targeting the 16 TPU v4 Pod:
+1. **`src/model.py`**:
+   - `AlgebraicTransformerLM`: Flax / JAX full model integrating `alu_glu`, parameter-free `avn`, `a_softmax` with `pallas_afa`, `apply_ago_rotations`, `oace_loss`, and `aco_optimizer`.
+   - `StandardTransformerLM`: Baseline model implementing SwiGLU, RMSNorm with learnable $\boldsymbol{\gamma}$, exponential Softmax, RoPE, cross-entropy, and AdamW.
+2. **`src/mesh.py`**:
+   - SPMD distributed sharding topology defining 16 TPU v4 devices in a 3D Torus mesh via `jax.sharding.Mesh` with axes `('data', 'fsdp', 'model')`.
+3. **`scripts/run_pilot_15m.py`**:
+   - End-to-end distributed pretraining script for 15M models across $10^5$ steps on 16 TPU v4 chips, logging validation perplexity, gradient norms, and HBM memory.
+
+---
+
+## 4. Lean 4 Formal Verification Gate
 
 Compile `formal/AlgebraicTheory/Composition.lean` and `formal/AlgebraicTheory/Gate.lean` under `/root/.elan/bin/lake build`:
 1. **End-to-End Bounded Signal Propagation:** Prove that the composition of AVN and ALU-GLU preserves coordinate bounds:
@@ -91,9 +104,9 @@ Compile `formal/AlgebraicTheory/Composition.lean` and `formal/AlgebraicTheory/Ga
 
 ---
 
-## 4. Hardware Pilot Pretraining Suite on MI300X
+## 5. Hardware Pilot Pretraining Suite on 16 TPU v4 Pod
 
-Execute pretraining across $10^5$ steps on the dedicated 1x AMD Instinct MI300X GPU:
+Execute pretraining across $10^5$ steps distributed across the 16 TPU v4 chips via `scripts/run_pilot_15m.py`:
 
 | Verification Dimension | Evaluation Target / Protocol | Acceptance Gate |
 | :--- | :--- | :--- |
@@ -102,32 +115,31 @@ Execute pretraining across $10^5$ steps on the dedicated 1x AMD Instinct MI300X 
 | **Loss Spike Anomaly Count** | Step transitions with sudden loss spike $\Delta \mathcal{L} > 1.5$ | Exactly $0$ |
 | **Peak Gradient Norm** | $\max_{t \in [1, 10^5]} \|\mathbf{g}_t\|_2$ under BF16 with FP32 master weights | $\leq 5.0$ |
 | **Optimizer Memory Footprint** | Peak HBM bytes allocated for optimizer states (ACO vs. AdamW) | $\geq 45\%$ memory reduction |
-| **Steady-State Throughput** | Tokens/second during pretraining loop on MI300X | $\geq 90\%$ of baseline throughput |
+| **Steady-State Throughput** | Tokens/second during distributed pretraining loop on 16 TPU v4 chips | $\geq 90\%$ of baseline throughput |
 | **Zero-Transcendental AST Audit** | Static AST inspection of all forward, backward, loss, and optimizer paths | Exactly $0$ transcendentals |
 
 ---
 
-## 5. Autonomous Failure Ledger & Self-Correction Playbook
+## 6. Adaptive Failure-Repair & Bidirectional Dependency Protocol
 
-- **Symptom: Validation loss diverges in the first 500 steps:**
-  - *Root Cause:* Initial gradient step size too large without exponential warmup, or missing AVN pre-bounding on input embeddings.
-  - *Pure Algebraic Correction:* Ensure rational learning rate warmup $\eta_t = \eta_0 \frac{t}{T_{\text{warm}}}$ for $t \le T_{\text{warm}}$, and verify embedding output passes through AVN before Layer 0.
-- **Symptom: Gradient norm $\max_t \|\mathbf{g}_t\|_2 > 5.0$ in deeper layers:**
-  - *Root Cause:* Un-attenuated residual branch accumulation.
-  - *Pure Algebraic Correction:* Apply rational depth attenuation: $\mathbf{x}_{\ell+1} = \mathbf{x}_\ell + \operatorname{rsqrt}(2 L) \cdot \operatorname{SubLayer}(\operatorname{AVN}(\mathbf{x}_\ell))$.
-- **Symptom: ACO curvature estimate $\hat{\mathbf{V}}$ becomes ill-conditioned:**
-  - *Root Cause:* Outer product factors $\hat{r}_i, \hat{c}_j$ experience underflow on dead neurons.
-  - *Pure Algebraic Correction:* Enforce algebraic diagonal damping: $\hat{\mathbf{V}}_{ij} \leftarrow \hat{\mathbf{V}}_{ij} + \epsilon_{\text{curv}} \bar{r} \mathbf{I}$ with $\epsilon_{\text{curv}} = 10^{-4}$.
+When an architectural or convergence failure occurs during pilot pretraining:
+1. **Upstream Dependency Rollback:**
+   - **Gradient vanishing/explosion across depth:** Backtrack to **Phase 1**, introduce rational depth attenuation $\mathbf{x}_{\ell+1} = \mathbf{x}_\ell + \operatorname{rsqrt}(2L) \cdot \operatorname{SubLayer}(\operatorname{AVN}(\mathbf{x}_\ell))$, re-run Phase 1 gates, and cascade the update forward through Phase 6 to Phase 7.
+   - **Early training divergence:** Backtrack to **Phase 5**, calibrate rational learning rate warmup $\eta_t = \eta_0 \frac{t}{T_{\text{warm}}}$, or enforce diagonal damping $\epsilon_{\text{curv}}$ in ACO.
+   - **Attention logit explosion:** Backtrack to **Phase 2**, verify logit scaling $\tau = \operatorname{rsqrt}(d_k)$ and attention sink $\Omega$.
+2. **Forward Dependency Cascading:**
+   - The verified `AlgebraicTransformerLM` configuration, sharding specification in `src/mesh.py`, and training hyperparameters establish the foundational template for **Phase 8 (125M / 1.0B tokens)** and **Phase 9 (350M / 3.0B tokens)**.
+   - Any architectural amendment made in Phase 7 must be immediately reflected in Phase 8 and Phase 9 specifications.
 
 ---
 
-## 6. PASS Gates
+## 7. PASS Gates
 
-- [ ] Complete pilot pretraining run of `AlgebraicTransformerLM` (15M parameters) executes for $10^5$ steps on WikiText-103 on 1x MI300X with zero NaNs, zero Infs, and zero divergent loss spikes.
+- [ ] Complete pilot pretraining run of `AlgebraicTransformerLM` (15M parameters) executes for $10^5$ steps on WikiText-103 on 16 TPU v4 chips with zero NaNs, zero Infs, and zero divergent loss spikes.
 - [ ] Matched-budget `StandardTransformerLM` baseline executes under identical token order and optimization budget.
 - [ ] Algebraic Transformer validation perplexity achieves parity within $\le 1.08\times$ of the baseline.
 - [ ] Peak gradient norm satisfies $\max_t \|\mathbf{g}_t\|_2 \le 5.0$ throughout the entire $10^5$-step trajectory.
-- [ ] Hardware measurements on MI300X confirm $\ge 45\%$ lower optimizer memory footprint for ACO compared to AdamW.
+- [ ] Hardware measurements on 16 TPU v4 Pod confirm $\ge 45\%$ lower optimizer memory footprint for ACO compared to AdamW.
 - [ ] Full AST audit verifies exactly 0 calls to transcendental functions (`exp`, `log`, `sin`, `cos`) in production code.
 - [ ] Formal Lean 4 verification compiles cleanly via `/root/.elan/bin/lake build`.
 - [ ] All inherited Phase 1–6 gates pass without regression.

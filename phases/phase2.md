@@ -1,6 +1,6 @@
 # Phase 2: Octic Algebraic Attention & 2-Lipschitz Bounds (A-Softmax)
 
-Start only after Phase 1 PASS. Read `theory.md`, `formal/README.md`, `formal/AlgebraicTheory/Kernel.lean`, Phase 1 evidence in `results/phase1/`, and `phases/README.md` completely before executing. Execute the shared failure-repair loop until all current and inherited gates pass.
+Start only after Phase 1 PASS. Read `theory.md`, `formal/README.md`, `formal/AlgebraicTheory/Kernel.lean`, Phase 1 evidence in `results/phase1/`, and `phases/README.md` completely before executing. Execute the shared adaptive failure-repair loop until all current and inherited gates pass.
 
 ---
 
@@ -18,7 +18,7 @@ $$\textbf{"Can an algebraic kernel provide sharp attention contrast while guaran
 ## 2. Mathematical Formulations & Zero-Transcendental Constraints
 
 ### 2.1 The Three-Stage Squaring Chain
-Forward evaluation of $\kappa_8(x)$ requires zero transcendentals and evaluates in exactly 3 successive hardware squaring stages:
+Forward evaluation of $\kappa_8(x)$ on the TPU v4 Vector Processing Unit (VMU) requires zero transcendentals and evaluates in exactly 3 successive hardware squaring stages:
 1. Stage 0 (Base Kernel): $s = \sqrt{1 + x^2}$, $\kappa_1(x) = x + s = \rho(x)$.
 2. Stage 1 (Degree 2): $\kappa_2(x) = (\kappa_1(x))^2 = (x + s)^2$.
 3. Stage 2 (Degree 4): $\kappa_4(x) = (\kappa_2(x))^2$.
@@ -39,7 +39,20 @@ Because $\rho(x)$ is globally 2-Lipschitz, $\operatorname{Var}(\rho(X)) \le 4 \o
 
 ---
 
-## 3. Lean 4 Formal Verification Gate
+## 3. Implementation Target: JAX / TPU v4 Architecture
+
+Instruct the creation and verification of the following files targeting the 16 TPU v4 Pod:
+1. **`src/attention.py`**:
+   - `octic_kernel(x)`: JAX function evaluating $\kappa_8(x) = (x + \sqrt{1 + x^2})^8$ via 3 successive squaring stages using TPU v4 VMU vector operations.
+   - `algebraic_softmax(scores, sink_omega=0.5, eps=1e-5)`: Vectorized A-Softmax implementation with AVN coordinate pre-bounding and rational attention sink.
+   - Exact JAX VJP for backpropagation without transcendental operations.
+2. **`tests/test_attention.py`**:
+   - Numerical tests verifying Jacobian bounds $\le 2.0$, simplex boundedness $\sum p_i \le 1.0$, and contrast ratio $> 10^5$.
+   - AST validation confirming zero calls to `jax.nn.softmax` or `exp`.
+
+---
+
+## 4. Lean 4 Formal Verification Gate
 
 The agent must compile `formal/AlgebraicTheory/Kernel.lean` with zero errors under `/root/.elan/bin/lake build`:
 
@@ -54,9 +67,9 @@ The agent must compile `formal/AlgebraicTheory/Kernel.lean` with zero errors und
 
 ---
 
-## 4. Deep Empirical & Monte Carlo Simulation Gate
+## 5. Deep Empirical & Monte Carlo Simulation Gate
 
-Execute the Phase 2 verification suite in `analysis/verify_algebraic_primitives.py` and `analysis/benchmark_algebraic_vs_transcendental.py`:
+Execute the Phase 2 verification suite in `tests/test_attention.py`:
 
 | Evaluation Dimension | Experimental Protocol | Success Criterion / Bound |
 | :--- | :--- | :--- |
@@ -71,28 +84,27 @@ Execute the Phase 2 verification suite in `analysis/verify_algebraic_primitives.
 
 ---
 
-## 5. Autonomous Failure Ledger & Self-Correction Playbook
+## 6. Adaptive Failure-Repair & Bidirectional Dependency Protocol
 
-- **Symptom: Attention entropy collapses to a single token early in training:**
-  - *Root Cause:* Logit variance $\operatorname{Var}(s)$ too high, driving $\kappa_8$ into asymptotic saturation.
-  - *Correction:* Ensure query and key vectors are AVN-normalized and scaled by $\tau = \operatorname{rsqrt}(d_k)$ before score computation.
-- **Symptom: Quantization noise sensitivity ratio $< 100\times$:**
-  - *Root Cause:* Missing input logit bounding, causing outlier coordinates to dominate.
-  - *Correction:* Apply AVN along the feature dimension before kernel evaluation.
-- **Symptom: Numerical overflow in $\kappa_8(s)$:**
-  - *Root Cause:* Forward logits unbounded.
-  - *Correction:* Confirm AVN pre-bounding is strictly applied: $|\hat{s}_i| \le \sqrt{K}$.
+When a test or gate fails in Phase 2:
+1. **Iterate Locally:** Tune numerical scaling $\tau = \operatorname{rsqrt}(d_k)$ and attention sink $\Omega \in [0.25, 1.0]$.
+2. **Backward Rollback to Phase 1:** If attention entropy collapses or unbounded values occur because input features drift, inspect Phase 1 AVN. If Phase 1 AVN normalization formula or $\epsilon$ floor requires updating, backtrack to Phase 1, update `src/primitives.py`, re-run Phase 1 gates, and then forward-cascade back to Phase 2.
+3. **Forward Dependency Cascading:** If the A-Softmax formulation, sharpening exponent, or attention sink $\Omega$ is modified:
+   - Update **Phase 6 (`src/kernels/pallas_afa.py`)**: Ensure the Pallas TPU kernel computes the identical squaring stages in Vector Memory (VMEM).
+   - Update **Phases 7, 8, 9 (`src/model.py`)**: Synchronize multi-head attention blocks and forward inference paths.
+   - Re-verify Lean 4 proofs in `formal/AlgebraicTheory/Kernel.lean`.
 
 ---
 
-## 6. Passing Gate Checklist
+## 7. PASS Gates
 
 - [ ] `formal/AlgebraicTheory/Kernel.lean` compiles with 0 errors via `/root/.elan/bin/lake build`.
+- [ ] `src/attention.py` created with JAX 3-stage octic squaring and rational attention sink $\Omega$.
 - [ ] $10^5$-trial Monte Carlo attention entropy confirms absence of entropy collapse across $L \in [64, 4096]$.
 - [ ] Maximum Jacobian diagonal and off-diagonal bounded by $\leq 2.0$.
 - [ ] Dynamic contrast ratio exceeds $1.0 \times 10^5$ (both $[-3, 3]$ and sharpness ratio $103,682$).
 - [ ] Sub-byte FP4 quantization sensitivity confirms $\ge 100\times$ noise reduction over Softmax.
 - [ ] Attention output sum is strictly bounded on the simplex $\leq 1.0$.
 - [ ] Reciprocal symmetry error $\le 5.0 \times 10^{-14}$.
-- [ ] Zero transcendental audit passes with 0 occurrences.
+- [ ] Zero transcendental audit passes with 0 occurrences in `src/attention.py`.
 - [ ] `results/phase2/PASS.md` satisfies the shared PASS record contract.

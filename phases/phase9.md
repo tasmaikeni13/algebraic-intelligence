@@ -1,12 +1,12 @@
 # Phase 9: Scaled Frontier Pretraining: 350M Parameters on 3.0B FineWeb-Edu Tokens & Scaling Laws
 
-Start only after Phase 8 PASS. Read `theory.md`, Phase 7 & 8 evidence in `results/phase7/` and `results/phase8/`, and `phases/README.md` completely before executing. Execute the shared failure-repair loop until all gates pass.
+Start only after Phase 8 PASS. Read `theory.md`, Phase 7 & 8 evidence in `results/phase7/` and `results/phase8/`, and `phases/README.md` completely before executing. Execute the shared adaptive failure-repair loop until all gates pass.
 
 ---
 
 ## 1. Objective, Scientific Hypothesis & Competing Models
 
-Scale model capacity to **350M parameters** ($2\times$ depth, 24 layers, width 1024) and pretrain on **3.0 Billion tokens of FineWeb-Edu** on the dedicated **1x AMD Instinct MI300X GPU (192 GB HBM3)**:
+Scale model capacity to **350M parameters** ($2\times$ depth, 24 layers, width 1024) and pretrain on **3.0 Billion tokens of FineWeb-Edu** on the dedicated **16 TPU v4 Pod slice (512 GB aggregate HBM)**:
 $$\textbf{"Do pure algebraic transformers obey neural power-law scaling and maintain deep 24-layer stability?"}$$
 
 ### Competing Hypotheses:
@@ -22,7 +22,7 @@ Preregister and freeze the 350M configuration:
 ```mermaid
 graph LR
     subgraph "Hardware Substrate"
-        GPU["1x AMD Instinct MI300X (192 GB HBM3, 5.3 TB/s)"]
+        TPU["16 TPU v4 Pod Slice (512 GB HBM2e, 19.2 TB/s aggregate bandwidth)"]
     end
 
     subgraph "Candidate 1: Pure Algebraic Transformer (350M)"
@@ -39,8 +39,8 @@ graph LR
         S2c["Seed 2026"] --> M2
     end
 
-    GPU --- M1
-    GPU --- M2
+    TPU --- M1
+    TPU --- M2
 ```
 
 ### 2.1 Model Specifications (350M Scale)
@@ -48,45 +48,56 @@ graph LR
 - **Hidden Dimension ($d_{\text{model}}$):** $1024$.
 - **Number of Layers ($L$):** $24$ ($2\times$ depth of Phase 8).
 - **Attention Heads ($H$):** $16$ ($d_k = d_v = 64$ per head).
-- **FFN Intermediate Dimension ($d_{\text{ff}}$):** $2816$ ($8/3 \times d_{\text{model}} \approx 2816$ rounded to multiple of 64).
+- **FFN Intermediate Dimension ($d_{\text{ff}}$):** $2816$ ($8/3 \times d_{\text{model}} \approx 2816$ rounded to multiple of 128 for TPU v4 MXU efficiency).
 - **Vocabulary Size ($V$):** $50,257$ (GPT-2 standard BPE tokenizer).
 - **Context Length ($T$):** $2048$ tokens (with evaluation up to $8192$ for NIAH).
 - **Dataset:** Exactly **3.0 Billion training tokens** drawn from **FineWeb-Edu**.
-- **Hardware Target:** Dedicated 1x AMD Instinct MI300X GPU (`gfx942`, 192 GB HBM3, 5.3 TB/s bandwidth).
-  - *VRAM Advantage:* Total static state is $< 2.2\text{ GB}$, leaving over $189\text{ GB}$ of local HBM3 for large micro-batches without multi-node communication stalls.
-- **Global Batch Size:** $\approx 1.05 \times 10^6$ tokens ($512$ sequences $\times 2048$ context length).
+- **Hardware Target:** Dedicated 16 TPU v4 Pod slice (32 TensorCores, 512 GB aggregate HBM2e).
+- **Global Batch Size:** $\approx 1.05 \times 10^6$ tokens ($512$ sequences $\times 2048$ context length), distributed across the 16 TPU v4 chips via SPMD mesh sharding (`data`, `fsdp`).
 - **Precision:** BF16 mixed-precision with FP32 master weights.
 - **Checkpoint Cadence:** Checkpoints saved every $100\text{M}$ tokens.
 - **Paired Seeds:** 3 identical random seeds (Seed 42, Seed 1337, Seed 2026), yielding $2 \times 3 = 6$ complete pretraining runs.
 
 ---
 
-## 3. Scaling Law Analysis & Deep 24-Layer Stability
+## 3. Implementation Target: JAX / TPU v4 Architecture
+
+Instruct the creation and verification of the following files targeting the 16 TPU v4 Pod:
+1. **`scripts/run_pretrain_350m.py`**:
+   - Scaled pretraining script for 350M parameter models across 3.0B tokens on 16 TPU v4 chips.
+   - SPMD distributed parallelism utilizing 3D Torus mesh sharding (`src/mesh.py`).
+2. **`scripts/evaluate_scaling_laws.py`**:
+   - Automated power-law curve fitting across 15M (Phase 7), 125M (Phase 8), and 350M (Phase 9) checkpoints.
+   - Multi-needle passkey retrieval (Needle-In-A-Haystack) suite across context lengths $\{2048, 4096, 8192\}$.
+
+---
+
+## 4. Scaling Law Analysis & Deep 24-Layer Stability
 
 Evaluate all completed 350M runs across:
 
-### 3.1 Empirical Neural Scaling Laws
+### 4.1 Empirical Neural Scaling Laws
 - Measure loss reduction $\Delta \mathcal{L} = \mathcal{L}_{125\text{M}} - \mathcal{L}_{350\text{M}}$ from Phase 8 to Phase 9.
 - Confirm parallel power-law scaling: verify that the Algebraic Stack exhibits a scaling exponent $\alpha$ matching or exceeding the Standard Transformer baseline ($L(N) \propto N^{-\alpha}$).
 - Fit parametric scaling curves $L(N) = L_\infty + A \cdot N^{-\alpha}$ across the 15M (Phase 7), 125M (Phase 8), and 350M (Phase 9) checkpoints.
 
-### 3.2 Deep 24-Layer Stability & Signal Propagation
+### 4.2 Deep 24-Layer Stability & Signal Propagation
 - Track activation variance $\operatorname{Var}(\mathbf{h}_\ell)$ across all 24 layers from layer 1 to 24.
 - Verify that parameter-free AVN prevents exponential signal amplification across 24 layers ($(1.0445)^{24} \approx 2.87$ maximum theoretical drift).
 - Confirm zero loss spikes ($\Delta \mathcal{L} > 1.5$) and zero gradient explosions over the entire 3.0B token trajectory.
 
-### 3.3 Long-Context Retrieval & Needle-In-A-Haystack (NIAH)
+### 4.3 Long-Context Retrieval & Needle-In-A-Haystack (NIAH)
 - Multi-needle passkey retrieval benchmarks across context lengths $\{2048, 4096, 8192\}$.
 - Confirm that AGO Cayley rotations maintain $\ge 90\%$ needle retrieval accuracy at extended context lengths.
 
-### 3.4 Systems & Efficiency Telemetry on MI300X
+### 4.4 Systems & Efficiency Telemetry on 16 TPU v4 Pod
 - Prefill throughput (tok/s) and per-token decode latency (ms/tok).
-- Peak VRAM allocation.
-- Optimizer memory state bytes: Verify factorized second-moment compression of $\approx 2048\times$ at width 1024, saving $> 45\%$ total optimizer memory in local HBM3.
+- Peak HBM memory allocation.
+- Optimizer memory state bytes: Verify factorized second-moment compression of $\approx 2048\times$ at width 1024, saving $> 45\%$ total optimizer memory in HBM.
 
 ---
 
-## 4. The Hierarchical Scaling Back-Propagation Loop
+## 5. The Hierarchical Scaling Back-Propagation Loop
 
 If the 125M model succeeded in Phase 8, but the 350M model fails in Phase 9, the autonomous agent must execute the **Hierarchical Scaling Back-Propagation Protocol**:
 
@@ -99,7 +110,7 @@ graph TD
     E --> F["Mandatory 125M Regression Test (Verify 125M does not degrade)"]
     F --> G{"125M Regression Passed?"}
     G -- "No" --> D
-    G -- "Yes" --> H["Re-run 350M across 3 Seeds on MI300X"]
+    G -- "Yes" --> H["Re-run 350M across 3 Seeds on 16 TPU v4 Pod"]
     H --> I{"Phase 9 Gates Satisfied?"}
     I -- "No" --> B
     I -- "Yes" --> J["Advance to Phase 10 (Paper & Release)"]
@@ -114,7 +125,7 @@ graph TD
 
 ---
 
-## 5. Lean 4 Formal Verification Gate
+## 6. Lean 4 Formal Verification Gate
 
 Compile all Lean 4 modules via `/root/.elan/bin/lake build`:
 - Verify that 24-layer composition theorems hold without `sorry`.
@@ -122,7 +133,7 @@ Compile all Lean 4 modules via `/root/.elan/bin/lake build`:
 
 ---
 
-## 6. PASS Gates
+## 7. PASS Gates
 
 - [ ] All 3 random seed runs for 350M Algebraic Transformer and 350M Baseline Transformer complete the full 3.0B token budget with zero unhandled NaNs or divergence.
 - [ ] Algebraic Transformer validation perplexity achieves parity with the Standard Transformer baseline within $\le 1.08\times$ (mean over 3 seeds).

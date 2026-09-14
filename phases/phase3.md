@@ -1,6 +1,6 @@
 # Phase 3: Algebraic Geometric Oscillators & Shift Equivariance (AGO)
 
-Start only after Phase 2 PASS. Read `theory.md`, `formal/README.md`, `formal/AlgebraicTheory/Cayley.lean`, Phase 2 evidence in `results/phase2/`, and `phases/README.md` completely before executing. Execute the shared failure-repair loop until all gates pass.
+Start only after Phase 2 PASS. Read `theory.md`, `formal/README.md`, `formal/AlgebraicTheory/Cayley.lean`, Phase 2 evidence in `results/phase2/`, and `phases/README.md` completely before executing. Execute the shared adaptive failure-repair loop until all gates pass.
 
 ---
 
@@ -26,11 +26,23 @@ where $\mathbf{J} = \begin{pmatrix} 0 & -1 \\ 1 & 0 \end{pmatrix}$.
 1. **Unimodularity:** $\det(\mathbf{R}(w_k)) = \frac{(1 - w_k^2)^2 + (2w_k)^2}{(1 + w_k^2)^2} = 1$ strictly.
 2. **Norm Conservation:** $\|\mathbf{R}(w_k) \mathbf{v}\|_2 = \|\mathbf{v}\|_2$ for all $\mathbf{v} \in \mathbb{R}^2$.
 3. **Shift Equivariance:** $\mathbf{R}(w_k)^m \cdot \mathbf{R}(w_k)^n = \mathbf{R}(w_k)^{m+n}$ and $(\mathbf{R}(w_k)^m)^\top \mathbf{R}(w_k)^n = \mathbf{R}(w_k)^{n-m}$.
-4. **$\mathcal{O}(1)$ Autoregressive Update:** $\mathbf{R}_k(m) = \mathbf{R}_k \mathbf{R}_k(m-1)$ computed in 4 FMAs per channel pair with periodic algebraic re-normalization $\mathbf{v} \leftarrow \mathbf{v} \cdot \operatorname{rsqrt}(\|\mathbf{v}\|^2)$.
+4. **$\mathcal{O}(1)$ Autoregressive Update:** $\mathbf{R}_k(m) = \mathbf{R}_k \mathbf{R}_k(m-1)$ computed in 4 FMAs per channel pair on the TPU v4 VMU with periodic algebraic re-normalization $\mathbf{v} \leftarrow \mathbf{v} \cdot \operatorname{rsqrt}(\|\mathbf{v}\|^2)$.
 
 ---
 
-## 3. Lean 4 Formal Verification Gate
+## 3. Implementation Target: JAX / TPU v4 Architecture
+
+Instruct the creation and verification of the following components targeting the 16 TPU v4 Pod:
+1. **`src/attention.py` (AGO module additions)**:
+   - `build_cayley_rotary_matrix(dim, max_seq_len)`: Precomputes rational Cayley rotation parameters without `sin` or `cos`.
+   - `apply_ago_rotations(q, k)`: JAX vectorized rotary application executing natively across TPU v4 VMU vector registers.
+2. **`tests/test_ago.py`**:
+   - Verification of unimodularity ($\det = 1$), norm preservation across long sequences ($L \ge 8192$), and shift equivariance.
+   - AST audit confirming zero occurrences of `sin`, `cos`, or complex numbers.
+
+---
+
+## 4. Lean 4 Formal Verification Gate
 
 The agent must compile `formal/AlgebraicTheory/Cayley.lean` with zero errors under `/root/.elan/bin/lake build`:
 
@@ -47,9 +59,9 @@ The agent must compile `formal/AlgebraicTheory/Cayley.lean` with zero errors und
 
 ---
 
-## 4. Deep Empirical & Monte Carlo Simulation Gate
+## 5. Deep Empirical & Monte Carlo Simulation Gate
 
-Execute the Phase 3 verification suite in `analysis/verify_algebraic_primitives.py`:
+Execute the Phase 3 verification suite in `tests/test_ago.py`:
 
 | Evaluation Dimension | Experimental Protocol | Success Criterion / Bound |
 | :--- | :--- | :--- |
@@ -63,20 +75,22 @@ Execute the Phase 3 verification suite in `analysis/verify_algebraic_primitives.
 
 ---
 
-## 5. Autonomous Failure Ledger & Self-Correction Playbook
+## 6. Adaptive Failure-Repair & Bidirectional Dependency Protocol
 
-- **Symptom: Cumulative numerical drift at sequence lengths $m > 2048$:**
-  - *Root Cause:* Repeated FP32 matrix multiplications accumulate precision roundoff.
-  - *Correction:* Precompute powers $\mathbf{R}^m$ in float64 using binary exponentiation and apply algebraic re-normalization: $\operatorname{rsqrt}(c^2 + s^2)$.
-- **Symptom: High-frequency channel aliasing:**
-  - *Root Cause:* Frequency parameters $w_k$ growing unbounded.
-  - *Correction:* Bound the geometric progression: $w_k = 10000^{-2k/d} \in (0, 1]$.
+When a test or gate fails in Phase 3:
+1. **Iterate Locally:** If cumulative precision roundoff occurs at $L > 2048$, apply algebraic re-normalization using $\operatorname{rsqrt}(c^2 + s^2)$.
+2. **Backward Rollback to Phase 1:** If re-normalization requires specific $\operatorname{rsqrt}$ precision or numerical damping, ensure consistency with Phase 1 AVN radical operators.
+3. **Forward Dependency Cascading:**
+   - **Phase 6 (`src/kernels/pallas_afa.py`):** If Cayley matrix representation changes (e.g. 2D planar rotation packing vs complex representation), update the Pallas TPU kernel tile loading logic accordingly.
+   - **Phases 7, 8, 9 (`src/model.py`):** Update positional encoding application in `AlgebraicTransformerLM`.
+   - Re-verify that `formal/AlgebraicTheory/Cayley.lean` and `lake build` remain completely aligned.
 
 ---
 
-## 6. Passing Gate Checklist
+## 7. PASS Gates
 
 - [ ] `formal/AlgebraicTheory/Cayley.lean` compiles with 0 errors via `/root/.elan/bin/lake build`.
+- [ ] JAX implementation of AGO Cayley rotary embeddings created in `src/attention.py`.
 - [ ] Matrix shift equivariance error $\le 1.0 \times 10^{-6}$ across context length 4096.
 - [ ] Cumulative rotation norm drift $\le 1.0 \times 10^{-6}$ up to $m = 8192$.
 - [ ] Determinant is verified to be identically $1.0$ (error $\le 1.0 \times 10^{-15}$).
