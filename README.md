@@ -109,12 +109,18 @@ Key formally verified theorems:
 
 ---
 
-## Empirical Research Benchmarks
+## Empirical Research & Benchmarks
 
-Run the complete test suite:
+Run the complete verification and benchmark suite:
 ```bash
-python3 analysis/verify_algebraic_primitives.py
-python3 analysis/benchmark_algebraic_vs_transcendental.py
+# 1. Verify all algebraic primitives and comparative baselines:
+python3 scripts/run_verify_primitives.py
+
+# 2. Run Pallas AFA hardware kernel benchmarks on 16 TPU v4 Pod:
+python3 scripts/run_benchmark_pallas.py
+
+# 3. Launch unit and integration tests:
+pytest tests/
 ```
 
 ### Empirical Results Summary

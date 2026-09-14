@@ -1,6 +1,6 @@
 # Formal Proof Coverage: The Algebraic Stack
 
-This document records the exact correspondence between mathematical theorems in `theory.md`, Lean 4 formal certificates in `formal/AlgebraicTheory/`, and empirical Monte Carlo verification in `analysis/`.
+This document records the exact correspondence between mathematical theorems in `theory.md`, Lean 4 formal certificates in `formal/AlgebraicTheory/`, and empirical Monte Carlo verification scripts in `scripts/` and `tests/`.
 
 All formal proofs compile cleanly under Lean 4 (`v4.16.0`) with Mathlib4 via `/root/.elan/bin/lake build`. Zero `sorry`, zero `admit`, and zero unreviewed project axioms are present.
 
