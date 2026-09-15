@@ -1,0 +1,23 @@
+Using ssh batch size of 1. Attempting to SSH into 1 nodes with a total of 4 workers.
+SSH: Attempting to connect to worker 0...
+SSH: Attempting to connect to worker 1...
+SSH: Attempting to connect to worker 2...
+SSH: Attempting to connect to worker 3...
+TPU devices are in use; leave the existing job running.
+##### Command execution on worker 3 failed with exit status 73. Continuing.
+TPU devices are in use; leave the existing job running.
+TPU devices are in use; leave the existing job running.
+##### Command execution on worker 0 failed with exit status 73. Continuing.
+##### Command execution on worker 2 failed with exit status 73. Continuing.
+TPU devices are in use; leave the existing job running.
+##### Command execution on worker 1 failed with exit status 73. Continuing.
+Traceback (most recent call last):
+  File "/home/tas_ken_rt25/algebraic-intelligence/scripts/launch_phase1_tpu.py", line 77, in <module>
+    raise SystemExit(main())
+  File "/home/tas_ken_rt25/algebraic-intelligence/scripts/launch_phase1_tpu.py", line 37, in main
+    ssh("if sudo -n fuser -s /dev/accel*; then echo 'TPU devices are in use; leave the existing job running.'; exit 73; fi", "availability.log")
+  File "/home/tas_ken_rt25/algebraic-intelligence/scripts/launch_phase1_tpu.py", line 35, in ssh
+    run(["gcloud","compute","tpus","tpu-vm","ssh",args.name,"--zone",args.zone,
+  File "/home/tas_ken_rt25/algebraic-intelligence/scripts/launch_phase1_tpu.py", line 33, in run
+    raise RuntimeError(f"Command failed with exit {code}; see {out/log}")
+RuntimeError: Command failed with exit 73; see /home/tas_ken_rt25/algebraic-intelligence/results/phase1/tpu/availability.log

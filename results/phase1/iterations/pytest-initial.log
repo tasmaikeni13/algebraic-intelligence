@@ -1,0 +1,66 @@
+....................F.F.......                                           [100%]
+=================================== FAILURES ===================================
+________________ test_mixed_precision_boundaries[float64-2e-14] ________________
+
+dtype = <class 'jax.numpy.float64'>, tol = 2e-14
+
+    @pytest.mark.parametrize("dtype,tol", [(jnp.float64, 2e-14), (jnp.float32, 2e-6), (jnp.bfloat16, .012)])
+    def test_mixed_precision_boundaries(dtype, tol):
+        x = jnp.array([[-1e15, -1e6, -1e-15, 0., 1e-15, 1e6, 1e15]], dtype=dtype)
+        # Oracle sees the actual quantized input, not its unrounded precursor.
+        x64 = np.asarray(x, dtype=np.float64)
+        g = jnp.ones_like(x)
+        for fn, ref, derivative in [(alu, alu_reference, lambda z,g: g*alu_derivative(z)),
+                                    (avn, avn_reference, avn_vjp_reference)]:
+            y, back = jax.vjp(fn, x)
+            dx = back(g)[0]
+            assert y.dtype == dtype and dx.dtype == dtype
+            assert np.isfinite(np.asarray(y,dtype=float)).all()
+            assert np.isfinite(np.asarray(dx,dtype=float)).all()
+>           np.testing.assert_allclose(np.asarray(y,dtype=float), ref(x64), rtol=tol, atol=tol)
+E           AssertionError: 
+E           Not equal to tolerance rtol=2e-14, atol=2e-14
+E           
+E           Mismatched elements: 1 / 7 (14.3%)
+E           Max absolute difference among violations: 2.03215222e-11
+E           Max relative difference among violations: 8.128547e-05
+E            ACTUAL: array([[-0.000000e+00, -2.500222e-07, -5.000000e-16,  0.000000e+00,
+E                    5.000000e-16,  1.000000e+06,  1.000000e+15]])
+E            DESIRED: array([[ 0.000000e+00, -2.500019e-07, -5.000000e-16,  0.000000e+00,
+E                    5.000000e-16,  1.000000e+06,  1.000000e+15]])
+
+tests/test_primitives.py:85: AssertionError
+_______________ test_mixed_precision_boundaries[bfloat16-0.012] ________________
+
+dtype = <class 'jax.numpy.bfloat16'>, tol = 0.012
+
+    @pytest.mark.parametrize("dtype,tol", [(jnp.float64, 2e-14), (jnp.float32, 2e-6), (jnp.bfloat16, .012)])
+    def test_mixed_precision_boundaries(dtype, tol):
+        x = jnp.array([[-1e15, -1e6, -1e-15, 0., 1e-15, 1e6, 1e15]], dtype=dtype)
+        # Oracle sees the actual quantized input, not its unrounded precursor.
+        x64 = np.asarray(x, dtype=np.float64)
+        g = jnp.ones_like(x)
+        for fn, ref, derivative in [(alu, alu_reference, lambda z,g: g*alu_derivative(z)),
+                                    (avn, avn_reference, avn_vjp_reference)]:
+            y, back = jax.vjp(fn, x)
+            dx = back(g)[0]
+            assert y.dtype == dtype and dx.dtype == dtype
+            assert np.isfinite(np.asarray(y,dtype=float)).all()
+            assert np.isfinite(np.asarray(dx,dtype=float)).all()
+>           np.testing.assert_allclose(np.asarray(y,dtype=float), ref(x64), rtol=tol, atol=tol)
+E           AssertionError: 
+E           Not equal to tolerance rtol=0.012, atol=0.012
+E           
+E           Mismatched elements: 2 / 7 (28.6%)
+E           Max absolute difference among violations: 29753344.
+E           Max relative difference among violations: 119083.26530137
+E            ACTUAL: array([[-2.975334e+07, -2.978516e-02, -4.996004e-16,  0.000000e+00,
+E                    4.996004e-16,  9.994240e+05,  9.983566e+14]])
+E            DESIRED: array([[ 0.000000e+00, -2.501183e-07, -4.996004e-16,  0.000000e+00,
+E                    4.996004e-16,  9.994240e+05,  9.983566e+14]])
+
+tests/test_primitives.py:85: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_primitives.py::test_mixed_precision_boundaries[float64-2e-14]
+FAILED tests/test_primitives.py::test_mixed_precision_boundaries[bfloat16-0.012]
+2 failed, 28 passed in 3.80s

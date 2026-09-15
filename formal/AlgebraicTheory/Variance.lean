@@ -2,6 +2,7 @@ import Mathlib.Basic.Real.Basic
 import Mathlib.Tactic.Ring
 import Mathlib.Tactic.Linarith
 import Mathlib.Tactic.FieldSimp
+import Mathlib.Analysis.Real.Sqrt
 
 namespace AlgebraicTheory
 
@@ -32,5 +33,31 @@ theorem avn_scale_invariance (x tau α : ℝ) (hα : α ≠ 0) :
   calc
     (tau / α) * (α * x) = ((tau / α) * α) * x := by ring
     _ = tau * x := by rw [div_mul_cancel₀ tau hα]
+
+-- Real sqrt coordinate invariance, rather than an assumed scaling of tau.
+theorem avn_positive_scale_invariance (x v α : ℝ) (hα : 0 < α) :
+    (α * x) / Real.sqrt (α ^ 2 * v) = x / Real.sqrt v := by
+  rw [Real.sqrt_mul (sq_nonneg α), Real.sqrt_sq (le_of_lt hα)]
+  exact mul_div_mul_left x (Real.sqrt v) (ne_of_gt hα)
+
+theorem avn_regularized_moment (m eps : ℝ) (h : m + eps ≠ 0) :
+    m / (m + eps) = 1 - eps / (m + eps) := by
+  field_simp
+  ring
+
+theorem avn_gate_coupling (x v tau : ℝ) (htau : tau ^ 2 * v = 1)
+    (hpos : 0 < tau) :
+    (tau * x) / Real.sqrt ((tau * x) ^ 2 + 1) = x / Real.sqrt (x ^ 2 + v) := by
+  rw [avn_coupling_identity x v tau htau]
+  exact avn_positive_scale_invariance x (x ^ 2 + v) tau hpos
+
+theorem avn_centered_variance (m mu tau : ℝ) :
+    tau ^ 2 * m - (tau * mu) ^ 2 = tau ^ 2 * (m - mu ^ 2) := by
+  ring
+
+theorem avn_radial_damping (m eps : ℝ) (h : m + eps ≠ 0) :
+    1 - m / (m + eps) = eps / (m + eps) := by
+  field_simp
+  ring
 
 end AlgebraicTheory

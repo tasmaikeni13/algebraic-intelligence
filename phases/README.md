@@ -29,7 +29,7 @@ The core architecture constructed, verified, and scaled across this repository i
 
 ## 2. Hardware Substrate: Google Cloud TPU v4 Pod Slice (16 TPU v4 Chips)
 
-All empirical simulations, kernel executions, distributed scaling, and pretraining phases target a dedicated **Google Cloud TPU v4 Pod slice** consisting of **16 TPU v4 chips** (TPU v4-16):
+All empirical simulations, kernel executions, distributed scaling, and pretraining phases target a dedicated **Google Cloud TPU v4 Pod slice** consisting of **16 TPU v4 chips** (Cloud TPU `v4-32`; the suffix counts TensorCores):
 - **Accelerator Topology:** 16 physical TPU v4 chips arranged in a $4 \times 2 \times 2$ 3D Torus mesh connected via dedicated optical circuit switches (OCS) and Inter-Chip Interconnect (ICI).
 - **Core Architecture:** 32 TensorCore compute engines (2 TensorCores per TPU v4 chip). Each TensorCore houses two 128×128 Matrix Multiply Units (MXUs) specialized for bfloat16 systolic matrix multiplications, along with dedicated Vector Processing Units (VMUs) for elementwise arithmetic and hardware $\operatorname{rsqrt}$.
 - **Compute Throughput:** ~275 TFLOPS (BF16) per chip $\implies \approx \mathbf{4.4\text{ PFLOPS}}$ aggregate peak BF16 compute across the 16-chip pod slice.

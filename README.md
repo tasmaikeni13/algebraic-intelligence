@@ -8,6 +8,17 @@
 
 ---
 
+## Current implementation status
+
+Phase 1 adds JAX ALU/AVN primitives, analytical cached backward passes, an
+independent float64 oracle, unit tests, Lean certificates, and reproducible
+CPU/16-chip TPU verification runners. Follow the [Phase 1 reproduction guide](results/phase1/REPRODUCE.md)
+and consult the [direct execution status](results/phase1/STATUS.md).
+
+The architecture and later-phase results described below are research-draft
+claims, not outcomes established by this Phase 1 implementation. Phases 2–10
+have not been executed in this work.
+
 ## Executive Summary
 
 Contemporary deep learning architectures are saturated with transcendental functions:
@@ -33,7 +44,7 @@ We answer this question affirmatively by constructing and verifying the **Algebr
 ├── README.md                       # Architectural overview, proofs, and benchmark results
 ├── formal/                         # Lean 4 machine-checked formal verification
 │   ├── lakefile.toml               # Lake build specification with Mathlib4
-│   ├── lean-toolchain              # Lean 4.16.0 specification
+│   ├── lean-toolchain              # Lean 4.34.0-rc2 specification
 │   ├── PROOF_COVERAGE.md           # Formal theorem-to-prose mapping
 │   ├── AlgebraicTheory.lean        # Root Lean 4 library module
 │   └── AlgebraicTheory/
@@ -90,7 +101,7 @@ All autonomous research and verification in this repository is governed by [`pha
 
 ## Machine-Checked Formal Verification in Lean 4
 
-All foundational algebraic theorems have been formalized and verified in **Lean 4** (v4.16.0) with Mathlib4.
+All foundational algebraic theorems have been formalized and verified in **Lean 4** (v4.34.0-rc2) with Mathlib4.
 To verify the proofs locally:
 ```bash
 cd formal
@@ -100,7 +111,7 @@ lake build
 Key formally verified theorems:
 1. `gate_reflection_identity`: $\beta(u) + \beta(-u) = 1$.
 2. `alu_polynomial_backward_identity`: $\frac{d}{dx} K(x) = \frac{1}{2}(1 + 2u - u^3)$ (cubic polynomial in cached $u$).
-3. `alu_inflection_identity`: $K''(x) = 0 \iff 2 - 3u^2 = 0 \iff x = -\sqrt{2}$, proving algebraic alignment with GELU.
+3. `alu_inflection_iff`: $2 - 3u^2 = 0 \iff x^2 = 2$ under the cache relation, proving algebraic alignment with GELU.
 4. `kernel_reciprocal_identity`: $(x + s)(s - x) = 1$ when $s^2 = x^2 + 1$.
 5. `cayley_column_norm_one` & `cayley_determinant_one`: Rational Cayley transform produces an exact orthogonal rotation in $\mathrm{SO}(2)$ with $\det = 1$.
 6. `pearson_divergence_expansion`: $(y - p)^2 / p = y^2/p - 2y + p$, proving the Pearson $\chi^2$ expansion.

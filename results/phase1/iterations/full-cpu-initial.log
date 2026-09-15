@@ -1,0 +1,8 @@
+purity: PASS
+numerical: PASS
+monte_carlo: PASS
+depth=8, ALU gradient range=0.4602..2.1463, variance delta=1.746%
+depth=16, ALU gradient range=0.4680..2.2091, variance delta=1.752%
+depth=24, ALU gradient range=0.4946..2.2005, variance delta=1.832%
+depth=32, ALU gradient range=0.4568..2.2025, variance delta=1.850%
+FAIL_SOURCE_CHANGED_DURING_RUN

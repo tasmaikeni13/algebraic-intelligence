@@ -1,6 +1,7 @@
 import Mathlib.Basic.Real.Basic
 import Mathlib.Tactic.Ring
 import Mathlib.Tactic.Linarith
+import Mathlib.Tactic.FieldSimp
 
 namespace AlgebraicTheory
 
@@ -39,5 +40,28 @@ theorem alu_inflection_x_to_u (x_sq s_sq u_sq : ℝ)
   have hs_val : s_sq = 3 := by linarith
   rw [hs_val] at hu
   linarith
+
+-- The iff includes BOTH inflections; the earlier prose omitted the positive one.
+theorem alu_inflection_iff (x s u : ℝ)
+    (hs : s ^ 2 = x ^ 2 + 1) (hu : u * s = x) :
+    2 - 3 * u ^ 2 = 0 ↔ x ^ 2 = 2 := by
+  have h := alu_cache_invertibility x s u hs hu
+  have hsq : u ^ 2 * s ^ 2 = x ^ 2 := by nlinarith [sq_nonneg (u * s - x)]
+  constructor <;> intro hx <;> nlinarith
+
+-- Conjugate forward evaluation used to preserve the negative tail.
+theorem alu_negative_tail_identity (u r : ℝ)
+    (h : u ^ 2 + r ^ 2 = 1) (hu : 1 - u ≠ 0) :
+    1 + u = r ^ 2 / (1 - u) := by
+  apply (eq_div_iff hu).2
+  nlinarith
+
+-- Rational upper certificate for the Horner derivative on the cache interval.
+theorem alu_derivative_bound (u : ℝ) (hl : -1 ≤ u) (hr : u ≤ 1) :
+    -(1 / 20 : ℝ) ≤ (1 / 2 : ℝ) + u * (1 - u ^ 2 / 2) ∧
+    (1 / 2 : ℝ) + u * (1 - u ^ 2 / 2) ≤ 21 / 20 := by
+  have upper := mul_nonneg (sq_nonneg (u - 4 / 5)) (show 0 ≤ u + 8 / 5 by linarith)
+  have lower := mul_nonneg (sq_nonneg (u + 4 / 5)) (show 0 ≤ -u + 8 / 5 by linarith)
+  constructor <;> nlinarith
 
 end AlgebraicTheory

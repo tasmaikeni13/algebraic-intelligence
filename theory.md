@@ -163,7 +163,7 @@ $$\lim_{x\to +\infty} K(x) = x \quad \text{(identity at positive tail)}, \qquad 
 
 **Theorem 3.2 (Closed-Form Polynomial Backward Pass).** With the forward-pass cache variable $u = x / \sqrt{x^2 + 1}$, the derivative of ALU is
 $$K^{\prime}(x) = \frac{1}{2}\big(1 + 2u - u^{3}\big). \quad (8)$$
-The backward pass requires exactly two multiplications and two additions per element, with zero inverse square roots, zero divisions, and zero exponentials.
+The Horner derivative uses three multiplications and two additions/subtractions per element, plus one multiplication by the upstream cotangent. It uses zero inverse square roots, divisions, or exponentials.
 
 *Proof.* Differentiating $u = x / \sqrt{x^2 + 1}$:
 $$\frac{du}{dx} = \frac{(x^2 + 1) - x^2}{(x^2 + 1)^{3/2}} = \frac{1}{(x^2 + 1)^{3/2}}. \quad (9)$$
@@ -179,9 +179,9 @@ which is a pure cubic polynomial in $u$. $\blacksquare$
 
 ### 3.4 Inflection Point Theorem and Structural Alignment with GELU
 
-**Theorem 3.4 (Inflection Point Theorem).** The second derivative of ALU satisfies $K''(x) = 0$ if and only if $u = -\sqrt{2/3}$, which occurs at $x = -\sqrt{2}$. This matches the inflection point of the Gaussian Error Linear Unit (GELU) $G(x) = x\Phi(x)$.
+**Theorem 3.4 (Inflection Point Theorem).** The second derivative of ALU satisfies $K''(x) = 0$ if and only if $u = \pm\sqrt{2/3}$, which occurs at $x = \pm\sqrt{2}$. This matches the inflection point of the Gaussian Error Linear Unit (GELU) $G(x) = x\Phi(x)$.
 
-*Proof.* From Theorem 3.2, $K''(x) = \frac{1}{2}(2 - 3u^2)\frac{du}{dx}$. Since $\frac{du}{dx} = (x^2+1)^{-3/2} > 0$, $K''(x) = 0 \iff 2 - 3u^2 = 0 \iff u = \pm \sqrt{2/3}$. The negative inflection is $u = -\sqrt{2/3}$, which implies $x^2 / (x^2+1) = 2/3 \implies x^2 = 2 \implies x = -\sqrt{2}$. For GELU: $G''(x) = \phi(x)(2 - x^2)$, which vanishes exactly at $x = -\sqrt{2}$. Thus, setting $\kappa = 1$ in the algebraic gate uniquely matches the curvature profile of GELU. $\blacksquare$
+*Proof.* From Theorem 3.2, $K''(x) = \frac{1}{2}(2 - 3u^2)\frac{du}{dx}$. Since $\frac{du}{dx} = (x^2+1)^{-3/2} > 0$, $K''(x) = 0 \iff 2 - 3u^2 = 0 \iff u = \pm \sqrt{2/3}$. The negative inflection is $u = -\sqrt{2/3}$, which implies $x^2 / (x^2+1) = 2/3 \implies x^2 = 2 \implies x = -\sqrt{2}$. For GELU: $G''(x) = \phi(x)(2 - x^2)$, which vanishes at both $x = \pm\sqrt{2}$. Thus, setting $\kappa = 1$ matches the two inflection coordinates, not the entire curvature profile of GELU. $\blacksquare$
 
 ---
 
@@ -301,7 +301,7 @@ AVN pre-bounding guarantees that the gradient is uniformly bounded, completely p
 
 ### 6.1 The Zero-Parameter HBM Corollary
 
-Standard LayerNorm and RMSNorm load a learnable scale vector $\boldsymbol{\gamma} \in \mathbb{R}^d$ from HBM on every pass. AVN eliminates $\boldsymbol{\gamma}$ entirely, operating as a pure geometric projection onto the $\sqrt{d}$-sphere.
+Standard LayerNorm and RMSNorm load a learnable scale vector $\boldsymbol{\gamma} \in \mathbb{R}^d$ from HBM on every pass. AVN eliminates $\boldsymbol{\gamma}$ entirely, operating as radial normalization into the $\sqrt{d}$-ball (onto the sphere only at epsilon=0 for nonzero inputs).
 
 **Definition 6.1 (AVN Layer).** For input $\mathbf{x} \in \mathbb{R}^d$ and regularizer $\epsilon > 0$:
 $$v = m_2(\mathbf{x}) + \epsilon = \frac{1}{d}\|\mathbf{x}\|^2 + \epsilon, \qquad \tau = \mathrm{rsqrt}(v), \qquad \hat{\mathbf{x}} = \tau \mathbf{x}. \quad (34)$$
@@ -311,11 +311,11 @@ The normalized vector $\hat{\mathbf{x}}$ and the variance scalar $\tau$ are pass
 
 **Theorem 6.2 (Coupling Identity).** Let an algebraic gate have data-dependent smoothing constant $\kappa = v$. Then:
 $$\beta(x; v) = \frac{1}{2}\left(1 + \frac{x}{\sqrt{x^2 + v}}\right) = \frac{1}{2}\left(1 + \frac{\tau x}{\sqrt{(\tau x)^2 + 1}}\right) = \beta(\hat{x}; 1). \quad (35)$$
-Downstream gated activations reuse the pre-computed AVN scalar $\tau$ without computing a new $\mathrm{rsqrt}$.
+The identity permits reuse of the normalized coordinates. Evaluating the gate still requires its own inverse square root of $1+\hat{x}^2$; the coupling does not remove that operation.
 
 **Theorem 6.3 (Closed-Form AVN Backward Pass).** For upstream gradient $\mathbf{g} = \partial \mathcal{L} / \partial \hat{\mathbf{x}}$:
 $$\frac{\partial \mathcal{L}}{\partial \mathbf{x}} = \tau \left(\mathbf{g} - \frac{\langle \mathbf{g}, \hat{\mathbf{x}} \rangle}{d} \hat{\mathbf{x}}\right). \quad (36)$$
-The backward pass is an orthogonal projection along $\hat{\mathbf{x}}$, computable in dense matrix-vector operations with zero divisions and zero $\mathrm{rsqrt}$.
+At epsilon=0 this is a scaled orthogonal projection. At epsilon>0 the radial direction has eigenvalue $\tau\epsilon/(m_2+\epsilon)$, rather than zero. A compile-time dimension reciprocal replaces division; the cached backward graph has zero runtime divisions and zero inverse square roots.
 
 ---
 
@@ -686,3 +686,36 @@ Algebra and algebra alone is sufficient to construct robust, scalable, and memor
 [44] DeepSeek-AI. (2024). DeepSeek-V2: A Strong, Economical, and Efficient MoE Language Model. arXiv:2405.04434.
 
 [45] DeepSeek-AI. (2024). DeepSeek-V3 Technical Report. arXiv:2412.19437.
+
+
+## Phase 1 implementation audit (2026-09-15)
+
+The Phase 1 experiment contract is versioned in `phases/phase1.md` §8. AVN
+preserves a bounded **second moment**, not unit centered variance for arbitrary
+means or epsilon. Its exact identities are
+$m_2(\hat{x})=m_2(x)/(m_2(x)+\epsilon)$ and
+$\operatorname{Var}(\hat{x})=\operatorname{Var}(x)/(m_2(x)+\epsilon)$.
+Positive scaling is invariant at epsilon=0; for positive epsilon the corresponding
+identity requires scaling epsilon by the square of the input scale.
+The original low-scale counterexample is retained in the Phase 1 iteration ledger.
+
+ALU's negative tail is evaluated by its conjugate form
+$K(x)=ur/[2(1-u)]$ for x<0, with $r=\operatorname{rsqrt}(1+x^2)$ and u=xr.
+This is the same real function and fixes catastrophic cancellation in the direct
+$1+u$ expression. The forward still uses one inverse square root; its extra
+rational operations must be included in measured throughput. The backward
+continues to cache only u and evaluate the same cubic. The implementation uses
+float32 accumulation for bfloat16 and preserves float64 on the CPU oracle.
+Finite inputs whose squared reductions overflow the accumulation dtype are
+outside the primitive's numerical contract; no all-finite-input guarantee is made.
+
+Deep-flow claims are limited to the prespecified, depth-attenuated residual
+experiment with independent He weights. The non-residual ablation fails. Phase 1
+alone does not establish trainability of a transformer, a language-model result,
+or any of the later-phase empirical claims elsewhere in this draft. Current
+execution status and direct measurements are in `results/phase1/STATUS.md` and
+`results/phase1/metrics.json`; prose is not a substitute for those records.
+
+Implementation references: [JAX custom VJP](https://docs.jax.dev/en/latest/_autosummary/jax.custom_vjp.html),
+[JAX multi-process execution](https://docs.jax.dev/en/latest/multi_process.html),
+[Google TPU v4 configuration](https://docs.cloud.google.com/tpu/docs/v4).
