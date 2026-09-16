@@ -353,9 +353,9 @@ def tiled_afa_forward(
 
             return (o_acc + o_step, d_acc + d_step)
 
-        # Initialize tile accumulators
-        init_o = jnp.zeros((batch_size, num_heads, block_q, head_dim), dtype=accum_dtype)
-        init_d = jnp.zeros((batch_size, num_heads, block_q, 1), dtype=accum_dtype)
+        # Initialize tile accumulators (inheriting manual axes from q_block for shard_map)
+        init_o = (q_block * 0.0).astype(accum_dtype)
+        init_d = (q_block[..., :1] * 0.0).astype(accum_dtype)
 
         final_o, final_d = lax.fori_loop(0, num_k_blocks, _key_block_step, (init_o, init_d))
         return (final_o / (final_d + sink_omega).astype(final_o.dtype)).astype(q.dtype)
@@ -431,8 +431,8 @@ def distributed_ring_afa(
 
         return (o_acc, d_acc, next_k, next_v)
 
-    init_o = jnp.zeros_like(q, dtype=jnp.float32)
-    init_d = jnp.zeros((q.shape[0], q.shape[1], shard_len, 1), dtype=jnp.float32)
+    init_o = (q * 0.0).astype(jnp.float32)
+    init_d = (q[..., :1] * 0.0).astype(jnp.float32)
 
     final_o, final_d, _, _ = lax.fori_loop(0, num_devices, _ring_step, (init_o, init_d, k, v))
 
