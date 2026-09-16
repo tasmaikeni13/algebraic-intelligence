@@ -26,6 +26,28 @@ from scripts.audit_primitives import audit
 from scripts.phase1_experiments import numerical, monte_carlo, deep_trials
 from scripts.phase1_records import environment, source_hashes, write_json
 
+CPU_MEASUREMENT_FILES = ("src/__init__.py", "src/primitives.py",
+    "tests/reference_primitives.py", "scripts/phase1_experiments.py", "requirements.txt")
+
+
+def reusable_cpu_evidence(record, current):
+    """Reuse expensive samples only when all numerical dependencies are identical.
+
+    Hardware/metadata-only repairs do not change these measurements. Unit tests,
+    formal proofs, purity checks and hardware gates are always checked afresh.
+    """
+    old = record.get("environment", {})
+    if any(old.get(k) != current.get(k) for k in ("jax", "jaxlib", "numpy", "scipy")):
+        return False
+    if any(old.get("source_sha256", {}).get(p) != current["source_sha256"].get(p)
+           for p in CPU_MEASUREMENT_FILES):
+        return False
+    return (record.get("status") in {"PASS", "CPU_VERIFIED_TPU_PENDING"}
+            and all(record.get(k, {}).get("passed") for k in ("numerical", "monte_carlo", "deep"))
+            and record["monte_carlo"].get("samples_per_scale") == 1_000_000
+            and record["deep"].get("trials_per_depth") == 10_000
+            and record["deep"].get("width") == 128)
+
 
 def hardware_evidence(path, hashes):
     if not path.exists():
@@ -96,6 +118,7 @@ def main():
     parser.add_argument("--cpu-only",action="store_true")
     parser.add_argument("--output",type=Path,default=ROOT/"results/phase1")
     parser.add_argument("--tpu-results",type=Path,default=ROOT/"results/phase1/tpu/metrics.json")
+    parser.add_argument("--reuse-cpu",type=Path,help="Existing metrics with identical numerical dependencies; rechecks tests/proofs/purity")
     args=parser.parse_args()
     out=args.output.resolve(); out.mkdir(parents=True,exist_ok=True)
     records={"phase":1,"gate_version":2,"environment":environment(),"command":sys.argv,"cpu_devices":[str(d) for d in jax.devices()]}
@@ -116,11 +139,26 @@ def main():
     tests=subprocess.run([sys.executable,"-m","pytest","-q"],cwd=ROOT,capture_output=True,text=True)
     (out/"pytest.log").write_text(tests.stdout+tests.stderr)
     records["unit_tests"]={"passed":tests.returncode==0,"log":"pytest.log"}
+    previous = json.loads(args.reuse_cpu.read_text()) if args.reuse_cpu else None
+    if previous is not None and not reusable_cpu_evidence(previous, records["environment"]):
+        raise ValueError("CPU evidence is incomplete or its numerical dependencies changed.")
     for name,fn in [("purity",audit),("numerical",numerical),("monte_carlo",monte_carlo)]:
+        if previous is not None and name != "purity":
+            records[name] = previous[name]
+            continue
         records[name]=fn()
         print(f"{name}: {'PASS' if records[name]['passed'] else 'FAIL'}",flush=True)
-    records["deep"],raw=deep_trials(progress=lambda msg: print(msg,flush=True))
-    np.savez_compressed(out/"deep-trials.npz",**raw)
+    if previous is None:
+        records["deep"],raw=deep_trials(progress=lambda msg: print(msg,flush=True))
+        np.savez_compressed(out/"deep-trials.npz",**raw)
+    else:
+        records["deep"] = previous["deep"]
+        records["cpu_measurement_provenance"] = {"path":str(args.reuse_cpu.resolve()),
+            "environment":previous["environment"],"command":previous["command"],
+            "unchanged_dependencies":list(CPU_MEASUREMENT_FILES)}
+        raw_path = args.reuse_cpu.parent/"deep-trials.npz"
+        if raw_path.resolve() != (out/"deep-trials.npz").resolve():
+            shutil.copy2(raw_path, out/"deep-trials.npz")
     records["hardware"]=hardware_evidence(args.tpu_results,records["environment"]["source_sha256"])
     cpu_ok=all(records[k]["passed"] for k in ("formal","unit_tests","purity","numerical","monte_carlo","deep"))
     records["passed"]=cpu_ok and records["hardware"]["passed"]

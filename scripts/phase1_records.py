@@ -17,10 +17,19 @@ def write_json(path, value):
 
 
 def source_hashes():
-    paths = []
-    for folder, pattern in [("src","*.py"),("scripts","*.py"),("tests","*.py"),("formal","*.lean")]:
-        paths.extend(p for p in (ROOT/folder).rglob(pattern) if ".lake" not in p.parts)
-    paths += [ROOT/p for p in ["requirements.txt","requirements-tpu.txt","formal/lean-toolchain","formal/lake-manifest.json","formal/lakefile.toml","phases/phase1.md"]]
+    # Fingerprint Phase 1's dependency closure. Adding a later-phase module must
+    # not invalidate measurements of unchanged primitives. Changes to any Phase 1
+    # implementation, experiment, oracle, runner, test, or proof do invalidate it.
+    names = ["src/__init__.py", "src/primitives.py", "scripts/__init__.py",
+             "scripts/audit_primitives.py", "scripts/launch_phase1_tpu.py",
+             "scripts/phase1_experiments.py", "scripts/phase1_records.py",
+             "scripts/run_phase1_tpu.py", "scripts/run_verify_primitives.py",
+             "tests/__init__.py", "tests/conftest.py", "tests/reference_primitives.py",
+             "tests/test_primitives.py", "tests/test_phase1_records.py", "pytest.ini",
+             "formal/AlgebraicTheory/Gate.lean", "formal/AlgebraicTheory/Variance.lean",
+             "requirements.txt", "requirements-tpu.txt", "formal/lean-toolchain",
+             "formal/lake-manifest.json", "formal/lakefile.toml", "phases/phase1.md"]
+    paths = [ROOT/name for name in names]
     return {str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(paths)}
 
 

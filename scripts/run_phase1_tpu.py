@@ -143,7 +143,8 @@ def main():
     devices=jax.devices()
     if len(devices)!=16 or jax.process_count()!=4 or any("TPU v4" not in d.device_kind for d in devices):
         raise RuntimeError("Phase 1 requires exactly 16 TPU v4 chips on four processes.")
-    mesh=Mesh(mesh_utils.create_device_mesh((2,2,4),devices), ("data","fsdp","model"))
+    mesh=Mesh(mesh_utils.create_device_mesh((2,2,4),devices,allow_split_physical_axes=True),
+              ("data","fsdp","model"))
     sharding=NamedSharding(mesh,P(("data","fsdp","model")))
     replicated=NamedSharding(mesh,P())
     def place(a):
