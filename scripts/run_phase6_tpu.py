@@ -4,6 +4,7 @@ import os
 os.environ['JAX_PLATFORMS'] = 'tpu,cpu'
 os.environ['JAX_ENABLE_X64'] = '0'
 import argparse
+import functools
 import math
 from pathlib import Path
 import re
@@ -67,9 +68,10 @@ def run_parity(place):
 
     for b, h, l, d, causal, dtype in configs:
         tol = 2.0e-4 if dtype == jnp.float32 else 0.04
-        q_host = rng.normal(size=(b, h, l, d)).astype(np.float32)
-        k_host = rng.normal(size=(b, h, l, d)).astype(np.float32)
-        v_host = rng.normal(size=(b, h, l, d)).astype(np.float32)
+        # 4 local devices per process; each device evaluates b batch items of shape (b, h, l, d)
+        q_host = rng.normal(size=(4 * b, h, l, d)).astype(np.float32)
+        k_host = rng.normal(size=(4 * b, h, l, d)).astype(np.float32)
+        v_host = rng.normal(size=(4 * b, h, l, d)).astype(np.float32)
 
         q = place(q_host).astype(dtype)
         k = place(k_host).astype(dtype)
@@ -133,9 +135,9 @@ def run_benchmarks(place):
         causal, dtype = cfg["causal"], cfg["dtype"]
         name = f"L{l}_D{d}_{dtype.__name__}"
 
-        q = place(rng.normal(size=(b, h, l, d)).astype(np.float32)).astype(dtype)
-        k = place(rng.normal(size=(b, h, l, d)).astype(np.float32)).astype(dtype)
-        v = place(rng.normal(size=(b, h, l, d)).astype(np.float32)).astype(dtype)
+        q = place(rng.normal(size=(4 * b, h, l, d)).astype(np.float32)).astype(dtype)
+        k = place(rng.normal(size=(4 * b, h, l, d)).astype(np.float32)).astype(dtype)
+        v = place(rng.normal(size=(4 * b, h, l, d)).astype(np.float32)).astype(dtype)
 
         # 1. Algebraic FlashAttention step
         @jax.jit
@@ -177,11 +179,10 @@ def run_benchmarks(place):
         base_total_sec = (t1 - t0)
         base_latency_ms = (base_total_sec / repetitions) * 1000.0
 
-        # FLOPs formula for forward attention: 4 * B * H * L^2 * D
-        # Plus AFA 3-stage squaring: 3 squaring steps = 6 elementwise mul/add per token pair
-        flops_per_call = 4.0 * b * h * (l ** 2) * d
-        afa_tflops_per_chip = (flops_per_call / (afa_latency_ms * 1e-3 * 1e12)) / 16.0
-        base_tflops_per_chip = (flops_per_call / (base_latency_ms * 1e-3 * 1e12)) / 16.0
+        # FLOPs per chip: each chip evaluates b=1 batch item of shape (1, h, l, d)
+        flops_per_chip = 4.0 * b * h * (l ** 2) * d
+        afa_tflops_per_chip = (flops_per_chip / (afa_latency_ms * 1e-3 * 1e12))
+        base_tflops_per_chip = (flops_per_chip / (base_latency_ms * 1e-3 * 1e12))
 
         throughput_ratio = afa_tflops_per_chip / max(base_tflops_per_chip, 1e-6)
         passed = throughput_ratio >= 0.85
@@ -216,9 +217,9 @@ def run_bandwidth_evaluation(place):
     b, h, l, d = 1, 8, 4096, 128
     dtype = jnp.bfloat16
 
-    q = place(rng.normal(size=(b, h, l, d)).astype(np.float32)).astype(dtype)
-    k = place(rng.normal(size=(b, h, l, d)).astype(np.float32)).astype(dtype)
-    v = place(rng.normal(size=(b, h, l, d)).astype(np.float32)).astype(dtype)
+    q = place(rng.normal(size=(4 * b, h, l, d)).astype(np.float32)).astype(dtype)
+    k = place(rng.normal(size=(4 * b, h, l, d)).astype(np.float32)).astype(dtype)
+    v = place(rng.normal(size=(4 * b, h, l, d)).astype(np.float32)).astype(dtype)
 
     @jax.jit
     def afa_step(q, k, v):
@@ -235,18 +236,18 @@ def run_bandwidth_evaluation(place):
     t1 = time.perf_counter()
     latency_sec = (t1 - t0) / reps
 
-    # Bytes moved in tiled streaming attention:
+    # Bytes moved per chip in tiled streaming attention:
     # Outer query tile loop: Q read once per Q-block; K and V streamed for each Q-block.
     # Num Q blocks = L // 128 = 32.
-    # Total Q bytes: B * H * L * D * 2 bytes.
-    # Total K bytes read: 32 * (B * H * L * D * 2 bytes).
-    # Total V bytes read: 32 * (B * H * L * D * 2 bytes).
-    # Output bytes written: B * H * L * D * 2 bytes.
+    # Total Q bytes per chip: b * H * L * D * 2 bytes.
+    # Total K bytes read per chip: 32 * (b * H * L * D * 2 bytes).
+    # Total V bytes read per chip: 32 * (b * H * L * D * 2 bytes).
+    # Output bytes written per chip: b * H * L * D * 2 bytes.
     bytes_per_token_entry = b * h * l * d * 2  # BF16 = 2 bytes
     num_q_blocks = l // 128
-    total_bytes_streamed = bytes_per_token_entry * (1 + 2 * num_q_blocks + 1)
-    sustained_gb_s_total = (total_bytes_streamed / latency_sec) / 1e9
-    sustained_gb_s_per_chip = sustained_gb_s_total / 16.0
+    bytes_per_chip = bytes_per_token_entry * (1 + 2 * num_q_blocks + 1)
+    sustained_gb_s_per_chip = (bytes_per_chip / latency_sec) / 1e9
+    sustained_gb_s_total = sustained_gb_s_per_chip * 16.0
 
     # TPU v4 peak HBM bandwidth is 1200 GB/s. 70% threshold is 840 GB/s.
     passed = sustained_gb_s_per_chip >= 840.0
@@ -271,39 +272,59 @@ def run_distributed_ring_tpu():
     total_L = 4096
     shard_L = total_L // 16
     B, H, D = 1, 8, 64
-    rng = np.random.default_rng(942 + jax.process_index())
 
-    q_host = rng.normal(size=(B, H, total_L, D)).astype(np.float32)
-    k_host = rng.normal(size=(B, H, total_L, D)).astype(np.float32)
-    v_host = rng.normal(size=(B, H, total_L, D)).astype(np.float32)
+    # Identical reference tensors across all hosts
+    ref_rng = np.random.default_rng(942)
+    q_global = ref_rng.normal(size=(B, H, total_L, D)).astype(np.float32)
+    k_global = ref_rng.normal(size=(B, H, total_L, D)).astype(np.float32)
+    v_global = ref_rng.normal(size=(B, H, total_L, D)).astype(np.float32)
 
-    devices = mesh_utils.create_device_mesh((16,))
+    devices = mesh_utils.create_device_mesh((16,), jax.devices())
     mesh = Mesh(devices, ('ici_ring',))
     seq_sharding = NamedSharding(mesh, P(None, None, 'ici_ring', None))
 
-    q_sharded = jax.device_put(q_host, seq_sharding)
-    k_sharded = jax.device_put(k_host, seq_sharding)
-    v_sharded = jax.device_put(v_host, seq_sharding)
+    p_idx = jax.process_index()
+    # 4 local devices per process out of 16. Local token chunk: 4 * shard_L = 1024
+    start_token = p_idx * (4 * shard_L)
+    end_token = (p_idx + 1) * (4 * shard_L)
+
+    q_local = q_global[:, :, start_token:end_token, :]
+    k_local = k_global[:, :, start_token:end_token, :]
+    v_local = v_global[:, :, start_token:end_token, :]
+
+    q_sharded = jax.make_array_from_process_local_data(seq_sharding, q_local)
+    k_sharded = jax.make_array_from_process_local_data(seq_sharding, k_local)
+    v_sharded = jax.make_array_from_process_local_data(seq_sharding, v_local)
 
     # Distributed Ring Attention compiled across 16-chip 3D Torus ICI
-    @jax.jit
+    @functools.partial(jax.jit, out_shardings=seq_sharding)
     def ring_attention_fn(q, k, v):
-        return distributed_ring_afa(q, k, v, sink_omega=0.5, causal=False, axis_name='ici_ring')
+        return distributed_ring_afa(q, k, v, sink_omega=0.5, causal=False, axis_name='ici_ring', num_devices=16)
 
     out_ring = ring_attention_fn(q_sharded, k_sharded, v_sharded)
     out_ring = jax.block_until_ready(out_ring)
 
     # Reference exact un-tiled attention
-    out_exact = exact_afa_reference(jnp.asarray(q_host), jnp.asarray(k_host), jnp.asarray(v_host), sink_omega=0.5)
+    out_exact = exact_afa_reference(jnp.asarray(q_global), jnp.asarray(k_global), jnp.asarray(v_global), sink_omega=0.5)
 
-    diff = float(np.max(np.abs(np.array(out_ring) - np.array(out_exact))))
-    norm_exact = float(np.max(np.abs(np.array(out_exact))))
-    rel_error = diff / (norm_exact + 1e-12)
-    passed = rel_error <= 1.0e-6
+    local_errs = []
+    for idx, shard in enumerate(out_ring.addressable_shards):
+        local_dev_idx = p_idx * 4 + idx
+        shard_data = np.asarray(shard.data)
+        ref_shard = np.asarray(out_exact[:, :, local_dev_idx * shard_L : (local_dev_idx + 1) * shard_L, :])
+        diff = float(np.max(np.abs(shard_data - ref_shard)))
+        norm_exact = float(np.max(np.abs(ref_shard)))
+        rel_error = diff / (norm_exact + 1e-12)
+        local_errs.append([diff, rel_error])
+
+    gathered = np.asarray(mh.process_allgather(np.array(local_errs))).reshape(-1, 2)
+    max_diff = float(gathered[:, 0].max())
+    max_rel_error = float(gathered[:, 1].max())
+    passed = max_rel_error <= 1.0e-6
 
     return {
-        "rel_error": rel_error,
-        "max_abs_diff": diff,
+        "rel_error": max_rel_error,
+        "max_abs_diff": max_diff,
         "bound": 1.0e-6,
         "num_chips": 16,
         "total_seq_len": total_L,
@@ -314,9 +335,9 @@ def run_distributed_ring_tpu():
 
 def export_mlir_hlo_audit(place, output_dir: Path):
     """Compile AFA step on TPU v4 and export MLIR/HLO to verify zero transcendentals."""
-    q = place(np.zeros((1, 4, 256, 64), dtype=np.float32))
-    k = place(np.zeros((1, 4, 256, 64), dtype=np.float32))
-    v = place(np.zeros((1, 4, 256, 64), dtype=np.float32))
+    q = place(np.zeros((4, 4, 256, 64), dtype=np.float32))
+    k = place(np.zeros((4, 4, 256, 64), dtype=np.float32))
+    v = place(np.zeros((4, 4, 256, 64), dtype=np.float32))
 
     @jax.jit
     def afa_step(q, k, v):
@@ -347,7 +368,7 @@ def main():
     args = parser.parse_args()
     out = args.output.resolve()
 
-    jax.distributed.initialize()
+    jax.distributed.initialize(initialization_timeout=120)
     p_idx = jax.process_index()
     p_count = jax.process_count()
     devices = jax.devices()
@@ -358,10 +379,10 @@ def main():
         print(f"=== Phase 6 TPU Worker 0 Initialized ===")
         print(f"Process count: {p_count}, Total TPU devices: {len(devices)}, Local devices: {len(local_devs)}")
 
-    dev_mesh = mesh_utils.create_device_mesh((len(devices),))
+    dev_mesh = mesh_utils.create_device_mesh((len(devices),), devices)
     mesh = Mesh(dev_mesh, ('d',))
     sharding = NamedSharding(mesh, P('d'))
-    place = lambda x: jax.device_put(x, sharding)
+    place = lambda a: jax.make_array_from_process_local_data(sharding, a)
 
     # 1. Parity evaluation
     if p_idx == 0:
@@ -417,7 +438,8 @@ def main():
         write_json(out / "latencies.json", bench_res["latencies"])
         print(f"=== Phase 6 TPU Execution Finished: {record['status']} ===")
 
-    mh.bcast_from_root(np.array([1 if overall_passed else 0]))
+    mh.sync_global_devices('phase6-complete')
+    jax.distributed.shutdown()
     return 0 if overall_passed else 1
 
 

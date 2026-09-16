@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Verification entrypoint for Phase 6 Hardware-Fused Kernels & Algebraic FlashAttention."""
 
+import os
+os.environ['JAX_PLATFORMS'] = 'cpu'
+os.environ['JAX_ENABLE_X64'] = '1'
+os.environ.setdefault('OPENBLAS_NUM_THREADS', '1')
+
 import sys
 import time
 from pathlib import Path

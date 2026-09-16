@@ -372,6 +372,7 @@ def distributed_ring_afa(
     sink_omega: float = 0.5,
     causal: bool = False,
     axis_name: str = "devices",
+    num_devices: int = 16,
 ) -> jax.Array:
     """Lock-Free Distributed Ring Attention across 16 TPU v4 Chips over ICI.
 
@@ -391,15 +392,16 @@ def distributed_ring_afa(
         sink_omega: Nonnegative attention sink scalar mass.
         causal: Autoregressive masking flag.
         axis_name: Name of the distributed mesh axis over which to ring-communicate.
+        num_devices: Total number of devices participating in the ring (default 16).
 
     Returns:
         Locally normalized attention output shard of shape (B, H, shard_L, D).
     """
-    num_devices = lax.psum(1, axis_name)
     device_idx = lax.axis_index(axis_name)
     head_dim = q.shape[-1]
     scale = float(1.0 / math.sqrt(head_dim))
     shard_len = q.shape[-2]
+    ring_perm = [(i, (i + 1) % num_devices) for i in range(num_devices)]
 
     def _ring_step(hop, state):
         o_acc, d_acc, curr_k, curr_v = state
@@ -424,8 +426,8 @@ def distributed_ring_afa(
         d_acc = d_acc + jnp.sum(p, axis=-1, keepdims=True)
 
         # Rotate KV blocks along the 16-chip 3D Torus ICI ring
-        next_k = lax.ppermute(curr_k, axis_name=axis_name, perm=[(i, (i + 1) % num_devices) for i in range(16)])
-        next_v = lax.ppermute(curr_v, axis_name=axis_name, perm=[(i, (i + 1) % num_devices) for i in range(16)])
+        next_k = lax.ppermute(curr_k, axis_name=axis_name, perm=ring_perm)
+        next_v = lax.ppermute(curr_v, axis_name=axis_name, perm=ring_perm)
 
         return (o_acc, d_acc, next_k, next_v)
 

@@ -7,6 +7,11 @@ Audits:
 4. Zero Inter-Tile Rescaling: Absence of running maximum subtraction and online exponential scaling.
 """
 
+import os
+os.environ.setdefault('JAX_PLATFORMS', 'cpu')
+os.environ.setdefault('JAX_ENABLE_X64', '1')
+os.environ.setdefault('OPENBLAS_NUM_THREADS', '1')
+
 import re
 from typing import Any, Dict
 
