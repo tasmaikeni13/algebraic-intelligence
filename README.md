@@ -10,14 +10,11 @@
 
 ## Current implementation status
 
-Phase 1 [passes all CPU, formal, and 16-chip TPU gates](results/phase1/PASS.md). It adds JAX ALU/AVN primitives, analytical cached backward passes, an
-independent float64 oracle, unit tests, Lean certificates, and reproducible
-CPU/16-chip TPU verification runners. Follow the [Phase 1 reproduction guide](results/phase1/REPRODUCE.md)
-and consult the [direct execution status](results/phase1/STATUS.md).
+- **Phase 1 (Pure Algebraic Primitives & Non-Linear Gating):** [PASS](results/phase1/PASS.md). Adds JAX ALU/AVN primitives, analytical cached backward passes, independent float64 oracle, unit tests, Lean 4 certificates, and reproducible CPU/16-chip TPU v4 verification runners ([Reproduction Guide](results/phase1/REPRODUCE.md), [Status](results/phase1/STATUS.md)).
+- **Phase 2 (Octic Algebraic Attention & 2-Lipschitz Bounds):** [PASS](results/phase2/PASS.md). Adds JAX A-Softmax (`algebraic_softmax`), exact 3-stage squaring hierarchy $\rho^8$, analytical cached VJP with full AVN quotient-rule cotangent, Lean 4 formal certificates in `Kernel.lean`, entrywise 2-Lipschitz Jacobian bound ($\max |J_{ij}| \le 2.0$), 1D Wasserstein-1 distribution parity ($W_1 \le 0.02$), and $354.51\times$ sub-byte quantization noise suppression across all 16 physical TPU v4 chips on `my-tpu-v4` ([Reproduction Guide](results/phase2/REPRODUCE.md), [Status](results/phase2/STATUS.md)).
 
-The architecture and later-phase results described below are research-draft
-claims, not outcomes established by this Phase 1 implementation. Phases 2–10
-have not been executed in this work.
+The architecture and later-phase results described below for Phases 3–10 are research-draft
+claims to be executed in subsequent phases.
 
 ## Executive Summary
 
@@ -66,8 +63,8 @@ We answer this question affirmatively by constructing and verifying the **Algebr
 
 All autonomous research and verification in this repository is governed by [`phases/README.md`](phases/README.md). The research lifecycle is organized into **exactly ten sequential phases** defined in [`phases/`](phases/):
 
-- [**Phase 1: Pure Algebraic Primitives & Non-Linear Gating**](phases/phase1.md) (ALU Inflection at $-\sqrt{2}$, Parameter-Free AVN, Horner Cubic Backward)
-- [**Phase 2: Octic Algebraic Attention & 2-Lipschitz Bounds**](phases/phase2.md) (A-Softmax 3-Stage Squaring $\kappa_8$, Uniform $\le n/4$ Jacobian, FP4 Quantization)
+- [**Phase 1: Pure Algebraic Primitives & Non-Linear Gating**](phases/phase1.md) — **VERIFIED PASS** ([PASS.md](results/phase1/PASS.md)) (ALU Inflection at $-\sqrt{2}$, Parameter-Free AVN, Horner Cubic Backward)
+- [**Phase 2: Octic Algebraic Attention & 2-Lipschitz Bounds**](phases/phase2.md) — **VERIFIED PASS** ([PASS.md](results/phase2/PASS.md)) (A-Softmax 3-Stage Squaring $\rho^8$, Entrywise $\le 2.0$ Jacobian, 1D Wasserstein-1 Parity, $354\times$ FP4 Noise Suppression)
 - [**Phase 3: Algebraic Geometric Oscillators & Shift Equivariance**](phases/phase3.md) (AGO Cayley Rotations on $\mathfrak{so}(2)$, Unimodular $\det=1$, $\mathcal{O}(1)$ Decode)
 - [**Phase 4: Algebraic Loss Functionals & Information Metrics**](phases/phase4.md) (OACE $\mathcal{L}_{1/8}$, Bounded Gradient $8 p_k^{-1/8}$, Pearson $\chi^2$, Fisher Equivalence)
 - [**Phase 5: Algebraic Optimization & Rational Scheduling**](phases/phase5.md) (AdamW Native Algebraic Verification, ARDS Rational Decay Schedule)
@@ -147,8 +144,8 @@ pytest tests/
    - **Isolate Architectural Ablation:** Standardizing both `AlgebraicTransformerLM` and `StandardTransformerLM` on AdamW guarantees that performance differences reflect purely the architectural algebra (ALU, A-Softmax, AVN, AGO, OACE) rather than optimizer confounds.
 
 3. **Sub-Byte (FP4/INT4) Quantization Stability:**
-   - Output displacement under logit quantization noise: Softmax = **0.0141**, A-Softmax = **0.0001**.
-   - **Stability Gain:** A-Softmax is **228.17x less sensitive** to quantization noise than exponential softmax due to its global 2-Lipschitz property.
+   - Output displacement under logit quantization noise: Softmax = **0.00589**, A-Softmax = **0.0000166**.
+   - **Stability Gain:** A-Softmax is **354.51x less sensitive** to quantization noise on 16-chip TPU v4 slice (**354.48x** on CPU) due to AVN pre-bounding and the entrywise 2-Lipschitz property.
 
 4. **Asynchronous Distributed Ring Attention (AFA):**
    - Distributed tile simulation across $P = 8$ nodes.
