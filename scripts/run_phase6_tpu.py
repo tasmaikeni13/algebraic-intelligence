@@ -146,6 +146,7 @@ def run_benchmarks(place, mesh):
             mesh=mesh,
             in_specs=(P('d', None, None, None), P('d', None, None, None), P('d', None, None, None)),
             out_specs=P('d', None, None, None),
+            check_rep=False,
         )
         def afa_step(q_loc, k_loc, v_loc):
             return tiled_afa_forward(q_loc, k_loc, v_loc, sink_omega=0.5, causal=causal, block_q=128, block_k=128)
@@ -157,6 +158,7 @@ def run_benchmarks(place, mesh):
                 mesh=mesh,
                 in_specs=(P('d', None, None, None), P('d', None, None, None), P('d', None, None, None)),
                 out_specs=P('d', None, None, None),
+                check_rep=False,
             )
             def baseline_step(q_loc, k_loc, v_loc):
                 return jax_flash_attention(q_loc, k_loc, v_loc, causal=causal, sm_scale=float(1.0 / math.sqrt(d)))
@@ -166,6 +168,7 @@ def run_benchmarks(place, mesh):
                 mesh=mesh,
                 in_specs=(P('d', None, None, None), P('d', None, None, None), P('d', None, None, None)),
                 out_specs=P('d', None, None, None),
+                check_rep=False,
             )
             def baseline_step(q_loc, k_loc, v_loc):
                 # Standard exponential attention fallback
@@ -244,6 +247,7 @@ def run_bandwidth_evaluation(place, mesh):
         mesh=mesh,
         in_specs=(P('d', None, None, None), P('d', None, None, None), P('d', None, None, None)),
         out_specs=P('d', None, None, None),
+        check_rep=False,
     )
     def afa_step(q_loc, k_loc, v_loc):
         return tiled_afa_forward(q_loc, k_loc, v_loc, sink_omega=0.5, causal=False, block_q=128, block_k=128)
@@ -367,6 +371,7 @@ def export_mlir_hlo_audit(place, mesh, output_dir: Path):
         mesh=mesh,
         in_specs=(P('d', None, None, None), P('d', None, None, None), P('d', None, None, None)),
         out_specs=P('d', None, None, None),
+        check_rep=False,
     )
     def afa_step(q_loc, k_loc, v_loc):
         return tiled_afa_forward(q_loc, k_loc, v_loc, sink_omega=0.5, causal=False, block_q=128, block_k=128)
