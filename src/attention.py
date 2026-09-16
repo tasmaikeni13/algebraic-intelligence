@@ -169,16 +169,17 @@ def build_cayley_rotary_matrix(dim: int, max_seq_len: int, freqs=None, base: flo
     if max_seq_len <= 0:
         raise ValueError("max_seq_len must be a positive integer")
 
+    calc_dtype = jnp.float32 if dtype == jnp.bfloat16 else dtype
     num_pairs = dim // 2
     if freqs is not None:
-        w = jnp.asarray(freqs, dtype=dtype)
+        w = jnp.asarray(freqs, dtype=calc_dtype)
         if w.shape != (num_pairs,):
             raise ValueError(f"freqs must have shape ({num_pairs},), got {w.shape}")
     else:
-        k = jnp.arange(num_pairs, dtype=dtype)
-        base_arr = jnp.asarray(base, dtype=dtype)
+        k = jnp.arange(num_pairs, dtype=calc_dtype)
+        base_arr = jnp.asarray(base, dtype=calc_dtype)
         sqrt_base = base_arr * jax.lax.rsqrt(base_arr)
-        denom_k = jnp.maximum(jnp.asarray(num_pairs - 1, dtype=dtype), 1.0)
+        denom_k = jnp.maximum(jnp.asarray(num_pairs - 1, dtype=calc_dtype), 1.0)
         alpha = (sqrt_base - 1.0) / denom_k
         lin = 1.0 + alpha * k
         w = 1.0 / (lin * lin)
@@ -196,9 +197,9 @@ def build_cayley_rotary_matrix(dim: int, max_seq_len: int, freqs=None, base: flo
         s_norm = s_next * r
         return (c_norm, s_norm), (c_prev, s_prev)
 
-    init = (jnp.ones(num_pairs, dtype=dtype), jnp.zeros(num_pairs, dtype=dtype))
+    init = (jnp.ones(num_pairs, dtype=calc_dtype), jnp.zeros(num_pairs, dtype=calc_dtype))
     _, (c_table, s_table) = jax.lax.scan(scan_step, init, None, length=max_seq_len)
-    return CayleyRotary(c_table, s_table)
+    return CayleyRotary(c_table.astype(dtype), s_table.astype(dtype))
 
 
 def apply_ago_rotations(q, k, rotary_params=None, seq_axis=None):
