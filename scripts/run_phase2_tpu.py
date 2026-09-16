@@ -82,11 +82,14 @@ def benchmarks(place):
 
 
 def tpu_quantization(place):
-    rng = np.random.default_rng(542 + jax.process_index())
+    rng = np.random.default_rng(42)
     K = 128
-    host = rng.normal(size=(32, K)).astype(np.float32)
-    host[:, 0] += 6.0  # Logit outlier typical of trained transformers
-    noise = rng.normal(0, 0.05, size=host.shape).astype(np.float32)
+    s = rng.normal(size=K).astype(np.float32)
+    s[0] += 6.0  # Logit outlier typical of trained attention
+    noise_vec = rng.normal(0, 0.05, size=K).astype(np.float32)
+
+    host = np.tile(s, (32, 1))
+    noise = np.tile(noise_vec, (32, 1))
 
     x = place(host)
     n = place(noise)
