@@ -53,3 +53,16 @@ probability and radical-factor assumptions, `kernel_sharpness_exact`, and
 not formalize differentiation, a 2-Lipschitz matrix norm, floating-point simplex
 rounding, quantization superiority, or hardware performance. The numerical
 Jacobian and VJP studies test the calculus implementation separately.
+
+## Phase 3 additions
+
+`Cayley.lean` formally certifies the foundational algebraic theorems for
+Algebraic Geometric Oscillators (AGO) in $\mathrm{SO}(2)$:
+- `cayley_pythagorean_identity`: $(1 - w^2)^2 + (2w)^2 = (1 + w^2)^2$ for all $w \in \mathbb{R}$.
+- `cayley_column_norm_one`, `cayley_col1_norm_sq`, `cayley_col2_norm_sq`: exact unit norm conservation for rotation column vectors when $1 + w^2 \neq 0$.
+- `cayley_columns_orthogonal`, `cayley_dot_product_zero`: column orthogonality $\mathbf{c}_1 \cdot \mathbf{c}_2 = 0$.
+- `cayley_determinant_one`, `cayley_det_one`: unimodularity $\det(\mathbf{R}(w)) = 1$, proving $\mathrm{SO}(2)$ Lie group closure.
+- `cayley_norm_preserving`, `cayley_rational_norm_preserving`: 2D Euclidean norm invariance $\|\mathbf{R}(w)\mathbf{v}\|_2 = \|\mathbf{v}\|_2$.
+- `cayley_composition_norm`: preservation of unit norm under rotational composition.
+- `cayley_shift_equivariance`: exact relative shift-equivariance algebraic identity $\langle \mathbf{R}_1 \mathbf{q}, \mathbf{R}_2 \mathbf{k} \rangle = \mathbf{q}^\top (\mathbf{R}_1^\top \mathbf{R}_2) \mathbf{k}$.
+

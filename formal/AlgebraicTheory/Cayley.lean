@@ -63,4 +63,11 @@ theorem cayley_composition_norm (c1 s1 c2 s2 : ℝ)
     _ = 1 * 1 := by rw [h1, h2]
     _ = 1 := by ring
 
+theorem cayley_shift_equivariance (c1 s1 c2 s2 q1 q2 k1 k2 : ℝ) :
+    (c1 * q1 - s1 * q2) * (c2 * k1 - s2 * k2) + (s1 * q1 + c1 * q2) * (s2 * k1 + c2 * k2) =
+    q1 * ((c1 * c2 + s1 * s2) * k1 - (c1 * s2 - s1 * c2) * k2) +
+    q2 * ((c1 * s2 - s1 * c2) * k1 + (c1 * c2 + s1 * s2) * k2) := by
+  ring
+
 end AlgebraicTheory
+

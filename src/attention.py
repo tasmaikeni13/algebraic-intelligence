@@ -7,6 +7,7 @@ The entrywise Jacobian bound of 2 applies to normalized scores, not raw scores
 or the spectral norm. No uniform quantization advantage is implied.
 """
 from functools import partial
+from typing import NamedTuple, Optional, Tuple, Union
 
 import jax
 import jax.numpy as jnp
@@ -88,3 +89,150 @@ _attention.defvjp(_attention_forward, _attention_backward)
 def algebraic_softmax(scores, sink_omega=0.5, eps=1e-5):
     """AVN-bounded octic attention; omitted mass belongs to a rational sink."""
     return _attention(jnp.asarray(scores), sink_omega, eps)
+
+
+class CayleyRotary(NamedTuple):
+    """Precomputed Cayley rotary rotation parameters.
+
+    Can be unpacked as (c, s), or accessed via .c, .s, or .matrix.
+    """
+    c: jax.Array
+    s: jax.Array
+
+    @property
+    def matrix(self):
+        """Full 2x2 orthogonal rotation matrix blocks in SO(2)."""
+        row0 = jnp.stack([self.c, -self.s], axis=-1)
+        row1 = jnp.stack([self.s, self.c], axis=-1)
+        return jnp.stack([row0, row1], axis=-2)
+
+
+def _extract_cs(rotary_params):
+    if isinstance(rotary_params, (tuple, list)) and len(rotary_params) >= 2:
+        return rotary_params[0], rotary_params[1]
+    elif hasattr(rotary_params, "c") and hasattr(rotary_params, "s"):
+        return rotary_params.c, rotary_params.s
+    elif hasattr(rotary_params, "shape"):
+        if rotary_params.ndim >= 4 and rotary_params.shape[-2:] == (2, 2):
+            return rotary_params[..., 0, 0], rotary_params[..., 1, 0]
+        elif rotary_params.ndim >= 3 and rotary_params.shape[-1] == 2:
+            return rotary_params[..., 0], rotary_params[..., 1]
+    raise TypeError(f"Unsupported rotary parameters type: {type(rotary_params)}")
+
+
+def _align_param(param, q_shape, seq_axis=None):
+    ndim = len(q_shape)
+    num_pairs = q_shape[-1] // 2
+    if seq_axis is None:
+        if ndim == 2:
+            seq_axis = 0
+        elif ndim == 3:
+            seq_axis = 1
+        elif ndim == 4:
+            seq_axis = 1 if q_shape[1] <= param.shape[0] and q_shape[1] > q_shape[2] else 2 if q_shape[2] <= param.shape[0] else 1
+        else:
+            seq_axis = ndim - 2
+    seq_len = q_shape[seq_axis]
+    sliced = param[:seq_len]
+    bcast_shape = [1] * (ndim - 1) + [num_pairs]
+    bcast_shape[seq_axis] = seq_len
+    return sliced.reshape(bcast_shape)
+
+
+def _rotate_tensor(x, c, s):
+    dim = x.shape[-1]
+    num_pairs = dim // 2
+    x_pairs = x.reshape(x.shape[:-1] + (num_pairs, 2))
+    x0 = x_pairs[..., 0]
+    x1 = x_pairs[..., 1]
+    x0_rot = c * x0 - s * x1
+    x1_rot = s * x0 + c * x1
+    return jnp.stack([x0_rot, x1_rot], axis=-1).reshape(x.shape)
+
+
+@partial(jax.jit, static_argnames=("dim", "max_seq_len", "dtype"))
+def build_cayley_rotary_matrix(dim: int, max_seq_len: int, freqs=None, base: float = 10000.0, dtype=jnp.float32):
+    """Precomputes rational Cayley rotation parameters without transcendentals.
+
+    Args:
+        dim: Feature dimension per head (must be positive and even).
+        max_seq_len: Maximum sequence context length (positive integer).
+        freqs: Optional explicit rational frequency array w_k in (0, 1].
+        base: Frequency scaling base parameter for rational decay.
+        dtype: Numerical precision dtype (float32 or float64).
+
+    Returns:
+        CayleyRotary namedtuple containing (c, s) tables of shape (max_seq_len, dim // 2).
+    """
+    if dim <= 0 or dim % 2 != 0:
+        raise ValueError("dim must be a positive even integer")
+    if max_seq_len <= 0:
+        raise ValueError("max_seq_len must be a positive integer")
+
+    num_pairs = dim // 2
+    if freqs is not None:
+        w = jnp.asarray(freqs, dtype=dtype)
+        if w.shape != (num_pairs,):
+            raise ValueError(f"freqs must have shape ({num_pairs},), got {w.shape}")
+    else:
+        k = jnp.arange(num_pairs, dtype=dtype)
+        base_arr = jnp.asarray(base, dtype=dtype)
+        sqrt_base = base_arr * jax.lax.rsqrt(base_arr)
+        denom_k = jnp.maximum(jnp.asarray(num_pairs - 1, dtype=dtype), 1.0)
+        alpha = (sqrt_base - 1.0) / denom_k
+        lin = 1.0 + alpha * k
+        w = 1.0 / (lin * lin)
+
+    w_sq = w * w
+    c_base = (1.0 - w_sq) / (1.0 + w_sq)
+    s_base = (2.0 * w) / (1.0 + w_sq)
+
+    def scan_step(carry, _):
+        c_prev, s_prev = carry
+        c_next = c_base * c_prev - s_base * s_prev
+        s_next = s_base * c_prev + c_base * s_prev
+        r = jax.lax.rsqrt(c_next * c_next + s_next * s_next)
+        c_norm = c_next * r
+        s_norm = s_next * r
+        return (c_norm, s_norm), (c_prev, s_prev)
+
+    init = (jnp.ones(num_pairs, dtype=dtype), jnp.zeros(num_pairs, dtype=dtype))
+    _, (c_table, s_table) = jax.lax.scan(scan_step, init, None, length=max_seq_len)
+    return CayleyRotary(c_table, s_table)
+
+
+def apply_ago_rotations(q, k, rotary_params=None, seq_axis=None):
+    """Applies AGO rational Cayley rotations to query and key tensors.
+
+    Executes natively across TPU v4 VMU vector registers via 4 FMAs per channel pair.
+
+    Args:
+        q: Query tensor with shape (..., dim) where dim is even.
+        k: Key tensor with shape matching q.
+        rotary_params: Optional precomputed CayleyRotary or (c, s) tuple.
+        seq_axis: Optional explicit sequence length axis index.
+
+    Returns:
+        Rotated (q_rot, k_rot) with preserved shapes and input dtypes.
+    """
+    if q.shape != k.shape:
+        raise ValueError(f"q and k shapes must match, got {q.shape} and {k.shape}")
+    dim = q.shape[-1]
+    if dim % 2 != 0:
+        raise ValueError(f"Feature dimension must be even, got {dim}")
+
+    if rotary_params is None:
+        ndim = len(q.shape)
+        if seq_axis is None:
+            seq_axis = 0 if ndim == 2 else 1 if ndim == 3 else (1 if q.shape[1] > q.shape[2] else 2)
+        seq_len = q.shape[seq_axis]
+        rotary_params = build_cayley_rotary_matrix(dim, seq_len, dtype=q.dtype)
+
+    c_raw, s_raw = _extract_cs(rotary_params)
+    c = _align_param(c_raw, q.shape, seq_axis=seq_axis)
+    s = _align_param(s_raw, q.shape, seq_axis=seq_axis)
+
+    q_rot = _rotate_tensor(q, c, s)
+    k_rot = _rotate_tensor(k, c, s)
+    return q_rot.astype(q.dtype), k_rot.astype(k.dtype)
+
