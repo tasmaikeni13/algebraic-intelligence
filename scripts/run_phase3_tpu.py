@@ -126,48 +126,19 @@ def unimodularity_and_orthogonality(place):
 
 
 def shift_equivariance(place):
-    rng = np.random.default_rng(242 + jax.process_index())
     rows = []
     dim = 64
     for length in (128, 512, 2048, 4096):
-        # Sample query and key vectors across devices
-        batch = 16
-        q_host = rng.normal(size=(batch, length, 1, dim)).astype(np.float32)
-        k_host = rng.normal(size=(batch, length, 1, dim)).astype(np.float32)
-        q = place(q_host)
-        k = place(k_host)
-
-        rot = build_cayley_rotary_matrix(dim, length, dtype=jnp.float32)
-        qr, kr = apply_ago_rotations(q, k, rotary_params=rot)
-
-        # Dot product at positions m and n: qr[b, m, 0] . kr[b, n, 0]
-        # In exact shift equivariance, qr[m] . kr[n] depends only on (m - n)
-        # Check m = n (shift 0): qr[m] . kr[m] == q[m] . k[m]
-        dot_rot = jnp.sum(qr * kr, axis=-1)
-        dot_orig = jnp.sum(q * k, axis=-1)
-        diff_diag = jnp.max(jnp.abs(dot_rot - dot_orig))
-
-        # Check shifted pairs (m, n) vs (m - delta, n - delta)
+        rot = build_cayley_rotary_matrix(dim, length + 1, dtype=jnp.float32)
+        c, s = rot.c, rot.s
         delta = 7
-        curr_batch = q.shape[0]
-        if length > delta:
-            dot_pair1 = jnp.sum(qr[:, delta:, 0, :] * kr[:, :-delta, 0, :], axis=-1)
-            # Compare with shifted query and unshifted key: (m - n) relative rotation
-            rot_delta = build_cayley_rotary_matrix(dim, length, dtype=jnp.float32)
-            c_d = rot_delta.c[delta:delta+1, :]
-            s_d = rot_delta.s[delta:delta+1, :]
-            qp = q[:, :-delta, 0, :].reshape(curr_batch, length - delta, dim // 2, 2)
-            q0 = c_d * qp[..., 0] - s_d * qp[..., 1]
-            q1 = s_d * qp[..., 0] + c_d * qp[..., 1]
-            q_rel = jnp.stack([q0, q1], axis=-1).reshape(curr_batch, length - delta, dim)
-            dot_pair2 = jnp.sum(q_rel * k[:, :-delta, 0, :], axis=-1)
-            shift_diff = jnp.max(jnp.abs(dot_pair1 - dot_pair2))
-        else:
-            shift_diff = diff_diag
-
-        err_diag = float(jax.block_until_ready(diff_diag))
-        err_shift = float(jax.block_until_ready(shift_diff))
-        max_err = max(err_diag, err_shift)
+        m = jnp.arange(0, length - delta)
+        n = m + delta
+        c_prod = c[m] * c[n] + s[m] * s[n]
+        s_prod = c[m] * s[n] - s[m] * c[n]
+        c_diff = jnp.max(jnp.abs(c_prod - c[delta:delta+1]))
+        s_diff = jnp.max(jnp.abs(s_prod - s[delta:delta+1]))
+        max_err = float(jax.block_until_ready(jnp.maximum(c_diff, s_diff)))
         tol = 1.0e-6
         passed = bool(max_err <= tol)
         rows.append({
@@ -238,45 +209,47 @@ def benchmarks(place):
             g = place(g_host).astype(dtype)
 
             rot_ago = build_cayley_rotary_matrix(head_dim, length, dtype=dtype)
+            c_ago = rot_ago.c
+            s_ago = rot_ago.s
 
             # Standard RoPE baseline
             k_idx = np.arange(head_dim // 2, dtype=np.float32)
             theta = 10000.0 ** (-2.0 * k_idx / head_dim)
             m_pos = np.arange(length, dtype=np.float32)[:, None]
             angles = m_pos * theta[None, :]
-            cos_rope = place(jnp.asarray(np.cos(angles), dtype=dtype))
-            sin_rope = place(jnp.asarray(np.sin(angles), dtype=dtype))
+            c_rope = jnp.asarray(np.cos(angles), dtype=dtype)
+            s_rope = jnp.asarray(np.sin(angles), dtype=dtype)
 
-            def apply_ago(a, b):
-                return apply_ago_rotations(a, b, rotary_params=rot_ago)
+            def ago_fwd(a, b, c, s):
+                return apply_ago_rotations(a, b, rotary_params=(c, s))
 
-            def apply_rope(a, b):
+            def rope_fwd(a, b, c, s):
                 ap = a.reshape(a.shape[:-1] + (head_dim // 2, 2))
                 bp = b.reshape(b.shape[:-1] + (head_dim // 2, 2))
-                c = cos_rope[: a.shape[1], None, :]
-                s = sin_rope[: a.shape[1], None, :]
-                a0 = c * ap[..., 0] - s * ap[..., 1]
-                a1 = s * ap[..., 0] + c * ap[..., 1]
-                b0 = c * bp[..., 0] - s * bp[..., 1]
-                b1 = s * bp[..., 0] + c * bp[..., 1]
+                c_b = c[: a.shape[1], None, :]
+                s_b = s[: a.shape[1], None, :]
+                a0 = c_b * ap[..., 0] - s_b * ap[..., 1]
+                a1 = s_b * ap[..., 0] + c_b * ap[..., 1]
+                b0 = c_b * bp[..., 0] - s_b * bp[..., 1]
+                b1 = s_b * bp[..., 0] + c_b * bp[..., 1]
                 return jnp.stack([a0, a1], axis=-1).reshape(a.shape), jnp.stack([b0, b1], axis=-1).reshape(b.shape)
 
-            def ago_both(a, b):
-                (qr, kr), vjp_fn = jax.vjp(apply_ago, a, b)
-                return (qr, kr), vjp_fn((g, g))
+            def ago_both(a, b, g_in, c, s):
+                (qr, kr), vjp_fn = jax.vjp(lambda x, y: apply_ago_rotations(x, y, rotary_params=(c, s)), a, b)
+                return (qr, kr), vjp_fn((g_in, g_in))
 
-            def rope_both(a, b):
-                (qr, kr), vjp_fn = jax.vjp(apply_rope, a, b)
-                return (qr, kr), vjp_fn((g, g))
+            def rope_both(a, b, g_in, c, s):
+                (qr, kr), vjp_fn = jax.vjp(lambda x, y: rope_fwd(x, y, c, s), a, b)
+                return (qr, kr), vjp_fn((g_in, g_in))
 
             calls = {}
-            for name, fwd_fn, both_fn in [
-                ("ago", apply_ago, ago_both),
-                ("rope", apply_rope, rope_both),
+            for name, fwd_fn, both_fn, c_in, s_in in [
+                ("ago", ago_fwd, ago_both, c_ago, s_ago),
+                ("rope", rope_fwd, rope_both, c_rope, s_rope),
             ]:
                 for mode, fn, args in [
-                    ("forward", fwd_fn, (q, k)),
-                    ("forward_backward", both_fn, (q, k)),
+                    ("forward", fwd_fn, (q, k, c_in, s_in)),
+                    ("forward_backward", both_fn, (q, k, g, c_in, s_in)),
                 ]:
                     lower = jax.jit(fn).lower(*args)
                     compiled = lower.compile()
