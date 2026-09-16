@@ -66,3 +66,20 @@ Algebraic Geometric Oscillators (AGO) in $\mathrm{SO}(2)$:
 - `cayley_composition_norm`: preservation of unit norm under rotational composition.
 - `cayley_shift_equivariance`: exact relative shift-equivariance algebraic identity $\langle \mathbf{R}_1 \mathbf{q}, \mathbf{R}_2 \mathbf{k} \rangle = \mathbf{q}^\top (\mathbf{R}_1^\top \mathbf{R}_2) \mathbf{k}$.
 
+## Phase 4 additions
+
+`Loss.lean` formally certifies the foundational algebraic theorems for Octic Algebraic Cross-Entropy (OACE) and Pearson $\chi^2$ Divergence:
+- `pearson_chi_sq_expansion`: algebraic identity $(p - q)^2 / q = p^2/q - 2p + q$ for all $q > 0$.
+- `pearson_divergence_expansion`: simplex sum identity $\sum_k \frac{(p_k - q_k)^2}{q_k} = \sum_k \frac{p_k^2}{q_k} - 1$ for distributions summing to 1.
+- `pearson_divergence_nonneg`: non-negativity $D_P(p \| q) \ge 0$ as a sum of non-negative rational terms.
+- `pearson_zero_iff_equal`: information metric fidelity $D_P(p \| q) = 0 \iff p = q$.
+- `oace_power_chain`: hardware radical decomposition $p_k^{-1/8} = \left(\left(p_k^{-1/2}\right)^{-1/2}\right)^{-1/2}$, proving 3 sequential $\operatorname{rsqrt}$ operations evaluate the exact algebraic octic reciprocal.
+
+## Phase 5 additions
+
+`Curvature.lean` formally certifies the foundational algebraic theorems for Algebraic AdamW optimization and rational scheduling:
+- `adamw_debiasing_identity`: exact polynomial moment debiasing $\frac{m}{1 - \beta^t} \cdot (1 - \beta^t) = m$, certifying that division by integer powers $1 - \beta^t$ recovers the unbiased moment.
+- `adamw_decoupled_weight_decay`: decoupled algebraic parameter update invariance $w - \eta u - \eta \lambda w = (1 - \eta \lambda) w - \eta u$, proving parameter trajectories belong strictly to $\mathbb{Q}(\mathbf{W}_0, \mathbf{G}_1, \dots, \mathbf{G}_t, \sqrt{\cdot})$.
+- `adamw_factorized_curvature_recovery`: exact algebraic recovery of separable curvature factors without transcendental logarithms or matrix exponentials.
+
+
