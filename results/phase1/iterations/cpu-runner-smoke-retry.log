@@ -1,0 +1,6 @@
+CPU EMULATION SMOKE CHECK ONLY; NOT TPU PERFORMANCE EVIDENCE
+Sharded primitive helper: True rows: 16
+float32 {'alu_forward': 1.513, 'avn_forward': 1.02, 'alu_forward_backward': 2.624, 'avn_forward_backward': 1.426}
+bfloat16 {'alu_forward': 1.402, 'avn_forward': 0.957, 'alu_forward_backward': 2.569, 'avn_forward_backward': 1.54}
+Both benchmark dtypes and all twelve forward/backward call signatures executed.
+Thresholds are deliberately not assessed on CPU.

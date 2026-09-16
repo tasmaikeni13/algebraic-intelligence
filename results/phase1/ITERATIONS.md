@@ -31,3 +31,23 @@ failure log includes the complete failing inputs and traceback.
 both inflections, the negative-tail evaluation, AVN centered variance and radial
 geometry, and the precise operation count/coupling scope. `DEPENDENCIES.md`
 records the audit of consumers; no later-phase implementation exists yet.
+
+## Additional verification before the TPU deferral
+
+- The four-host preflight refused to start while the devices were owned by an
+  existing process; `iterations/tpu-launch-busy.log` and `tpu/availability.log`
+  preserve the command failure. No process was stopped.
+- An initial CPU smoke invocation inherited the hardware runner's TPU backend
+  setting (`iterations/cpu-runner-smoke.log`). Explicitly setting JAX's backend
+  configuration to CPU fixed the invocation. This was a test invocation issue;
+  the hardware runner intentionally requests TPU execution.
+- `iterations/cpu-runner-smoke-retry.log` exercises sharded primitive helpers and
+  all forward/forward+backward benchmark call signatures in float32 and bfloat16
+  on four emulated **CPU** devices. Its timings are not TPU gate evidence.
+- On 2026-09-15 the user deferred TPU use until the following day and instructed
+  publication of the work that can be completed now. No TPU job is queued or
+  scheduled by this implementation. Run the documented launcher when available.
+
+## Final local verification
+
+`iterations/full-cpu-width128/metrics.json` records CPU_VERIFIED_TPU_PENDING. All CPU/formal gates pass for the complete 128-feature study; the source hashes match the committed snapshot. Its raw trial arrays and figures are preserved. The top-level copies and SUMMARY.md make this result easy to inspect. No failing historical artifact was overwritten.

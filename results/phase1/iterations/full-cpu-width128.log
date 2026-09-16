@@ -1,0 +1,8 @@
+purity: PASS
+numerical: PASS
+monte_carlo: PASS
+depth=8, ALU gradient range=0.6233..1.8698, variance delta=1.666%
+depth=16, ALU gradient range=0.6287..1.7079, variance delta=1.759%
+depth=24, ALU gradient range=0.5985..1.6638, variance delta=1.814%
+depth=32, ALU gradient range=0.6281..1.6579, variance delta=1.850%
+CPU_VERIFIED_TPU_PENDING

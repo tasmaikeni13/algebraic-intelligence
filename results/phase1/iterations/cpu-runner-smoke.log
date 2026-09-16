@@ -1,0 +1,25 @@
+CPU EMULATION SMOKE CHECK ONLY; NOT TPU PERFORMANCE EVIDENCE
+Traceback (most recent call last):
+  File "/home/tas_ken_rt25/algebraic-intelligence/.venv/lib/python3.10/site-packages/jax/_src/xla_bridge.py", line 742, in backends
+    backend = _init_backend(platform)
+  File "/home/tas_ken_rt25/algebraic-intelligence/.venv/lib/python3.10/site-packages/jax/_src/xla_bridge.py", line 828, in _init_backend
+    backend = registration.factory()
+  File "/home/tas_ken_rt25/algebraic-intelligence/.venv/lib/python3.10/site-packages/jax/_src/xla_bridge.py", line 161, in tpu_client_timer_callback
+    client = make_tpu_client(
+  File "/home/tas_ken_rt25/algebraic-intelligence/.venv/lib/python3.10/site-packages/jax/_src/xla_bridge.py", line 145, in make_tpu_client
+    return _jax.get_c_api_client('tpu', options)
+jaxlib._jax.XlaRuntimeError: UNKNOWN: TPU initialization failed: open(/dev/accel0): Operation not permitted: Operation not permitted; Couldn't open device: /dev/accel0; [/dev/accel0] 
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "<stdin>", line 7, in <module>
+  File "/home/tas_ken_rt25/algebraic-intelligence/.venv/lib/python3.10/site-packages/jax/_src/xla_bridge.py", line 942, in devices
+    return get_backend(backend).devices()
+  File "/home/tas_ken_rt25/algebraic-intelligence/.venv/lib/python3.10/site-packages/jax/_src/xla_bridge.py", line 876, in get_backend
+    return _get_backend_uncached(platform)
+  File "/home/tas_ken_rt25/algebraic-intelligence/.venv/lib/python3.10/site-packages/jax/_src/xla_bridge.py", line 855, in _get_backend_uncached
+    bs = backends()
+  File "/home/tas_ken_rt25/algebraic-intelligence/.venv/lib/python3.10/site-packages/jax/_src/xla_bridge.py", line 758, in backends
+    raise RuntimeError(err_msg)
+RuntimeError: Unable to initialize backend 'tpu': UNKNOWN: TPU initialization failed: open(/dev/accel0): Operation not permitted: Operation not permitted; Couldn't open device: /dev/accel0; [/dev/accel0]  (set JAX_PLATFORMS='' to automatically choose an available backend)

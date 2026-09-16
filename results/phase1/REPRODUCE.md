@@ -56,3 +56,10 @@ PASS record is written only after every required CPU/formal and TPU gate passes
 and the artifacts have been audited. All test-network claims specify width 128,
 He initialization, residual attenuation, seeds, and sample counts. Phase 1 does
 not establish trainability or performance for later transformer implementations.
+
+## Current hardware deferral
+
+The user confirmed on 2026-09-15 that the TPU slice will be free the following
+day. The published CPU/formal results are complete only for those verification
+paths. Re-run the four-host commands above when the slice is available; no
+automatic launch has been scheduled and no Phase 1 PASS is claimed yet.
