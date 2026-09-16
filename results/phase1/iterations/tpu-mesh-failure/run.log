@@ -1,0 +1,49 @@
+Using ssh batch size of 1. Attempting to SSH into 1 nodes with a total of 4 workers.
+SSH: Attempting to connect to worker 0...
+SSH: Attempting to connect to worker 1...
+SSH: Attempting to connect to worker 2...
+SSH: Attempting to connect to worker 3...
+Traceback (most recent call last):
+  File "/tmp/algebraic-phase1-8b9982a88a8d-20260916T034105Z/scripts/run_phase1_tpu.py", line 176, in <module>
+    raise SystemExit(main())
+  File "/tmp/algebraic-phase1-8b9982a88a8d-20260916T034105Z/scripts/run_phase1_tpu.py", line 146, in main
+Traceback (most recent call last):
+  File "/tmp/algebraic-phase1-8b9982a88a8d-20260916T034105Z/scripts/run_phase1_tpu.py", line 176, in <module>
+    raise SystemExit(main())
+  File "/tmp/algebraic-phase1-8b9982a88a8d-20260916T034105Z/scripts/run_phase1_tpu.py", line 146, in main
+    mesh=Mesh(mesh_utils.create_device_mesh((2,2,4),devices), ("data","fsdp","model"))
+  File "/tmp/algebraic-phase1-8b9982a88a8d-20260916T034105Z/venv/lib/python3.10/site-packages/jax/_src/mesh_utils.py", line 781, in create_device_mesh
+    device_mesh, _ = _create_device_mesh_for_nd_torus(
+  File "/tmp/algebraic-phase1-8b9982a88a8d-20260916T034105Z/venv/lib/python3.10/site-packages/jax/_src/mesh_utils.py", line 289, in _create_device_mesh_for_nd_torus
+    raise NotImplementedError(
+NotImplementedError: Failed to find assignment for logical_axis_index 1 of size 2 with remaining assignable mesh [0, 0, 4]. The size of each axis in your logical mesh must be equal to the product of some subset of the physical mesh axis sizes. E.g. logical mesh (4, 16) is compatible with physical mesh 4x4x4 since 4=4 and 16=4x4. If you want to split physical axes, set  allow_split_physical_axes to True.
+    mesh=Mesh(mesh_utils.create_device_mesh((2,2,4),devices), ("data","fsdp","model"))
+  File "/tmp/algebraic-phase1-8b9982a88a8d-20260916T034105Z/venv/lib/python3.10/site-packages/jax/_src/mesh_utils.py", line 781, in create_device_mesh
+    device_mesh, _ = _create_device_mesh_for_nd_torus(
+  File "/tmp/algebraic-phase1-8b9982a88a8d-20260916T034105Z/venv/lib/python3.10/site-packages/jax/_src/mesh_utils.py", line 289, in _create_device_mesh_for_nd_torus
+    raise NotImplementedError(
+NotImplementedError: Failed to find assignment for logical_axis_index 1 of size 2 with remaining assignable mesh [0, 0, 4]. The size of each axis in your logical mesh must be equal to the product of some subset of the physical mesh axis sizes. E.g. logical mesh (4, 16) is compatible with physical mesh 4x4x4 since 4=4 and 16=4x4. If you want to split physical axes, set  allow_split_physical_axes to True.
+Traceback (most recent call last):
+  File "/tmp/algebraic-phase1-8b9982a88a8d-20260916T034105Z/scripts/run_phase1_tpu.py", line 176, in <module>
+    raise SystemExit(main())
+  File "/tmp/algebraic-phase1-8b9982a88a8d-20260916T034105Z/scripts/run_phase1_tpu.py", line 146, in main
+    mesh=Mesh(mesh_utils.create_device_mesh((2,2,4),devices), ("data","fsdp","model"))
+  File "/tmp/algebraic-phase1-8b9982a88a8d-20260916T034105Z/venv/lib/python3.10/site-packages/jax/_src/mesh_utils.py", line 781, in create_device_mesh
+    device_mesh, _ = _create_device_mesh_for_nd_torus(
+  File "/tmp/algebraic-phase1-8b9982a88a8d-20260916T034105Z/venv/lib/python3.10/site-packages/jax/_src/mesh_utils.py", line 289, in _create_device_mesh_for_nd_torus
+    raise NotImplementedError(
+Traceback (most recent call last):
+  File "/tmp/algebraic-phase1-8b9982a88a8d-20260916T034105Z/scripts/run_phase1_tpu.py", line 176, in <module>
+NotImplementedError: Failed to find assignment for logical_axis_index 1 of size 2 with remaining assignable mesh [0, 0, 4]. The size of each axis in your logical mesh must be equal to the product of some subset of the physical mesh axis sizes. E.g. logical mesh (4, 16) is compatible with physical mesh 4x4x4 since 4=4 and 16=4x4. If you want to split physical axes, set  allow_split_physical_axes to True.
+    raise SystemExit(main())
+  File "/tmp/algebraic-phase1-8b9982a88a8d-20260916T034105Z/scripts/run_phase1_tpu.py", line 146, in main
+    mesh=Mesh(mesh_utils.create_device_mesh((2,2,4),devices), ("data","fsdp","model"))
+  File "/tmp/algebraic-phase1-8b9982a88a8d-20260916T034105Z/venv/lib/python3.10/site-packages/jax/_src/mesh_utils.py", line 781, in create_device_mesh
+    device_mesh, _ = _create_device_mesh_for_nd_torus(
+  File "/tmp/algebraic-phase1-8b9982a88a8d-20260916T034105Z/venv/lib/python3.10/site-packages/jax/_src/mesh_utils.py", line 289, in _create_device_mesh_for_nd_torus
+    raise NotImplementedError(
+NotImplementedError: Failed to find assignment for logical_axis_index 1 of size 2 with remaining assignable mesh [0, 0, 4]. The size of each axis in your logical mesh must be equal to the product of some subset of the physical mesh axis sizes. E.g. logical mesh (4, 16) is compatible with physical mesh 4x4x4 since 4=4 and 16=4x4. If you want to split physical axes, set  allow_split_physical_axes to True.
+##### Command execution on worker 3 failed with exit status 1. Continuing.
+##### Command execution on worker 2 failed with exit status 1. Continuing.
+##### Command execution on worker 1 failed with exit status 1. Continuing.
+##### Command execution on worker 0 failed with exit status 1. Continuing.

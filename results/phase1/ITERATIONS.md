@@ -48,6 +48,26 @@ records the audit of consumers; no later-phase implementation exists yet.
   publication of the work that can be completed now. No TPU job is queued or
   scheduled by this implementation. Run the documented launcher when available.
 
-## Final local verification
+## Final CPU verification
 
 `iterations/full-cpu-width128/metrics.json` records CPU_VERIFIED_TPU_PENDING. All CPU/formal gates pass for the complete 128-feature study; the source hashes match the committed snapshot. Its raw trial arrays and figures are preserved. The top-level copies and SUMMARY.md make this result easy to inspect. No failing historical artifact was overwritten.
+
+## TPU execution, 2026-09-16
+
+- `iterations/tpu-mesh-failure/` preserves the first distributed failure: the
+  requested named mesh needed physical-axis splitting on this topology. Enabling
+  `allow_split_physical_axes=True` repaired placement without changing kernels.
+- `iterations/tpu-collection-failure/recovered/metrics.json` records the first
+  complete hardware PASS at commit `108f929`. Cloud worker 1 was JAX process 0;
+  the original worker-0-only download missed its output. The full record was
+  recovered without changing it. This was an artifact-collection bug.
+- The launcher now uses an empty measurement directory, fetches every host into
+  a unique directory, and requires exactly one coordinator record. This prevents
+  stale bundled results from being mistaken for a new measurement.
+- `iterations/tpu-final-launch.log` and `tpu/` contain the final complete repeat
+  after the launcher repair. The aggregate verifier checks source fingerprints,
+  every hardware gate, fresh CPU unit tests, purity, and the complete Lean build.
+- The CPU sample reuse path checks every numerical dependency and numerical
+  package version; `metrics.json` preserves the original CPU measurement commit,
+  dirty status, command, and hashes. Reusing those unchanged samples does not
+  relabel them as a new measurement. A unit test rejects stale dependencies.

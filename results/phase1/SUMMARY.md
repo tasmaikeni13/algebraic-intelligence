@@ -1,6 +1,6 @@
 # Phase 1 CPU verification summary
 
-All uncertainty intervals below are 95% Student-t intervals over independent vectors or trials. Deep experiments use float32; scalar identities and Monte Carlo statistics use float64. Hardware throughput is pending.
+All uncertainty intervals below are 95% Student-t intervals over independent vectors or trials. Deep experiments use float32; scalar identities and Monte Carlo statistics use float64. TPU verification is complete; see PASS.md for hardware statistics.
 
 ## Deep residual study: 10,000 trials per depth, width 128
 
@@ -44,8 +44,8 @@ The default epsilon does not imply unit centered variance. Version 2 checks the 
 | lipschitz | 1.0443310539518174 | 1.05 |
 | inflection | 0 | 1.0000000000000001e-15 |
 
-The cached backward graphs have zero transcendental operations, divisions, and inverse square roots. All 33 unit tests and the complete Lean build pass. See `purity.json`, `pytest.log`, and `lean-build.log`.
+The cached backward graphs have zero transcendental operations, divisions, and inverse square roots. All 34 unit tests and the complete Lean build pass. See `purity.json`, `pytest.log`, and `lean-build.log`.
 
 ## Limits
 
-These are initial-state residual-network experiments, not transformer training. The width-64 and non-residual failures remain published. Float32/BF16 TPU numerical checks, million-sample experiments, deep trials, and the throughput/parameter-memory comparisons still require the real 16-chip slice.
+These are initial-state residual-network experiments, not transformer training. The width-64 and non-residual failures remain published. Float32/BF16 TPU numerical checks, million-sample experiments, deep trials, and throughput comparisons now pass; see PASS.md and tpu/metrics.json.

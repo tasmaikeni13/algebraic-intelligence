@@ -10,7 +10,7 @@
 
 ## Current implementation status
 
-Phase 1 adds JAX ALU/AVN primitives, analytical cached backward passes, an
+Phase 1 [passes all CPU, formal, and 16-chip TPU gates](results/phase1/PASS.md). It adds JAX ALU/AVN primitives, analytical cached backward passes, an
 independent float64 oracle, unit tests, Lean certificates, and reproducible
 CPU/16-chip TPU verification runners. Follow the [Phase 1 reproduction guide](results/phase1/REPRODUCE.md)
 and consult the [direct execution status](results/phase1/STATUS.md).
