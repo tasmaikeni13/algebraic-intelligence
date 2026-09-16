@@ -1,0 +1,19 @@
+Using ssh batch size of 1. Attempting to SSH into 1 nodes with a total of 4 workers.
+SSH: Attempting to connect to worker 0...
+SSH: Attempting to connect to worker 1...
+SSH: Attempting to connect to worker 2...
+SSH: Attempting to connect to worker 3...
+TPU parity: True
+TPU unimodularity & orthogonality: True
+TPU shift equivariance: True
+TPU norm conservation: True
+TPU benchmark float32 L=512 {'forward': 1.007, 'forward_backward': 1.029}
+TPU benchmark float32 L=1024 {'forward': 0.997, 'forward_backward': 1.021}
+TPU benchmark float32 L=2048 {'forward': 0.993, 'forward_backward': 1.046}
+TPU benchmark float32 L=4096 {'forward': 1.0, 'forward_backward': 1.064}
+TPU benchmark bfloat16 L=512 {'forward': 0.993, 'forward_backward': 1.02}
+TPU benchmark bfloat16 L=1024 {'forward': 0.986, 'forward_backward': 1.03}
+TPU benchmark bfloat16 L=2048 {'forward': 1.001, 'forward_backward': 1.056}
+TPU benchmark bfloat16 L=4096 {'forward': 1.003, 'forward_backward': 1.077}
+TPU benchmarks: True
+TPU PHASE 3 PASS

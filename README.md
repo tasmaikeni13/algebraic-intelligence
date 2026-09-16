@@ -12,8 +12,9 @@
 
 - **Phase 1 (Pure Algebraic Primitives & Non-Linear Gating):** [PASS](results/phase1/PASS.md). Adds JAX ALU/AVN primitives, analytical cached backward passes, independent float64 oracle, unit tests, Lean 4 certificates, and reproducible CPU/16-chip TPU v4 verification runners ([Reproduction Guide](results/phase1/REPRODUCE.md), [Status](results/phase1/STATUS.md)).
 - **Phase 2 (Octic Algebraic Attention & 2-Lipschitz Bounds):** [PASS](results/phase2/PASS.md). Adds JAX A-Softmax (`algebraic_softmax`), exact 3-stage squaring hierarchy $\rho^8$, analytical cached VJP with full AVN quotient-rule cotangent, Lean 4 formal certificates in `Kernel.lean`, entrywise 2-Lipschitz Jacobian bound ($\max |J_{ij}| \le 2.0$), 1D Wasserstein-1 distribution parity ($W_1 \le 0.02$), and $354.51\times$ sub-byte quantization noise suppression across all 16 physical TPU v4 chips on `my-tpu-v4` ([Reproduction Guide](results/phase2/REPRODUCE.md), [Status](results/phase2/STATUS.md)).
+- **Phase 3 (Algebraic Geometric Oscillators & Shift Equivariance):** [PASS](results/phase3/PASS.md). Adds JAX Algebraic Geometric Oscillators (`build_cayley_rotary_matrix` and `apply_ago_rotations`), Lean 4 certificates for $\mathrm{SO}(2)$ Lie group unimodularity, orthogonality, norm invariance, and relative shift equivariance in `Cayley.lean`, zero-transcendental AST purity, cumulative norm conservation up to $L=8192$ (drift $\le 2.22 \times 10^{-16}$), out-of-distribution associative recall generalization ($100\%$ at $L=1024$, $99.5\%$ at $L=2048$ from $L=256$ training), and $98.6\% - 107.7\%$ throughput parity vs RoPE across 16 TPU v4 cores ([Reproduction Guide](results/phase3/REPRODUCE.md), [Status](results/phase3/STATUS.md)).
 
-The architecture and later-phase results described below for Phases 3–10 are research-draft
+The architecture and later-phase results described below for Phases 4–10 are research-draft
 claims to be executed in subsequent phases.
 
 ## Executive Summary
