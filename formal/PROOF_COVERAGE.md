@@ -43,3 +43,13 @@ These compile as inherited modules without new later-phase implementation work:
 The previous coverage document attributed broader unimplemented experiments and
 nonexistent lemma names to these files. Later-phase empirical and analytic claims
 in `theory.md` remain outside the Phase 1 completion claim.
+
+## Phase 2 additions
+
+`Kernel.lean` now also proves `attention_diagonal_factor`,
+`attention_offdiagonal_factor`, and `attention_entry_bound` under explicit
+probability and radical-factor assumptions, `kernel_sharpness_exact`, and
+`attention_sink_mass`. These prove real-algebra bounds and identities; they do
+not formalize differentiation, a 2-Lipschitz matrix norm, floating-point simplex
+rounding, quantization superiority, or hardware performance. The numerical
+Jacobian and VJP studies test the calculus implementation separately.

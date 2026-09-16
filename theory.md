@@ -16,7 +16,7 @@ This paper addresses a foundational research question: **Can algebra and algebra
 We answer this question affirmatively by constructing the **Algebraic Stack**: a complete, mathematically rigorous architecture for deep learning whose every operation is algebraic. The stack provides twelve foundational algebraic primitives, proved from first principles:
 1. **HBM capacity.** Algebraic Variance Normalization (AVN) is parameter-free, eliminating the $d$-dimensional learnable scale vector loaded from HBM per token in LayerNorm/RMSNorm, while its Coupling Identity allows downstream algebraic gates to evaluate dynamically without redundant normalizations.
 2. **Cross-node synchronization.** The Algebraic Softmax (A-Softmax) kernel $\rho(x) = x + \sqrt{x^{2} + 1}$ is strictly positive and bounded above under AVN pre-bounding, so Algebraic Flash Attention (AFA) requires no running-maximum subtraction. Its tile accumulation is purely additive, enabling asynchronous, lock-free Ring Attention across multi-node clusters with a single global All-Reduce, eliminating the per-tile serialization barrier that dominates large-context training.
-3. **Quantization robustness.** The algebraic kernel $\rho$ is globally 2-Lipschitz, guaranteeing $\operatorname{Var}(\rho(X)) \leq 4 \operatorname{Var}(X)$ for any input distribution. After AVN pre-bounding, the A-Softmax operator has a Jacobian magnitude strictly bounded by $n / 4$, where $n$ is the algebraic sharpening exponent. Setting $n = 8 = 2^{3}$ yields routing ratios of order $10^{5}$ in three hardware squaring operations while preserving a 2-Lipschitz operator. Routing logits, attention scores, and MoE expert weights are natively representable in INT4 and FP4 without per-group calibration scales or QAT-time outlier suppression, provided block-level denominators are accumulated in FP32 SRAM scratch.
+3. **Quantization robustness.** The algebraic kernel $\rho$ is globally 2-Lipschitz, guaranteeing $\operatorname{Var}(\rho(X)) \leq 4 \operatorname{Var}(X)$ for any input distribution. After AVN pre-bounding, the A-Softmax operator has a Jacobian magnitude strictly bounded by $n / 4$, where $n$ is the algebraic sharpening exponent. Setting $n = 8 = 2^{3}$ yields routing ratios of order $10^{5}$ in three hardware squaring operations while preserving an entrywise derivative bound of 2 with respect to normalized logits. This does not imply a 2-Lipschitz spectral norm or a uniform FP4/INT4 noise advantage; Phase 2 counterexamples are recorded in `results/phase2/`.
 4. **Shift equivariance.** Algebraic Geometric Ordering (AGO) is constructed from static, per-head, content-independent frequency generators $\mathbf{A}_k = \omega_k \mathbf{J}$ on the rank-2 skew subalgebra $\mathfrak{so}(2)$. The Cayley transform yields a closed-form orthogonal rotation matrix $\mathbf{R}_k$ whose $m$-th power computes the absolute position-$m$ encoding and whose Gram product $\mathbf{R}_k^{n - m}$ enforces the relative attention identity $\langle \mathbf{Q}_m, \mathbf{K}_n \rangle = \mathbf{x}_q^{\top} \mathbf{R}_k^{n - m} \mathbf{x}_k$. Autoregressive decoding maintains $\mathcal{O}(1)$ complexity per token through cached $\mathbf{R}_k^{m - 1} \mapsto \mathbf{R}_k \mathbf{R}_k^{m - 1}$ matrix-vector updates without evaluating $\sin$ or $\cos$.
 5. **Loss-landscape curvature within algebra.** We establish that the standard AdamW optimizer is already strictly and natively an algebraic algorithm. Its moment accumulators are rational polynomial combinations, its bias correction $(1 - \beta^t)$ is an integer power, and its preconditioning is an inverse square root ($\mathrm{rsqrt}$). It contains zero transcendental functions ($e^x, \ln x$). To eliminate transcendental Cosine Annealing, we pair AdamW with the Algebraic Rational Decay Schedule (ARDS) or linear decay, preserving complete algebraic purity across the optimization loop while holding the optimizer strictly constant between architectural comparisons.
 
@@ -192,9 +192,9 @@ which is a pure cubic polynomial in $u$. $\blacksquare$
 Standard softmax attention $p_i = e^{s_i} / \sum_j e^{s_j}$ incurs three structural liabilities:
 1. **The max-reduction synchronization barrier:** Numerically stable implementations must subtract $\max_j s_j$ before exponentiating, preventing parallel tile accumulation across distributed Ring Attention nodes.
 2. **Exponential variance inflation:** $e^X$ amplifies input variance exponentially, making sub-byte quantization (FP4/INT4) unstable due to large outlier scales.
-3. **Sharpness-stability conflict:** Producing sharp routing requires unbounded logits, causing gradient explosion in the backward pass.
+3. **Sharpness and stability:** Large logit gaps sharpen standard softmax, but its Jacobian entries remain bounded by 1/4; it does not have an unbounded score-to-probability derivative.
 
-Algebraic Softmax (A-Softmax) resolves all three by replacing the exponential with the 2-Lipschitz algebraic kernel $\rho(x) = x + \sqrt{x^2 + 1}$, applied to AVN-pre-bounded logits and raised to an integer power $n$.
+Algebraic Softmax (A-Softmax) investigates an alternative tradeoff by replacing the exponential with the 2-Lipschitz algebraic kernel $\rho(x) = x + \sqrt{x^2 + 1}$, applied to AVN-pre-bounded logits and raised to an integer power $n$.
 
 ### 4.2 The AVN-Bounded A-Softmax Operator
 
@@ -229,14 +229,16 @@ $$\frac{\partial p_i}{\partial \hat{s}_j} = n w_j p_i (\delta_{ij} - p_j). \quad
 
 *Proof.* Follows from Proposition 2.7(viii): $(\rho(\hat{s})^n)' = n w \rho(\hat{s})^n$. Applying the quotient rule to $p_i = \rho(\hat{s}_i)^n / Z$ yields the result. $\blacksquare$
 
-**Theorem 4.6 (Uniform Jacobian Operator Bound).** For every sharpening exponent $n \geq 1$, the diagonal Jacobian entry satisfies:
+**Theorem 4.6 (Uniform Entrywise Jacobian Bound).** For every sharpening exponent $n \geq 1$, the diagonal Jacobian entry satisfies:
 $$\left|\frac{\partial p_j}{\partial \hat{s}_j}\right| = n w_j p_j (1 - p_j) \leq \frac{n}{4}, \quad (17)$$
-saturated at $\hat{s}_j = 0$ ($w_j = 1$) and $p_j = 1/2$. For the canonical $n = 8$, the diagonal derivative is bounded by 2, certifying that A-Softmax is a globally 2-Lipschitz operator.
+saturated at $\hat{s}_j = 0$ ($w_j = 1$) and $p_j = 1/2$. Off-diagonal magnitudes obey the same bound since $p_i p_j \le 1/4$. These are entrywise bounds with respect to normalized coordinates. At two tied zero coordinates and zero sink, the Jacobian is $\begin{pmatrix}2&-2\\-2&2\end{pmatrix}$ and has spectral norm 4, disproving the former global 2-Lipschitz operator claim. Standard softmax has entrywise bound 1/4 and spectral bound 1/2.
+
+For raw scores, the AVN chain rule contributes $\tau(I-\hat{s}\hat{s}^{\top}/K)$. Thus a spectral upper bound is $4/\sqrt{\epsilon}$; at raw zero with two tokens and no sink it is attained. Cached production VJPs include this term. The sink does not remove scale sensitivity near zero.
 
 ### 4.5 Algebraic Sharpness at Bounded Logits
 
 **Theorem 4.7 (Sharpness at Bounded Inputs).** For two AVN-bounded logits $\hat{s}_1 = 2$ and $\hat{s}_2 = 0$, the routing ratio under canonical $n = 8$ is:
-$$\frac{p_1}{p_2} = \left(\frac{\rho(2)}{\rho(0)}\right)^8 = (2 + \sqrt{5})^8 \approx 1.044 \times 10^5. \quad (18)$$
+$$\frac{p_1}{p_2} = \left(\frac{\rho(2)}{\rho(0)}\right)^8 = (2 + \sqrt{5})^8 = 51841 + 23184\sqrt{5} \approx 103681.999990355. \quad (18)$$
 Thus, a routing contrast exceeding $10^5$ is achieved within a bounded interval $[-2, 2]$ without requiring unbounded logits.
 
 ### 4.6 Hardware Efficiency: Power of Eight via Three Squarings
@@ -247,7 +249,9 @@ Zero transcendental function unit cycles are consumed.
 
 ### 4.7 Quantization Robustness and Rational Attention Sinks
 
-**Corollary 4.10 (Native FP4/INT4 Quantization Stability).** Because $\rho$ is globally 2-Lipschitz, $\operatorname{Var}(\rho(X)) \leq 4\operatorname{Var}(X)$. Quantization noise on $\hat{s}$ propagates additively, not exponentially. A-Softmax logits, attention scores, and expert routing weights can be natively cast to FP4 without dynamic per-group scaling.
+**Proposition 4.10 (Scope of the Base-Kernel Variance Bound).** Because $\rho$ is globally 2-Lipschitz, $\operatorname{Var}(\rho(X)) \le 4\operatorname{Var}(X)$. This statement applies to $\rho$, not its eighth power or normalized attention. It does not imply superior FP4/INT4 output stability. Near tied normalized logits, octic attention can be approximately eight times as sensitive as standard softmax. AVN also amplifies small raw-score perturbations when the input second moment is small.
+
+The Phase 2 seed-42 study of 10,000 length-64 Gaussian score vectors and identical Gaussian noise of sigma .05 gives mean L2 displacements 0.0503967 (algebraic) and 0.00894717 (softmax), a softmax/algebraic ratio of 0.177535, not ≥100. The raw evidence and the actual E2M1 quantization study are in `results/phase2/`. No universal quantization advantage or direct unscaled FP4 representation guarantee is established. Gaussian perturbation is not itself FP4 quantization.
 
 **Corollary 4.11 (Rational Attention Sinks).** As $\hat{s} \to -\sqrt{K}$, $\rho(\hat{s}) \sim 1 / (2|\hat{s}|)$. Irrelevant tokens contribute an algebraically suppressed tail $\mathcal{O}(|\hat{s}|^{-n})$ rather than underflowing to an absolute zero, serving as an automatic, native attention sink without manual sink tokens or large negative bias masks.
 
@@ -546,7 +550,7 @@ Frontier deployments have developed complex engineering heuristics to patch the 
 | **Attention Sinks** | Learnable sink logit / token at pos 0 | A-Softmax Kernel $\rho$ | $\rho(\hat{s}) \sim \frac{1}{2\|\hat{s}\|}$ rational tail provides built-in sink |
 | **Positional Encoding** | Trigonometric RoPE ($\sin, \cos$) | Algebraic Geometric Ordering (AGO) | Static Cayley $\mathbf{R}_k = (\mathbf{I} + \omega_k\mathbf{J})(\mathbf{I} - \omega_k\mathbf{J})^{-1}$ via 4 FMAs |
 | **Ring Attention Sync** | Serial max-reduction across nodes | Algebraic Flash Attention (AFA) | Strictly positive $\rho^8$ allows single-pass lock-free AllReduce |
-| **Quantization Outliers** | QAT outlier suppression / carve-outs | 2-Lipschitz A-Softmax | $\operatorname{Var}(\rho(X)) \leq 4\operatorname{Var}(X)$; uniform $n/4$ Jacobian bound |
+| **Quantization Outliers** | QAT outlier suppression / carve-outs | Entrywise-bounded A-Softmax | $\operatorname{Var}(\rho(X)) \leq 4\operatorname{Var}(X)$; uniform $n/4$ Jacobian bound |
 | **MoE Routing Collapse** | Auxiliary entropy / load-balance loss | A-MoE Router* (Future Work) | $w_j = (1 + \hat{r}_j^2)^{-1/2}$ naturally attenuates confident experts |
 | **MoE Gumbel Noise** | Transcendental $g = -\ln(-\ln U)$ | Algebraic Noise Transform (ANT) | Inverse-CDF $\eta = (2U-1)/\sqrt{1 - (2U-1)^2 + \epsilon_n}$ |
 | **HBM Normalization** | Learnable $\boldsymbol{\gamma}$ vector in HBM | AVN Layer | Zero-parameter projection; Coupling Identity $\beta(x; v) = \beta(\hat{x}; 1)$ |
@@ -565,7 +569,7 @@ Table 2 presents the core primitives and extensions of the Algebraic Stack, thei
 | Component | Standard Target Replaced | Algebraic Formulation | Defining Mathematical Guarantee |
 | :--- | :--- | :--- | :--- |
 | **ALU** | GELU, Swish | $K(x) = \frac{x}{2}(1 + u), u = x \cdot \mathrm{rsqrt}(x^2 + 1)$ | $\mathcal{O}(1)$ backward pass; $L_K \approx 1.0445$; Inflection at $-\sqrt{2}$ (Thm 3.2, 3.4) |
-| **A-Softmax** | Softmax | $\mathbf{S}_n(\mathbf{s}) = \rho(\hat{\mathbf{s}})^n / \sum \rho(\hat{\mathbf{s}})^n, n = 8$ | 2-Lipschitz operator; $10^5$ contrast at bounded inputs; INT4/FP4 stable (Thm 4.6, 4.7) |
+| **A-Softmax** | Softmax | $\mathbf{S}_n(\mathbf{s}) = \rho(\hat{\mathbf{s}})^n / \sum \rho(\hat{\mathbf{s}})^n, n = 8$ | Entrywise derivative ≤2 in normalized coordinates; $10^5$ contrast; quantization advantage unverified (Thm 4.6, 4.7) |
 | **OACE** | Cross-Entropy ($-\ln p$) | $\mathcal{L}_{1/8} = 8(p_k^{-1/8} - 1)$ | 3-rsqrt backward; strictly bounded gradient $8 p_k^{-1/8}$ (Thm 4.15, Prop 4.16) |
 | **AD** | KL Divergence | $D_A(\mathbf{y} \| \mathbf{p}) = \sum y_i^2 / p_i - 1$ | Pearson $\chi^2$ equivalence; Riemannian Fisher equivalence; Bounded gradient (Thm 5.2, 5.3) |
 | **AVN** | LayerNorm, RMSNorm | $\tau = \mathrm{rsqrt}(m_2(\mathbf{x}) + \epsilon), \hat{\mathbf{x}} = \tau \mathbf{x}$ | Zero parameters; Coupling Identity $\beta(x; v) = \beta(\hat{x}; 1)$ (Def 6.1, Thm 6.2) |
@@ -587,7 +591,7 @@ Through the construction and formalization of the **Algebraic Stack**, we have e
 
 By remaking the entire architecture—from the Algebraic Linear Unit (ALU) and Algebraic Softmax (A-Softmax) to Algebraic Geometric Ordering (AGO), the Octo-Algebraic Cross-Entropy (OACE), and recognizing that AdamW is natively algebraic—purely within algebra:
 1. We eliminate the max-reduction synchronization barrier in FlashAttention and Ring Attention, enabling lock-free distributed scaling.
-2. We eliminate the exponential variance inflation of softmax, enabling native sub-byte (FP4/INT4) inference and training without outlier suppression.
+2. The base radical has bounded derivative, but octic attention does not inherit universal sub-byte noise superiority. Phase 2 explicitly tests and records that limitation.
 3. We preserve exact shift equivariance, universal approximation, and optimal stochastic non-convex convergence rates.
 4. We isolate the architectural comparison against standard Transformers by holding the optimizer strictly constant under AdamW.
 
