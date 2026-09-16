@@ -86,3 +86,23 @@ def test_purity_and_three_squarings():
     x=jnp.ones((2,64))
     for f in (octic_kernel,algebraic_softmax,jax.grad(lambda z:algebraic_softmax(z).sum())):
         assert not set(primitives_in(jax.make_jaxpr(f)(x))) & (FORBIDDEN|{'sqrt'})
+
+
+def test_jacobian_evidence_is_json_serializable():
+    import json
+    from scripts.phase2_experiments import jacobian_study
+    record,raw=jacobian_study(trials=10,progress=lambda _:None)
+    assert json.loads(json.dumps(record,allow_nan=False))['passed'] is True
+    assert sum(a.shape[0] for a in raw.values())==10
+
+
+def test_numpy_evidence_scalars_and_nonfinite_rejection(tmp_path):
+    import json
+    from scripts.phase2_records import write_json
+    path=tmp_path/'record.json'
+    write_json(path,{'passed':np.bool_(False),'tol':np.float32(.016),'trials':np.int64(10000)})
+    record=json.loads(path.read_text())
+    assert record['passed'] is False and record['trials']==10000
+    assert record['tol']==float(np.float32(.016))
+    with pytest.raises(ValueError):write_json(path,{'error':np.float32(np.nan)})
+    assert json.loads(path.read_text())==record

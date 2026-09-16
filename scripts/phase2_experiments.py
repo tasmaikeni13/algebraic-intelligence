@@ -116,8 +116,8 @@ def jacobian_study(trials=10_000,seed=44,progress=print):
             expected=(np.eye(length)[None,:,:]-p[:,None,:])*p[:,:,None]*8/np.sqrt(1+x[:,None,:]**2)
             maxima.extend(np.max(np.abs(jac),axis=(1,2)));errors.extend(np.max(np.abs(jac-expected),axis=(1,2)))
         raw[f'L{length}']=np.stack([maxima,errors],axis=-1)
-        row={'length':length,'trials':n,'maximum_entry':summary(maxima),'oracle_error':max(errors),
-             'passed':max(maxima)<=2+1e-12 and max(errors)<=2e-12}
+        row={'length':length,'trials':n,'maximum_entry':summary(maxima),'oracle_error':float(max(errors)),
+             'passed':bool(max(maxima)<=2+1e-12 and max(errors)<=2e-12)}
         rows.append(row);progress(f'Full Jacobian L={length}: max={max(maxima):.6f}, oracle error={max(errors):.3g}')
     return {'seed':seed,'trials':trials,'coordinates':'AVN-normalized scores treated as independent inputs',
             'rows':rows,'passed':all(r['passed'] for r in rows)},raw

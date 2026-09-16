@@ -1,9 +1,22 @@
 """Phase 2 evidence fingerprints, including the inherited dependency closure."""
 import hashlib
+import json
 from pathlib import Path
-from scripts.phase1_records import source_hashes as phase1_hashes, environment as phase1_environment, write_json
+import numpy as np
+from scripts.phase1_records import source_hashes as phase1_hashes, environment as phase1_environment
 
 ROOT=Path(__file__).resolve().parents[1]
+
+
+def write_json(path, value):
+    """Preserve NumPy scalar values as JSON scalars; reject NaN and infinity."""
+    def scalar(item):
+        if isinstance(item, np.generic):
+            return item.item()
+        raise TypeError(f"Unsupported evidence value: {type(item).__name__}")
+    encoded=json.dumps(value,indent=2,allow_nan=False,default=scalar)+'\n'
+    path=Path(path);path.parent.mkdir(parents=True,exist_ok=True)
+    path.write_text(encoded)
 
 
 def source_hashes():
