@@ -1,0 +1,2 @@
+commit=afa3d87a14182fb55db6269be1c0f7e0884fc0f2
+remote_directory=/tmp/algebraic-phase2-afa3d87a1418-20260916T040447Z

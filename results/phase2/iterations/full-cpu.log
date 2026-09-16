@@ -1,0 +1,38 @@
+L=64: entropy=0.3116, W1=0.1698, noise ratio=0.1776, FP4 ratio=0.1491
+L=128: entropy=0.3477, W1=0.1540, noise ratio=0.1434, FP4 ratio=0.1191
+L=256: entropy=0.3831, W1=0.1350, noise ratio=0.1178, FP4 ratio=0.0963
+L=512: entropy=0.4208, W1=0.1145, noise ratio=0.0982, FP4 ratio=0.0787
+L=1024: entropy=0.4568, W1=0.0947, noise ratio=0.0839, FP4 ratio=0.0649
+L=2048: entropy=0.4923, W1=0.0760, noise ratio=0.0731, FP4 ratio=0.0544
+L=4096: entropy=0.5250, W1=0.0601, noise ratio=0.0654, FP4 ratio=0.0464
+Full Jacobian L=2: max=1.992744, oracle error=2.66e-15
+Full Jacobian L=8: max=1.992555, oracle error=3e-15
+Full Jacobian L=16: max=1.733283, oracle error=4.22e-15
+Full Jacobian L=64: max=1.104213, oracle error=1.72e-15
+Full Jacobian L=128: max=0.909398, oracle error=1.11e-15
+Traceback (most recent call last):
+  File "/home/tas_ken_rt25/algebraic-intelligence/scripts/run_verify_attention.py", line 61, in <module>
+    if __name__=='__main__':raise SystemExit(main())
+  File "/home/tas_ken_rt25/algebraic-intelligence/scripts/run_verify_attention.py", line 57, in main
+    write_json(out/'metrics.json',r)
+  File "/home/tas_ken_rt25/algebraic-intelligence/scripts/phase1_records.py", line 16, in write_json
+    path.write_text(json.dumps(value, indent=2, allow_nan=False)+"\n")
+  File "/usr/lib/python3.10/json/__init__.py", line 238, in dumps
+    **kw).encode(obj)
+  File "/usr/lib/python3.10/json/encoder.py", line 201, in encode
+    chunks = list(chunks)
+  File "/usr/lib/python3.10/json/encoder.py", line 431, in _iterencode
+    yield from _iterencode_dict(o, _current_indent_level)
+  File "/usr/lib/python3.10/json/encoder.py", line 405, in _iterencode_dict
+    yield from chunks
+  File "/usr/lib/python3.10/json/encoder.py", line 405, in _iterencode_dict
+    yield from chunks
+  File "/usr/lib/python3.10/json/encoder.py", line 325, in _iterencode_list
+    yield from chunks
+  File "/usr/lib/python3.10/json/encoder.py", line 405, in _iterencode_dict
+    yield from chunks
+  File "/usr/lib/python3.10/json/encoder.py", line 438, in _iterencode
+    o = _default(o)
+  File "/usr/lib/python3.10/json/encoder.py", line 179, in default
+    raise TypeError(f'Object of type {o.__class__.__name__} '
+TypeError: Object of type bool is not JSON serializable

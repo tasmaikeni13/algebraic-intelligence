@@ -1,0 +1,27 @@
+Using ssh batch size of 1. Attempting to SSH into 1 nodes with a total of 4 workers.
+SSH: Attempting to connect to worker 0...
+SSH: Attempting to connect to worker 1...
+SSH: Attempting to connect to worker 2...
+SSH: Attempting to connect to worker 3...
+parity True
+benchmark float32 128 {'forward': 0.978, 'forward_backward': 0.961}
+benchmark float32 256 {'forward': 0.969, 'forward_backward': 0.959}
+benchmark float32 512 {'forward': 0.966, 'forward_backward': 0.972}
+benchmark float32 1024 {'forward': 0.971, 'forward_backward': 0.963}
+benchmark float32 2048 {'forward': 0.964, 'forward_backward': 0.96}
+benchmark float32 4096 {'forward': 0.974, 'forward_backward': 0.964}
+benchmark bfloat16 128 {'forward': 0.978, 'forward_backward': 0.925}
+benchmark bfloat16 256 {'forward': 0.965, 'forward_backward': 0.957}
+benchmark bfloat16 512 {'forward': 0.973, 'forward_backward': 0.947}
+benchmark bfloat16 1024 {'forward': 0.959, 'forward_backward': 0.95}
+benchmark bfloat16 2048 {'forward': 0.973, 'forward_backward': 0.945}
+benchmark bfloat16 4096 {'forward': 0.949, 'forward_backward': 0.938}
+TPU study 64 unscaled noise ratio 0.1773 W1 0.0203
+TPU study 128 unscaled noise ratio 0.1437 W1 0.0105
+TPU study 256 unscaled noise ratio 0.1184 W1 0.0054
+TPU study 512 unscaled noise ratio 0.0981 W1 0.0027
+TPU study 1024 unscaled noise ratio 0.0841 W1 0.0014
+TPU study 2048 unscaled noise ratio 0.073 W1 0.0007
+TPU study 4096 unscaled noise ratio 0.0654 W1 0.0003
+TPU quantization robustness ratio 354.51
+TPU PASS

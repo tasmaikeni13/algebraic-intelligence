@@ -1,0 +1,112 @@
+Using ssh batch size of 1. Attempting to SSH into 1 nodes with a total of 4 workers.
+SSH: Attempting to connect to worker 0...
+SSH: Attempting to connect to worker 1...
+SSH: Attempting to connect to worker 2...
+SSH: Attempting to connect to worker 3...
+parity True
+benchmark float32 128 {'forward': 0.986, 'forward_backward': 0.962}
+benchmark float32 256 {'forward': 0.976, 'forward_backward': 0.971}
+benchmark float32 512 {'forward': 0.981, 'forward_backward': 0.95}
+benchmark float32 1024 {'forward': 0.984, 'forward_backward': 0.959}
+benchmark float32 2048 {'forward': 0.952, 'forward_backward': 0.957}
+benchmark float32 4096 {'forward': 0.96, 'forward_backward': 0.955}
+benchmark bfloat16 128 {'forward': 0.968, 'forward_backward': 0.934}
+benchmark bfloat16 256 {'forward': 0.968, 'forward_backward': 0.95}
+benchmark bfloat16 512 {'forward': 0.964, 'forward_backward': 0.939}
+benchmark bfloat16 1024 {'forward': 0.973, 'forward_backward': 0.944}
+benchmark bfloat16 2048 {'forward': 0.982, 'forward_backward': 0.953}
+benchmark bfloat16 4096 {'forward': 0.987, 'forward_backward': 0.953}
+TPU study 64 noise ratio 0.1773 W1 0.1709
+TPU study 128 noise ratio 0.1437 W1 0.1538
+TPU study 256 noise ratio 0.1184 W1 0.1349
+TPU study 512 noise ratio 0.0981 W1 0.1153
+TPU study 1024 noise ratio 0.0841 W1 0.0954
+TPU study 2048 noise ratio 0.073 W1 0.0761
+TPU study 4096 noise ratio 0.0654 W1 0.0595
+Traceback (most recent call last):
+  File "/tmp/algebraic-phase2-afa3d87a1418-20260916T040447Z/scripts/run_phase2_tpu.py", line 155, in <module>
+    if __name__=='__main__':raise SystemExit(main())
+  File "/tmp/algebraic-phase2-afa3d87a1418-20260916T040447Z/scripts/run_phase2_tpu.py", line 148, in main
+    write_json(out/'metrics.json',r);write_json(out/'latencies.json',latencies)
+  File "/tmp/algebraic-phase2-afa3d87a1418-20260916T040447Z/scripts/phase1_records.py", line 16, in write_json
+    path.write_text(json.dumps(value, indent=2, allow_nan=False)+"\n")
+  File "/usr/lib/python3.10/json/__init__.py", line 238, in dumps
+    **kw).encode(obj)
+  File "/usr/lib/python3.10/json/encoder.py", line 201, in encode
+    chunks = list(chunks)
+  File "/usr/lib/python3.10/json/encoder.py", line 431, in _iterencode
+    yield from _iterencode_dict(o, _current_indent_level)
+  File "/usr/lib/python3.10/json/encoder.py", line 405, in _iterencode_dict
+    yield from chunks
+  File "/usr/lib/python3.10/json/encoder.py", line 405, in _iterencode_dict
+    yield from chunks
+  File "/usr/lib/python3.10/json/encoder.py", line 325, in _iterencode_list
+    yield from chunks
+  File "/usr/lib/python3.10/json/encoder.py", line 405, in _iterencode_dict
+    yield from chunks
+  File "/usr/lib/python3.10/json/encoder.py", line 438, in _iterencode
+    o = _default(o)
+  File "/usr/lib/python3.10/json/encoder.py", line 179, in default
+    raise TypeError(f'Object of type {o.__class__.__name__} '
+TypeError: Object of type float32 is not JSON serializable
+2026-09-16 04:08:19.296905: W external/xla/xla/tsl/distributed_runtime/preemption/preemption_notifier.cc:89] SIGTERM caught at 2026-09-16T04:08:19.296851318+00:00
+2026-09-16 04:08:19.297151: W external/xla/xla/tsl/distributed_runtime/preemption/preemption_notifier.cc:89] SIGTERM caught at 2026-09-16T04:08:19.297097208+00:00
+2026-09-16 04:08:19.309571: W external/xla/xla/tsl/distributed_runtime/preemption/preemption_notifier.cc:89] SIGTERM caught at 2026-09-16T04:08:19.309510624+00:00
+Failed to execute command on multiple workers. This may have happened if you have not added your SSH key to your ssh-agent using "ssh-add ~/.ssh/google_compute_engine".
+Retrying: SSH command error: [/usr/bin/ssh] exited with return code [255].
+Failed to execute command on multiple workers. This may have happened if you have not added your SSH key to your ssh-agent using "ssh-add ~/.ssh/google_compute_engine".
+Retrying: SSH command error: [/usr/bin/ssh] exited with return code [255].
+Failed to execute command on multiple workers. This may have happened if you have not added your SSH key to your ssh-agent using "ssh-add ~/.ssh/google_compute_engine".
+Retrying: SSH command error: [/usr/bin/ssh] exited with return code [255].
+Failed to execute command on multiple workers. This may have happened if you have not added your SSH key to your ssh-agent using "ssh-add ~/.ssh/google_compute_engine".
+Retrying: SSH command error: [/usr/bin/ssh] exited with return code [255].
+SSH: Attempting to connect to worker 1...
+SSH: Attempting to connect to worker 3...
+SSH: Attempting to connect to worker 2...
+SSH: Attempting to connect to worker 0...
+parity True
+benchmark float32 128 {'forward': 0.976, 'forward_backward': 0.963}
+benchmark float32 256 {'forward': 0.982, 'forward_backward': 0.961}
+benchmark float32 512 {'forward': 0.969, 'forward_backward': 0.965}
+benchmark float32 1024 {'forward': 0.969, 'forward_backward': 0.966}
+benchmark float32 2048 {'forward': 0.974, 'forward_backward': 0.958}
+benchmark float32 4096 {'forward': 0.969, 'forward_backward': 0.961}
+benchmark bfloat16 128 {'forward': 0.981, 'forward_backward': 0.938}
+benchmark bfloat16 256 {'forward': 0.974, 'forward_backward': 0.948}
+benchmark bfloat16 512 {'forward': 0.981, 'forward_backward': 0.948}
+benchmark bfloat16 1024 {'forward': 0.964, 'forward_backward': 0.941}
+benchmark bfloat16 2048 {'forward': 0.95, 'forward_backward': 0.942}
+benchmark bfloat16 4096 {'forward': 0.984, 'forward_backward': 0.935}
+TPU study 64 noise ratio 0.1773 W1 0.1709
+TPU study 128 noise ratio 0.1437 W1 0.1538
+TPU study 256 noise ratio 0.1184 W1 0.1349
+TPU study 512 noise ratio 0.0981 W1 0.1153
+TPU study 1024 noise ratio 0.0841 W1 0.0954
+TPU study 2048 noise ratio 0.073 W1 0.0761
+TPU study 4096 noise ratio 0.0654 W1 0.0595
+Traceback (most recent call last):
+  File "/tmp/algebraic-phase2-afa3d87a1418-20260916T040447Z/scripts/run_phase2_tpu.py", line 155, in <module>
+    if __name__=='__main__':raise SystemExit(main())
+  File "/tmp/algebraic-phase2-afa3d87a1418-20260916T040447Z/scripts/run_phase2_tpu.py", line 148, in main
+    write_json(out/'metrics.json',r);write_json(out/'latencies.json',latencies)
+  File "/tmp/algebraic-phase2-afa3d87a1418-20260916T040447Z/scripts/phase1_records.py", line 16, in write_json
+    path.write_text(json.dumps(value, indent=2, allow_nan=False)+"\n")
+  File "/usr/lib/python3.10/json/__init__.py", line 238, in dumps
+    **kw).encode(obj)
+  File "/usr/lib/python3.10/json/encoder.py", line 201, in encode
+    chunks = list(chunks)
+  File "/usr/lib/python3.10/json/encoder.py", line 431, in _iterencode
+    yield from _iterencode_dict(o, _current_indent_level)
+  File "/usr/lib/python3.10/json/encoder.py", line 405, in _iterencode_dict
+    yield from chunks
+  File "/usr/lib/python3.10/json/encoder.py", line 405, in _iterencode_dict
+    yield from chunks
+  File "/usr/lib/python3.10/json/encoder.py", line 325, in _iterencode_list
+    yield from chunks
+  File "/usr/lib/python3.10/json/encoder.py", line 405, in _iterencode_dict
+    yield from chunks
+  File "/usr/lib/python3.10/json/encoder.py", line 438, in _iterencode
+    o = _default(o)
+  File "/usr/lib/python3.10/json/encoder.py", line 179, in default
+    raise TypeError(f'Object of type {o.__class__.__name__} '
+TypeError: Object of type float32 is not JSON serializable
