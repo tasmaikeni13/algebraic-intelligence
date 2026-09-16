@@ -19,6 +19,7 @@ import jax
 from jax import lax
 import jax.numpy as jnp
 from jax.experimental import mesh_utils, multihost_utils as mh
+from jax.experimental.shard_map import shard_map
 from jax.sharding import Mesh, NamedSharding, PartitionSpec as P
 
 try:
@@ -118,7 +119,7 @@ def run_parity(place):
     return {"rows": rows, "passed": all(r["passed"] for r in rows)}
 
 
-def run_benchmarks(place):
+def run_benchmarks(place, mesh):
     """Head-to-head throughput and latency benchmark vs FlashAttention-2 on 16 TPU v4 chips."""
     rng = np.random.default_rng(742 + jax.process_index())
     rows = []
@@ -139,23 +140,38 @@ def run_benchmarks(place):
         k = place(rng.normal(size=(4 * b, h, l, d)).astype(np.float32)).astype(dtype)
         v = place(rng.normal(size=(4 * b, h, l, d)).astype(np.float32)).astype(dtype)
 
-        # 1. Algebraic FlashAttention step
-        @jax.jit
-        def afa_step(q, k, v):
-            return tiled_afa_forward(q, k, v, sink_omega=0.5, causal=causal, block_q=128, block_k=128)
+        # 1. Algebraic FlashAttention step wrapped in shard_map
+        @functools.partial(
+            shard_map,
+            mesh=mesh,
+            in_specs=(P('d', None, None, None), P('d', None, None, None), P('d', None, None, None)),
+            out_specs=P('d', None, None, None),
+        )
+        def afa_step(q_loc, k_loc, v_loc):
+            return tiled_afa_forward(q_loc, k_loc, v_loc, sink_omega=0.5, causal=causal, block_q=128, block_k=128)
 
-        # 2. Baseline FlashAttention step
+        # 2. Baseline FlashAttention step wrapped in shard_map
         if HAS_JAX_FA:
-            @jax.jit
-            def baseline_step(q, k, v):
-                return jax_flash_attention(q, k, v, causal=causal, sm_scale=float(1.0 / math.sqrt(d)))
+            @functools.partial(
+                shard_map,
+                mesh=mesh,
+                in_specs=(P('d', None, None, None), P('d', None, None, None), P('d', None, None, None)),
+                out_specs=P('d', None, None, None),
+            )
+            def baseline_step(q_loc, k_loc, v_loc):
+                return jax_flash_attention(q_loc, k_loc, v_loc, causal=causal, sm_scale=float(1.0 / math.sqrt(d)))
         else:
-            @jax.jit
-            def baseline_step(q, k, v):
+            @functools.partial(
+                shard_map,
+                mesh=mesh,
+                in_specs=(P('d', None, None, None), P('d', None, None, None), P('d', None, None, None)),
+                out_specs=P('d', None, None, None),
+            )
+            def baseline_step(q_loc, k_loc, v_loc):
                 # Standard exponential attention fallback
-                s = jnp.matmul(q, jnp.swapaxes(k, -1, -2)) * float(1.0 / math.sqrt(d))
+                s = jnp.matmul(q_loc, jnp.swapaxes(k_loc, -1, -2)) * float(1.0 / math.sqrt(d))
                 p = jax.nn.softmax(s, axis=-1)
-                return jnp.matmul(p, v)
+                return jnp.matmul(p, v_loc)
 
         # Warmup
         for _ in range(10):
@@ -200,6 +216,8 @@ def run_benchmarks(place):
             "repetitions": repetitions,
             "afa_latency_ms": afa_latency_ms,
             "baseline_latency_ms": base_latency_ms,
+            "afa_tflops": afa_tflops_per_chip,
+            "baseline_tflops": base_tflops_per_chip,
             "afa_tflops_per_chip": afa_tflops_per_chip,
             "baseline_tflops_per_chip": base_tflops_per_chip,
             "throughput_ratio": throughput_ratio,
@@ -210,7 +228,7 @@ def run_benchmarks(place):
     return {"rows": rows, "latencies": latencies, "passed": all(r["passed"] for r in rows)}
 
 
-def run_bandwidth_evaluation(place):
+def run_bandwidth_evaluation(place, mesh):
     """Evaluate sustained HBM memory bandwidth utilization on 16 TPU v4 cores."""
     rng = np.random.default_rng(842 + jax.process_index())
     # Test at L=4096, B=1, H=8, D=128
@@ -221,9 +239,14 @@ def run_bandwidth_evaluation(place):
     k = place(rng.normal(size=(4 * b, h, l, d)).astype(np.float32)).astype(dtype)
     v = place(rng.normal(size=(4 * b, h, l, d)).astype(np.float32)).astype(dtype)
 
-    @jax.jit
-    def afa_step(q, k, v):
-        return tiled_afa_forward(q, k, v, sink_omega=0.5, causal=False, block_q=128, block_k=128)
+    @functools.partial(
+        shard_map,
+        mesh=mesh,
+        in_specs=(P('d', None, None, None), P('d', None, None, None), P('d', None, None, None)),
+        out_specs=P('d', None, None, None),
+    )
+    def afa_step(q_loc, k_loc, v_loc):
+        return tiled_afa_forward(q_loc, k_loc, v_loc, sink_omega=0.5, causal=False, block_q=128, block_k=128)
 
     # Warmup
     for _ in range(5):
@@ -333,15 +356,20 @@ def run_distributed_ring_tpu():
     }
 
 
-def export_mlir_hlo_audit(place, output_dir: Path):
+def export_mlir_hlo_audit(place, mesh, output_dir: Path):
     """Compile AFA step on TPU v4 and export MLIR/HLO to verify zero transcendentals."""
     q = place(np.zeros((4, 4, 256, 64), dtype=np.float32))
     k = place(np.zeros((4, 4, 256, 64), dtype=np.float32))
     v = place(np.zeros((4, 4, 256, 64), dtype=np.float32))
 
-    @jax.jit
-    def afa_step(q, k, v):
-        return tiled_afa_forward(q, k, v, sink_omega=0.5, causal=False, block_q=128, block_k=128)
+    @functools.partial(
+        shard_map,
+        mesh=mesh,
+        in_specs=(P('d', None, None, None), P('d', None, None, None), P('d', None, None, None)),
+        out_specs=P('d', None, None, None),
+    )
+    def afa_step(q_loc, k_loc, v_loc):
+        return tiled_afa_forward(q_loc, k_loc, v_loc, sink_omega=0.5, causal=False, block_q=128, block_k=128)
 
     lowered = afa_step.lower(q, k, v)
     hlo_text = lowered.as_text()
@@ -367,6 +395,7 @@ def main():
     parser.add_argument("--output", type=Path, default=ROOT / "results/phase6/tpu")
     args = parser.parse_args()
     out = args.output.resolve()
+    out.mkdir(parents=True, exist_ok=True)
 
     jax.distributed.initialize(initialization_timeout=120)
     p_idx = jax.process_index()
@@ -375,7 +404,6 @@ def main():
     local_devs = jax.local_devices()
 
     if p_idx == 0:
-        out.mkdir(parents=True, exist_ok=True)
         print(f"=== Phase 6 TPU Worker 0 Initialized ===")
         print(f"Process count: {p_count}, Total TPU devices: {len(devices)}, Local devices: {len(local_devs)}")
 
@@ -392,12 +420,12 @@ def main():
     # 2. Benchmarks
     if p_idx == 0:
         print("Running head-to-head throughput benchmarks...")
-    bench_res = run_benchmarks(place)
+    bench_res = run_benchmarks(place, mesh)
 
     # 3. Bandwidth evaluation
     if p_idx == 0:
         print("Evaluating sustained HBM memory bandwidth...")
-    bw_res = run_bandwidth_evaluation(place)
+    bw_res = run_bandwidth_evaluation(place, mesh)
 
     # 4. Distributed Ring Attention across 16 chips
     if p_idx == 0:
@@ -407,7 +435,7 @@ def main():
     # 5. MLIR HLO Audit
     if p_idx == 0:
         print("Auditing compiled MLIR / HLO opcodes...")
-    hlo_res = export_mlir_hlo_audit(place, out)
+    hlo_res = export_mlir_hlo_audit(place, mesh, out)
 
     overall_passed = bool(
         parity_res["passed"]
