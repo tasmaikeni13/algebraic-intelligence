@@ -39,3 +39,22 @@ def attention_vjp(x, g, sink=0.5, eps=1e-5):
 def softmax(x):
     e = np.exp(x-np.max(x, axis=-1, keepdims=True))
     return e/e.sum(axis=-1, keepdims=True)
+
+
+def reference_afa(q, k, v, sink=0.5, causal=False):
+    """Independent pure NumPy float64 ground truth for Algebraic FlashAttention."""
+    q = np.asarray(q, dtype=np.float64)
+    k = np.asarray(k, dtype=np.float64)
+    v = np.asarray(v, dtype=np.float64)
+    head_dim = q.shape[-1]
+    scale = 1.0 / np.sqrt(head_dim)
+    s = np.matmul(q, np.swapaxes(k, -1, -2)) * scale
+    p = kernel(s)
+    if causal:
+        seq_len = q.shape[-2]
+        mask = np.tril(np.ones((seq_len, seq_len), dtype=bool))
+        p = np.where(mask, p, 0.0)
+    o = np.matmul(p, v)
+    denom = np.sum(p, axis=-1, keepdims=True) + sink
+    return o / denom
+

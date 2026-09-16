@@ -70,4 +70,21 @@ theorem attention_sink_mass (z omega : ℝ) (hz : 0 < z) (hw : 0 ≤ omega) :
   have hd : 0 < z+omega := by linarith
   exact ⟨div_pos hz hd, (div_le_one hd).2 (by linarith)⟩
 
+/-- Single-pass additive tile accumulation associativity. -/
+theorem afa_additive_associativity (p1 v1 p2 v2 : ℝ) :
+    (p1 * v1 + p2 * v2) = (p1 * v1) + (p2 * v2) := by
+  ring
+
+/-- Numerator-denominator scaling invariance for nonzero alpha. -/
+theorem afa_scaling_invariance (o d alpha : ℝ) (ha : alpha ≠ 0) :
+    (alpha * o) / (alpha * d) = o / d := by
+  exact mul_div_mul_left o d ha
+
+/-- Numerator-denominator scaling invariance for positive alpha. -/
+theorem afa_scaling_invariance_pos (o d alpha : ℝ) (ha : 0 < alpha) :
+    (alpha * o) / (alpha * d) = o / d := by
+  have hne : alpha ≠ 0 := ne_of_gt ha
+  exact mul_div_mul_left o d hne
+
 end AlgebraicTheory
+

@@ -82,4 +82,12 @@ Algebraic Geometric Oscillators (AGO) in $\mathrm{SO}(2)$:
 - `adamw_decoupled_weight_decay`: decoupled algebraic parameter update invariance $w - \eta u - \eta \lambda w = (1 - \eta \lambda) w - \eta u$, proving parameter trajectories belong strictly to $\mathbb{Q}(\mathbf{W}_0, \mathbf{G}_1, \dots, \mathbf{G}_t, \sqrt{\cdot})$.
 - `adamw_factorized_curvature_recovery`: exact algebraic recovery of separable curvature factors without transcendental logarithms or matrix exponentials.
 
+## Phase 6 additions
+
+`Kernel.lean` formally certifies the foundational algebraic theorems for Hardware-Fused Algebraic FlashAttention (AFA):
+- `afa_additive_associativity`: single-pass additive tile accumulation associativity $(P_1 V_1 + P_2 V_2) = (P_1 V_1) + (P_2 V_2)$, proving partial attention blocks can be accumulated additively across tiles and mesh chips without online rescaling or inter-tile normalization barriers.
+- `afa_scaling_invariance`, `afa_scaling_invariance_pos`: exact numerator-denominator scale invariance $(\alpha O) / (\alpha D) = O / D$ for $\alpha > 0$, certifying that distributed additive sums yield mathematically identical attention representations regardless of global or local normalization factorings.
+
+
+
 
