@@ -59,16 +59,23 @@ def main():
     # Separate CPU environments on every host do not initialize the TPU runtime.
     ssh(f"cd {quote(remote)} && JAX_PLATFORMS=cpu JAX_ENABLE_X64=1 venv/bin/python -m pytest -q", "host-tests.log")
     try:
-        ssh(f"cd {quote(remote)} && PYTHONUNBUFFERED=1 venv/bin/python scripts/run_phase1_tpu.py", "run.log")
+        ssh(f"cd {quote(remote)} && PYTHONUNBUFFERED=1 venv/bin/python scripts/run_phase1_tpu.py --output {quote(remote+'/measurements')}", "run.log")
     finally:
-        run(["gcloud","compute","tpus","tpu-vm","scp","--recurse",
-             f"{args.name}:{remote}/results/phase1/tpu",str(out/"download"),"--zone",args.zone,"--worker","0","--quiet"],"download.log")
-        candidates=list((out/"download").rglob("metrics.json"))
-        if len(candidates)==1:
-            import shutil
-            for file in candidates[0].parent.iterdir():
-                if file.is_file():
-                    shutil.copy2(file,out/file.name)
+        # Cloud worker numbering is not JAX process numbering. Collect all hosts
+        # into a unique run directory, excluding old results bundled with source.
+        download=out/"download"/label
+        download.mkdir(parents=True)
+        for worker in range(4):
+            run(["gcloud","compute","tpus","tpu-vm","scp","--recurse",
+                 f"{args.name}:{remote}/measurements",str(download/f"worker-{worker}"),
+                 "--zone",args.zone,"--worker",str(worker),"--quiet"],f"download-{worker}.log")
+        candidates=list(download.rglob("metrics.json"))
+        if len(candidates)!=1:
+            raise RuntimeError(f"Expected exactly one coordinator record; found {len(candidates)} in {download}")
+        import shutil
+        for file in candidates[0].parent.iterdir():
+            if file.is_file():
+                shutil.copy2(file,out/file.name)
     (out/"snapshot.txt").write_text(f"commit={commit}\nremote_directory={remote}\n")
     return 0
 
