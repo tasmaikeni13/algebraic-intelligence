@@ -22,7 +22,7 @@ from scripts.phase2_experiments import LENGTHS,w1
 def parity(place):
     rng=np.random.default_rng(142+jax.process_index());rows=[]
     for dtype in (jnp.float32,jnp.bfloat16):
-        for length in (128,4096):
+        for length in (64,128,512,4096):
             for scale in (0.,.1,1.,10.,1e15):
                 for sink in (0.,.5):
                     host=(rng.normal(size=(16,length))*scale).astype(np.float32)
