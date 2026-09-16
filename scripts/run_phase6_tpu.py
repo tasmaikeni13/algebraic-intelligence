@@ -209,6 +209,9 @@ def run_benchmarks(place, mesh):
         latencies[f"{name}_afa_ms"] = afa_latency_ms
         latencies[f"{name}_base_ms"] = base_latency_ms
 
+        if jax.process_index() == 0:
+            print(f"  [{name}] AFA: {afa_latency_ms:.2f}ms ({afa_tflops_per_chip:.1f} TFLOPS) vs Base: {base_latency_ms:.2f}ms ({base_tflops_per_chip:.1f} TFLOPS) -> Ratio: {throughput_ratio:.2%}")
+
         rows.append({
             "name": name,
             "batch": b,
@@ -279,6 +282,9 @@ def run_bandwidth_evaluation(place, mesh):
     # TPU v4 peak HBM bandwidth is 1200 GB/s. 70% threshold is 840 GB/s.
     passed = sustained_gb_s_per_chip >= 840.0
 
+    if jax.process_index() == 0:
+        print(f"  Sustained HBM: {sustained_gb_s_per_chip:.1f} GB/s/chip ({sustained_gb_s_total:.1f} GB/s aggregate) -> {utilization_pct:.1f}% peak (target: >= 840.0)")
+
     return {
         "sustained_gb_s": sustained_gb_s_per_chip,
         "sustained_gb_s_total": sustained_gb_s_total,
@@ -324,7 +330,13 @@ def run_distributed_ring_tpu():
     v_sharded = jax.make_array_from_process_local_data(seq_sharding, v_local)
 
     # Distributed Ring Attention compiled across 16-chip 3D Torus ICI
-    @functools.partial(jax.jit, out_shardings=seq_sharding)
+    @functools.partial(
+        shard_map,
+        mesh=mesh,
+        in_specs=(P(None, None, 'ici_ring', None), P(None, None, 'ici_ring', None), P(None, None, 'ici_ring', None)),
+        out_specs=P(None, None, 'ici_ring', None),
+        check_rep=False,
+    )
     def ring_attention_fn(q, k, v):
         return distributed_ring_afa(q, k, v, sink_omega=0.5, causal=False, axis_name='ici_ring', num_devices=16)
 
@@ -348,6 +360,9 @@ def run_distributed_ring_tpu():
     max_diff = float(gathered[:, 0].max())
     max_rel_error = float(gathered[:, 1].max())
     passed = max_rel_error <= 1.0e-6
+
+    if p_idx == 0:
+        print(f"  Distributed Ring Attention rel_err: {max_rel_error:.3e} (bound: 1.0e-6, max_diff: {max_diff:.3e})")
 
     return {
         "rel_error": max_rel_error,
@@ -386,6 +401,9 @@ def export_mlir_hlo_audit(place, mesh, output_dir: Path):
     # Check for forbidden opcodes
     found = [op for op in FORBIDDEN_HLO_OPS if op in hlo_text.lower()]
     passed = (len(found) == 0) and ("dot" in hlo_text.lower() or "dot_general" in hlo_text.lower())
+
+    if jax.process_index() == 0:
+        print(f"  MLIR HLO Audit: {len(found)} forbidden opcodes found, {len(hlo_text.splitlines())} lines (passed: {passed})")
 
     return {
         "transcendental_opcodes_count": len(found),
