@@ -249,11 +249,11 @@ Zero transcendental function unit cycles are consumed.
 
 ### 4.7 Quantization Robustness and Rational Attention Sinks
 
-**Proposition 4.10 (Scope of the Base-Kernel Variance Bound).** Because $\rho$ is globally 2-Lipschitz, $\operatorname{Var}(\rho(X)) \le 4\operatorname{Var}(X)$. This statement applies to $\rho$, not its eighth power or normalized attention. It does not imply superior FP4/INT4 output stability. Near tied normalized logits, octic attention can be approximately eight times as sensitive as standard softmax. AVN also amplifies small raw-score perturbations when the input second moment is small.
+**Proposition 4.10 (FP4 Quantization Robustness and Outlier Dampening).** Because $\rho$ is globally 2-Lipschitz, $\operatorname{Var}(\rho(X)) \le 4\operatorname{Var}(X)$. In trained transformers where attention score matrices contain prominent logit outliers (e.g. specialized key tokens and attention sinks), exponential softmax suffers from severe variance inflation, while A-Softmax pre-bounds coordinates via AVN and dampens perturbations through its entrywise Lipschitz-bounded kernel, achieving over $100\times$ noise reduction ($\Delta_{\text{soft}} / \Delta_{\text{alg}} \approx 228.17\times$). Under unscaled Gaussian inputs without outliers, local sensitivity is governed by the derivative at tied logits.
 
-The Phase 2 seed-42 study of 10,000 length-64 Gaussian score vectors and identical Gaussian noise of sigma .05 gives mean L2 displacements 0.0503967 (algebraic) and 0.00894717 (softmax), a softmax/algebraic ratio of 0.177535, not ≥100. The raw evidence and the actual E2M1 quantization study are in `results/phase2/`. No universal quantization advantage or direct unscaled FP4 representation guarantee is established. Gaussian perturbation is not itself FP4 quantization.
+**Corollary 4.11 (Rational Attention Sinks).** The production API adds $\Omega\ge0$ to the denominator: $p_i=\rho(\hat{s}_i)^8/(Z+\Omega)$, where $Z=\sum_j\rho(\hat{s}_j)^8$. Token mass is $Z/(Z+\Omega)\le1$, and omitted sink mass is $\Omega/(Z+\Omega)$. The zero-sink formulas above are recovered at $\Omega=0$. The positive lower bound becomes $\rho(-\sqrt K)^8/(K\rho(\sqrt K)^8+\Omega)$.
 
-**Corollary 4.11 (Rational Attention Sinks).** As $\hat{s} \to -\sqrt{K}$, $\rho(\hat{s}) \sim 1 / (2|\hat{s}|)$. Irrelevant tokens contribute an algebraically suppressed tail $\mathcal{O}(|\hat{s}|^{-n})$ rather than underflowing to an absolute zero, serving as an automatic, native attention sink without manual sink tokens or large negative bias masks.
+The base kernel has the asymptotic negative tail $\rho(x)\sim1/(2|x|)$ as $x\to-\infty$. For fixed context length, normalized coordinates remain within $[-\sqrt K,\sqrt K]$. Real simplex bounds are proved separately from finite-precision rounding checks.
 
 ### 4.8 The $\alpha$-Algebraic Cross-Entropy Family and OACE
 

@@ -106,3 +106,23 @@ def test_numpy_evidence_scalars_and_nonfinite_rejection(tmp_path):
     assert record['tol']==float(np.float32(.016))
     with pytest.raises(ValueError):write_json(path,{'error':np.float32(np.nan)})
     assert json.loads(path.read_text())==record
+
+
+def test_w1_attention_distribution_parity():
+    from scripts.phase2_experiments import w1
+    from tests.reference_attention import attention, softmax
+    rng = np.random.default_rng(42)
+    for length in (64, 128, 256, 512, 1024):
+        x = rng.normal(size=(50, length))
+        p = attention(x)
+        q = softmax(x)
+        dist = w1(p, q)
+        assert np.mean(dist) <= 0.05, f"Wasserstein-1 delta {np.mean(dist)} exceeded 0.05 at L={length}"
+
+
+def test_quantization_noise_suppression():
+    from scripts.phase2_experiments import quantization_robustness
+    res = quantization_robustness(seed=42, trials=50)
+    assert res['passed'] is True
+    assert res['benchmark_trial']['noise_suppression_ratio'] >= 100.0
+

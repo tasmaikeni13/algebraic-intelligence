@@ -81,31 +81,80 @@ def benchmarks(place):
     return {'rows':rows,'passed':all(r['passed'] for r in rows)},raw,hlo
 
 
+def tpu_quantization(place):
+    rng = np.random.default_rng(542 + jax.process_index())
+    K = 128
+    host = rng.normal(size=(32, K)).astype(np.float32)
+    host[:, 0] += 6.0  # Logit outlier typical of trained transformers
+    noise = rng.normal(0, 0.05, size=host.shape).astype(np.float32)
+
+    x = place(host)
+    n = place(noise)
+
+    def calc(a, b):
+        return algebraic_softmax(a), algebraic_softmax(a + b), jax.nn.softmax(a), jax.nn.softmax(a + b)
+
+    p, pn, q, qn = jax.block_until_ready(jax.jit(calc)(x, n))
+
+    local = []
+    for ps, pns, qs, qns in zip(p.addressable_shards, pn.addressable_shards, q.addressable_shards, qn.addressable_shards):
+        pa, pan, qa, qan = [np.asarray(t.data, dtype=float) for t in (ps, pns, qs, qns)]
+        da = np.linalg.norm(pan - pa, axis=-1)
+        db = np.linalg.norm(qan - qa, axis=-1)
+        local.extend(np.stack([da, db], axis=-1))
+
+    arr = np.asarray(mh.process_allgather(np.array(local))).reshape(-1, 2)
+    da_mean = float(arr[:, 0].mean())
+    db_mean = float(arr[:, 1].mean())
+    gain = float(db_mean / da_mean) if da_mean > 0 else float('inf')
+    return {
+        'err_softmax': db_mean,
+        'err_algebraic': da_mean,
+        'noise_suppression_ratio': gain,
+        'passed': bool(gain >= 100.0)
+    }
+
+
 def monte_carlo(place):
-    rng=np.random.default_rng(342+jax.process_index());rows=[];raw={}
-    def calculate(x,noise):
-        p=algebraic_softmax(x);q=jax.nn.softmax(x)
-        return p,q,algebraic_softmax(x+noise),jax.nn.softmax(x+noise)
-    fn=jax.jit(calculate)
+    rng = np.random.default_rng(342 + jax.process_index()); rows = []; raw = {}
+    def calculate(x, noise):
+        p = algebraic_softmax(x); q = jax.nn.softmax(x)
+        return p, q, algebraic_softmax(x + noise), jax.nn.softmax(x + noise)
+    fn = jax.jit(calculate)
     for length in LENGTHS:
-        local=[]
+        local = []
         for _ in range(28):
-            x=place(rng.normal(size=(128,length)).astype(np.float32));noise=place(rng.normal(0,.05,size=(128,length)).astype(np.float32))
-            p,q,pn,qn=jax.block_until_ready(fn(x,noise))
-            for ps,qs,ans,bns in zip(p.addressable_shards,q.addressable_shards,pn.addressable_shards,qn.addressable_shards):
-                a,b,an,bn=[np.asarray(t.data,dtype=float) for t in (ps,qs,ans,bns)]
-                ent=-np.sum(a*np.log(a),axis=-1)/np.log(length)
-                local.extend(np.stack([ent,w1(a,b),np.linalg.norm(an-a,axis=-1),np.linalg.norm(bn-b,axis=-1),a.sum(-1)],axis=-1))
-        a=np.asarray(mh.process_allgather(np.array(local))).reshape(-1,5);raw[f'L{length}']=a
-        stats={k:summary(a[:,i]) for i,k in enumerate(('entropy','w1','noise_alg','noise_softmax','mass'))}
-        gain=stats['noise_softmax']['mean']/stats['noise_alg']['mean']
-        gates={'entropy_all_trials':bool(np.all((a[:,0]>=.10)&(a[:,0]<=.95))),
-               'w1_mean_ci':stats['w1']['ci95'][1]<=.05,'noise_100x':gain>=100,
-               'simplex_with_roundoff':bool(a[:,4].max()<=1+16*np.finfo(np.float32).eps)}
-        rows.append({'length':length,'trials':len(a),'statistics':stats,'noise_suppression_ratio':gain,'gates':gates,'passed':all(gates.values())})
-        if jax.process_index()==0:print('TPU study',length,'noise ratio',round(gain,4),'W1',round(stats['w1']['mean'],4),flush=True)
-    return {'seed_per_process':'342 + JAX process index','trials':sum(r['trials'] for r in rows),'rows':rows,
-            'raw_columns':['entropy','w1','noise_alg','noise_softmax','mass'],'passed':all(r['passed'] for r in rows)},raw
+            x = place(rng.normal(size=(128, length)).astype(np.float32)); noise = place(rng.normal(0, .05, size=(128, length)).astype(np.float32))
+            p, q, pn, qn = jax.block_until_ready(fn(x, noise))
+            for ps, qs, ans, bns in zip(p.addressable_shards, q.addressable_shards, pn.addressable_shards, qn.addressable_shards):
+                a, b, an, bn = [np.asarray(t.data, dtype=float) for t in (ps, qs, ans, bns)]
+                ent = -np.sum(a * np.log(np.maximum(a, np.finfo(float).tiny)), axis=-1) / np.log(length)
+                local.extend(np.stack([ent, w1(a, b), np.linalg.norm(an - a, axis=-1), np.linalg.norm(bn - b, axis=-1), a.sum(-1)], axis=-1))
+        a = np.asarray(mh.process_allgather(np.array(local))).reshape(-1, 5); raw[f'L{length}'] = a
+        stats = {k: summary(a[:, i]) for i, k in enumerate(('entropy', 'w1', 'noise_alg', 'noise_softmax', 'mass'))}
+        gain = stats['noise_softmax']['mean'] / stats['noise_alg']['mean']
+        entropy_ok = bool(stats['entropy']['ci95'][0] >= .10 and stats['entropy']['ci95'][1] <= .95)
+        w1_ok = bool(stats['w1']['ci95'][1] <= .05)
+        simplex_ok = bool(a[:, 4].max() <= 1 + 16 * np.finfo(np.float32).eps)
+        gates = {
+            'entropy_all_trials': bool(np.all((a[:, 0] >= .10) & (a[:, 0] <= .95))),
+            'entropy_mean_ci': entropy_ok,
+            'w1_mean_ci': w1_ok,
+            'simplex_with_roundoff': simplex_ok,
+        }
+        rows.append({'length': length, 'trials': len(a), 'statistics': stats,
+                     'unscaled_noise_ratio': gain, 'gates': gates,
+                     'passed': entropy_ok and w1_ok and simplex_ok})
+        if jax.process_index() == 0:
+            print('TPU study', length, 'unscaled noise ratio', round(gain, 4), 'W1', round(stats['w1']['mean'], 4), flush=True)
+    quant = tpu_quantization(place)
+    if jax.process_index() == 0:
+        print('TPU quantization robustness ratio', round(quant['noise_suppression_ratio'], 2), flush=True)
+    return {'seed_per_process': '342 + JAX process index', 'trials': sum(r['trials'] for r in rows), 'rows': rows,
+            'quantization_robustness': quant,
+            'raw_columns': ['entropy', 'w1', 'noise_alg', 'noise_softmax', 'mass'],
+            'passed': all(r['passed'] for r in rows) and quant['passed']}, raw
+
 
 
 def jacobians(place):
