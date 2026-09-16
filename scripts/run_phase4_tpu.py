@@ -187,30 +187,30 @@ def benchmarks(place):
             calls = {}
 
             # OACE functions
-            def oace_fwd(probs):
-                return oace_loss(probs, targets, gamma=2.0, reduction="none")
+            def oace_fwd(probs, tgts):
+                return oace_loss(probs, tgts, gamma=2.0, reduction="none")
 
-            def oace_both(probs, cotangent):
-                y, vjp_fn = jax.vjp(oace_fwd, probs)
+            def oace_both(probs, tgts, cotangent):
+                y, vjp_fn = jax.vjp(lambda pr: oace_fwd(pr, tgts), probs)
                 return y, vjp_fn(cotangent)[0]
 
             # Cross-Entropy functions
-            def ce_fwd(probs):
-                pk = jnp.take_along_axis(probs, jnp.expand_dims(targets, -1), axis=-1)[..., 0]
+            def ce_fwd(probs, tgts):
+                pk = jnp.take_along_axis(probs, jnp.expand_dims(tgts, -1), axis=-1)[..., 0]
                 return -jnp.log(jnp.clip(pk, 1e-15, 1.0))
 
-            def ce_both(probs, cotangent):
-                y, vjp_fn = jax.vjp(ce_fwd, probs)
+            def ce_both(probs, tgts, cotangent):
+                y, vjp_fn = jax.vjp(lambda pr: ce_fwd(pr, tgts), probs)
                 return y, vjp_fn(cotangent)[0]
 
             for name, fwd_fn, both_fn in [("oace", oace_fwd, oace_both), ("ce", ce_fwd, ce_both)]:
-                lower_fwd = jax.jit(fwd_fn).lower(p)
+                lower_fwd = jax.jit(fwd_fn).lower(p, targets)
                 comp_fwd = lower_fwd.compile()
-                calls[f"{name}_forward"] = (comp_fwd, (p,))
+                calls[f"{name}_forward"] = (comp_fwd, (p, targets))
 
-                lower_both = jax.jit(both_fn).lower(p, g)
+                lower_both = jax.jit(both_fn).lower(p, targets, g)
                 comp_both = lower_both.compile()
-                calls[f"{name}_forward_backward"] = (comp_both, (p, g))
+                calls[f"{name}_forward_backward"] = (comp_both, (p, targets, g))
 
                 if name == "oace" and num_classes == 1024:
                     hlo[f"{str(jnp.dtype(dtype))}_forward"] = lower_fwd.as_text()
