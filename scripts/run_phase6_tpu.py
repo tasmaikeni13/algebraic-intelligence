@@ -141,6 +141,7 @@ def run_benchmarks(place, mesh):
         v = place(rng.normal(size=(4 * b, h, l, d)).astype(np.float32)).astype(dtype)
 
         # 1. Algebraic FlashAttention step wrapped in shard_map
+        @functools.partial(jax.jit)
         @functools.partial(
             shard_map,
             mesh=mesh,
@@ -153,6 +154,7 @@ def run_benchmarks(place, mesh):
 
         # 2. Baseline FlashAttention step wrapped in shard_map
         if HAS_JAX_FA:
+            @functools.partial(jax.jit)
             @functools.partial(
                 shard_map,
                 mesh=mesh,
@@ -163,6 +165,7 @@ def run_benchmarks(place, mesh):
             def baseline_step(q_loc, k_loc, v_loc):
                 return jax_flash_attention(q_loc, k_loc, v_loc, causal=causal, sm_scale=float(1.0 / math.sqrt(d)))
         else:
+            @functools.partial(jax.jit)
             @functools.partial(
                 shard_map,
                 mesh=mesh,
@@ -245,6 +248,7 @@ def run_bandwidth_evaluation(place, mesh):
     k = place(rng.normal(size=(4 * b, h, l, d)).astype(np.float32)).astype(dtype)
     v = place(rng.normal(size=(4 * b, h, l, d)).astype(np.float32)).astype(dtype)
 
+    @functools.partial(jax.jit)
     @functools.partial(
         shard_map,
         mesh=mesh,
@@ -278,6 +282,7 @@ def run_bandwidth_evaluation(place, mesh):
     bytes_per_chip = bytes_per_token_entry * (1 + 2 * num_q_blocks + 1)
     sustained_gb_s_per_chip = (bytes_per_chip / latency_sec) / 1e9
     sustained_gb_s_total = sustained_gb_s_per_chip * 16.0
+    utilization_pct = (sustained_gb_s_per_chip / 1200.0) * 100.0
 
     # TPU v4 peak HBM bandwidth is 1200 GB/s. 70% threshold is 840 GB/s.
     passed = sustained_gb_s_per_chip >= 840.0
@@ -330,6 +335,7 @@ def run_distributed_ring_tpu():
     v_sharded = jax.make_array_from_process_local_data(seq_sharding, v_local)
 
     # Distributed Ring Attention compiled across 16-chip 3D Torus ICI
+    @functools.partial(jax.jit)
     @functools.partial(
         shard_map,
         mesh=mesh,
@@ -381,6 +387,7 @@ def export_mlir_hlo_audit(place, mesh, output_dir: Path):
     k = place(np.zeros((4, 4, 256, 64), dtype=np.float32))
     v = place(np.zeros((4, 4, 256, 64), dtype=np.float32))
 
+    @functools.partial(jax.jit)
     @functools.partial(
         shard_map,
         mesh=mesh,
