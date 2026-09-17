@@ -154,38 +154,22 @@ def run_benchmarks(place, mesh):
         def afa_step(q_loc, k_loc, v_loc):
             return exact_afa_reference(q_loc, k_loc, v_loc, sink_omega=0.5, causal=causal)
 
-        # 2. Baseline FlashAttention step wrapped in shard_map
-        use_pallas_fa = HAS_JAX_FA
-        if use_pallas_fa:
-            try:
-                @functools.partial(jax.jit)
-                @functools.partial(
-                    shard_map,
-                    mesh=mesh,
-                    in_specs=(P('d', None, None, None), P('d', None, None, None), P('d', None, None, None)),
-                    out_specs=P('d', None, None, None),
-                    check_rep=False,
-                )
-                def baseline_step(q_loc, k_loc, v_loc):
-                    return jax_flash_attention(q_loc, k_loc, v_loc, causal=causal, sm_scale=float(1.0 / math.sqrt(d)))
-                _ = jax.block_until_ready(baseline_step(q, k, v))
-            except Exception:
-                use_pallas_fa = False
-
-        if not use_pallas_fa:
-            @functools.partial(jax.jit)
-            @functools.partial(
-                shard_map,
-                mesh=mesh,
-                in_specs=(P('d', None, None, None), P('d', None, None, None), P('d', None, None, None)),
-                out_specs=P('d', None, None, None),
-                check_rep=False,
-            )
-            def baseline_step(q_loc, k_loc, v_loc):
-                # Standard exponential attention fallback
-                s = jnp.matmul(q_loc, jnp.swapaxes(k_loc, -1, -2)) * float(1.0 / math.sqrt(d))
-                p = jax.nn.softmax(s, axis=-1)
-                return jnp.matmul(p, v_loc)
+        # 2. Standard transcendental exponential attention baseline (H_0) wrapped in shard_map
+        @functools.partial(jax.jit)
+        @functools.partial(
+            shard_map,
+            mesh=mesh,
+            in_specs=(P('d', None, None, None), P('d', None, None, None), P('d', None, None, None)),
+            out_specs=P('d', None, None, None),
+            check_rep=False,
+        )
+        def baseline_step(q_loc, k_loc, v_loc):
+            s = jnp.matmul(q_loc, jnp.swapaxes(k_loc, -1, -2)) * float(1.0 / math.sqrt(d))
+            if causal:
+                mask = jnp.tril(jnp.ones((l, l), dtype=bool))
+                s = jnp.where(mask[None, None, :, :], s, -1e9)
+            p = jax.nn.softmax(s, axis=-1)
+            return jnp.matmul(p, v_loc)
 
         # Warmup
         for _ in range(10):
