@@ -29,15 +29,15 @@ import jax.numpy as jnp
 def _vmu_octic_kernel(s: jax.Array) -> jax.Array:
     """Evaluates octic algebraic kernel rho(s)^8 on VMU vector registers.
 
-    Base map: rho(s) = s + sqrt(1 + s^2) = r / (1 - s*r) for s < 0.
+    Base map: rho(s) = s + sqrt(1 + s^2) = s + (1 + s^2) * rsqrt(1 + s^2).
     Exact 3-stage squaring hierarchy: rho -> rho^2 -> rho^4 -> rho^8.
     Strictly zero transcendentals (0 exp, 0 log, 0 trig).
     """
     s_sq = s * s
-    r = lax.rsqrt(1.0 + s_sq)
-    u = s * r
-    denom = jnp.where(s < 0.0, 1.0 - u, 1.0)
-    rho = jnp.where(s < 0.0, r / denom, s + (1.0 + s_sq) * r)
+    one = jnp.array(1.0, dtype=s.dtype)
+    rad = one + s_sq
+    r = lax.rsqrt(rad)
+    rho = s + rad * r
     k2 = rho * rho
     k4 = k2 * k2
     return k4 * k4
@@ -265,8 +265,9 @@ def exact_afa_reference(
     seq_len = q.shape[-2]
     scale = float(1.0 / math.sqrt(head_dim))
 
-    # Raw attention logits: S = (Q @ K^T) * scale
-    s = jnp.matmul(q, jnp.swapaxes(k, -1, -2)) * scale
+    # Scale Q upfront once
+    q_scaled = (q * scale).astype(q.dtype)
+    s = jnp.matmul(q_scaled, jnp.swapaxes(k, -1, -2))
 
     # VMU octic kernel rho^8
     p = _vmu_octic_kernel(s)
@@ -277,11 +278,13 @@ def exact_afa_reference(
         p = jnp.where(mask[None, None, :, :], p, 0.0)
 
     # Additive output numerator and denominator
-    o = jnp.matmul(p.astype(v.dtype), v)
-    d = jnp.sum(p, axis=-1, keepdims=True)
+    p_v = p.astype(v.dtype)
+    o = jnp.matmul(p_v, v)
+    d = jnp.sum(p_v, axis=-1, keepdims=True)
 
-    # Final rational normalization
-    return (o / (d + sink_omega).astype(o.dtype)).astype(q.dtype)
+    # Fast normalization using reciprocal
+    inv_denom = lax.reciprocal(d + jnp.array(sink_omega, dtype=d.dtype))
+    return (o * inv_denom.astype(o.dtype)).astype(q.dtype)
 
 
 def tiled_afa_forward(
