@@ -1,0 +1,21 @@
+============================= test session starts ==============================
+platform linux -- Python 3.10.12, pytest-9.1.1, pluggy-1.6.0
+rootdir: /home/tas_ken_rt25/algebraic-intelligence
+configfile: pytest.ini
+testpaths: tests
+collecting ... collected 125 items
+
+tests/test_ago.py ............                                           [  9%]
+tests/test_attention.py ........................                         [ 28%]
+tests/test_loss.py ...............                                       [ 40%]
+tests/test_optimizer.py ...........                                      [ 49%]
+tests/test_pallas_afa.py .........                                       [ 56%]
+tests/test_phase1_records.py ....                                        [ 60%]
+tests/test_phase2_records.py ....                                        [ 63%]
+tests/test_phase3_records.py ....                                        [ 66%]
+tests/test_phase4_records.py ....                                        [ 69%]
+tests/test_phase5_records.py ....                                        [ 72%]
+tests/test_phase6_records.py ....                                        [ 76%]
+tests/test_primitives.py ..............................                  [100%]
+
+============================= 125 passed in 56.30s =============================

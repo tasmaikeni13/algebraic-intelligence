@@ -1,0 +1,25 @@
+Using ssh batch size of 1. Attempting to SSH into 1 nodes with a total of 4 workers.
+SSH: Attempting to connect to worker 0...
+SSH: Attempting to connect to worker 1...
+SSH: Attempting to connect to worker 2...
+SSH: Attempting to connect to worker 3...
+..................................................................................................................................................................................................................................................................................... [ 57%]
+......................s......... [ 57%]
+......................s...... [ 57%]
+......................s..... [ 57%]
+......................s.................................................................                    [100%]....................
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_phase6_records.py:95: TPU evidence not yet produced
+124 passed, 1 skipped in 55.37s
+.........                    [100%]........                    [100%].........                    [100%]
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_phase6_records.py:95: TPU evidence not yet produced
+124 passed, 1 skipped in 56.64s
+
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_phase6_records.py:95: TPU evidence not yet produced
+124 passed, 1 skipped in 56.94s
+
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_phase6_records.py:95: TPU evidence not yet produced
+124 passed, 1 skipped in 57.54s
