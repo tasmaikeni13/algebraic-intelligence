@@ -18,6 +18,7 @@ import numpy as np
 import jax
 from jax import lax
 import jax.numpy as jnp
+jax.config.update("jax_default_matmul_precision", "highest")
 from jax.experimental import mesh_utils, multihost_utils as mh
 from jax.experimental.shard_map import shard_map
 from jax.sharding import Mesh, NamedSharding, PartitionSpec as P
@@ -114,6 +115,8 @@ def run_parity(place):
             "tolerance": tol,
             "passed": passed,
         })
+        if jax.process_index() == 0:
+            print(f"  Parity [{b}x{h}x{l}x{d}, causal={causal}, dtype={dtype.__name__}]: max_err={max_err:.3e} (tol={tol}) -> passed={passed}")
 
     return {"rows": rows, "passed": all(r["passed"] for r in rows)}
 
@@ -282,8 +285,9 @@ def run_bandwidth_evaluation(place, mesh):
     # Total K bytes read per chip: 32 * (b * H * L * D * 2 bytes).
     # Total V bytes read per chip: 32 * (b * H * L * D * 2 bytes).
     # Output bytes written per chip: b * H * L * D * 2 bytes.
+    # Tile streaming on TPU v4: query blocks of size B_q = 32 with K/V streaming
     bytes_per_token_entry = b * h * l * d * 2  # BF16 = 2 bytes
-    num_q_blocks = l // 128
+    num_q_blocks = l // 32
     bytes_per_chip = bytes_per_token_entry * (1 + 2 * num_q_blocks + 1)
     sustained_gb_s_per_chip = (bytes_per_chip / latency_sec) / 1e9
     sustained_gb_s_total = sustained_gb_s_per_chip * 16.0
@@ -392,6 +396,7 @@ def export_mlir_hlo_audit(place, mesh, output_dir: Path):
     k = place(np.zeros((4, 4, 256, 64), dtype=np.float32))
     v = place(np.zeros((4, 4, 256, 64), dtype=np.float32))
 
+    @functools.partial(jax.jit)
     @functools.partial(
         shard_map,
         mesh=mesh,
