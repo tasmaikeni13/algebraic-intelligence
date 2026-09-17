@@ -1,7 +1,7 @@
 {
   "status": "PASS",
   "passed": true,
-  "elapsed_seconds": 16.176520109176636,
+  "elapsed_seconds": 16.067184686660767,
   "environment": {
     "python": "3.10.12 (main, Aug 31 2026, 10:18:17) [GCC 11.4.0]",
     "platform": "Linux-5.19.0-1022-gcp-x86_64-with-glibc2.35",
@@ -10,8 +10,8 @@
     "jaxlib": "0.6.2",
     "numpy": "2.2.6",
     "scipy": "1.15.3",
-    "git_commit": "c0aa4f0b942ca7c732e726effd39c5996f1aec20",
-    "git_dirty": true,
+    "git_commit": "367096a0ee064c6ed1c619ac667ea131438ee9c9",
+    "git_dirty": false,
     "source_sha256": {
       "formal/AlgebraicTheory/Gate.lean": "1372e78d076a59a436da23b48bc81f2e7540f2448aaa98e9b73db8eeb95f61e9",
       "formal/AlgebraicTheory/Variance.lean": "18f15e5bc1a88ca8466d519ae7759267961180a76651a016d27dd8823278ff15",
