@@ -62,6 +62,7 @@ def afa_kernel(
     block_q: int = 128,
     block_k: int = 128,
     head_dim: int = 128,
+    matmul_precision: lax.Precision = lax.Precision.DEFAULT,
     valid_seq_len: Optional[int] = None,
 ):
     """Pure Additive Algebraic FlashAttention Tile Kernel for TPU v4.
@@ -85,6 +86,7 @@ def afa_kernel(
         block_q: Query tile sequence length.
         block_k: Key tile sequence length.
         head_dim: Attention head dimension.
+        matmul_precision: TPU dot input precision contract.
         valid_seq_len: Optional unpadded active sequence length.
     """
     b_idx = pl.program_id(0)
@@ -113,7 +115,7 @@ def afa_kernel(
             q_tile,
             k_tile,
             (((1,), (1,)), ((), ())),
-            precision=lax.Precision.DEFAULT,
+            precision=matmul_precision,
             preferred_element_type=jnp.float32,
         ) * scale
 
@@ -136,7 +138,7 @@ def afa_kernel(
         o_acc_ref[...] = o_acc_ref[...] + lax.dot(
             p_bc.astype(v_tile.dtype),
             v_tile,
-            precision=lax.Precision.DEFAULT,
+            precision=matmul_precision,
             preferred_element_type=jnp.float32,
         )
 
@@ -239,6 +241,11 @@ def pallas_afa_forward(
         block_q=block_q,
         block_k=block_k,
         head_dim=head_dim,
+        matmul_precision=(
+            lax.Precision.DEFAULT
+            if q.dtype in (jnp.bfloat16, jnp.float16)
+            else lax.Precision.HIGHEST
+        ),
         valid_seq_len=valid_seq_len,
     )
 

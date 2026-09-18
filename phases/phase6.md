@@ -70,7 +70,8 @@ from jax.experimental import pallas as pl
 def afa_kernel(
     q_ref, k_ref, v_ref, o_ref, o_acc_ref, d_acc_ref, *,
     scale: float, sink_omega: float, causal: bool, num_k_blocks: int,
-    block_q: int, block_k: int, head_dim: int, valid_seq_len: int | None,
+    block_q: int, block_k: int, head_dim: int, matmul_precision,
+    valid_seq_len: int | None,
 ):
     """
     Pure Additive Algebraic FlashAttention Tile Kernel for TPU v4.
@@ -93,7 +94,7 @@ def afa_kernel(
         q_ref[0, 0],
         k_ref[0, 0],
         (((1,), (1,)), ((), ())),
-        precision=lax.Precision.DEFAULT,
+        precision=matmul_precision,
         preferred_element_type=jnp.float32,
     ) * scale
     
@@ -116,7 +117,7 @@ def afa_kernel(
     o_acc_ref[...] += lax.dot(
         p_bc.astype(v_ref.dtype),
         v_ref[0, 0],
-        precision=lax.Precision.DEFAULT,
+        precision=matmul_precision,
         preferred_element_type=jnp.float32,
     )
     
@@ -167,6 +168,11 @@ def pallas_afa_forward(q, k, v, sink_omega=0.5):
         block_q=B_q,
         block_k=B_k,
         head_dim=head_dim,
+        matmul_precision=(
+            lax.Precision.DEFAULT
+            if q.dtype in (jnp.bfloat16, jnp.float16)
+            else lax.Precision.HIGHEST
+        ),
         valid_seq_len=None,
     )
     

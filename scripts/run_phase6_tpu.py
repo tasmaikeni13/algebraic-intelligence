@@ -18,7 +18,6 @@ import numpy as np
 import jax
 from jax import lax
 import jax.numpy as jnp
-jax.config.update("jax_default_matmul_precision", "highest")
 from jax.experimental import mesh_utils, multihost_utils as mh
 from jax.experimental.shard_map import shard_map
 from jax.sharding import Mesh, NamedSharding, PartitionSpec as P
