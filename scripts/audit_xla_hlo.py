@@ -13,7 +13,12 @@ os.environ.setdefault('JAX_ENABLE_X64', '1')
 os.environ.setdefault('OPENBLAS_NUM_THREADS', '1')
 
 import re
+from pathlib import Path
+import sys
 from typing import Any, Dict
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 
 import jax
 import jax.numpy as jnp

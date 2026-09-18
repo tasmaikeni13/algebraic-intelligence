@@ -121,6 +121,16 @@ def main():
             for k in (
                 'parity',
                 'benchmarks',
+                'hlo_audit',
+            )
+        )
+        inventory = (
+            inventory
+            and len(h.get('hlo_audit', {}).get('rows', [])) >= 2
+            and all(
+                (not row.get('name', '').endswith('ards_step'))
+                or (row.get('raw_sqrt_count') == 0 and row.get('rsqrt_count', 0) >= 2)
+                for row in h.get('hlo_audit', {}).get('rows', [])
             )
         )
         r['hardware'] = {

@@ -37,7 +37,11 @@ def _vmu_octic_kernel(s: jax.Array) -> jax.Array:
     one = jnp.array(1.0, dtype=s.dtype)
     rad = one + s_sq
     r = lax.rsqrt(rad)
-    rho = s + rad * r
+    u = s * r
+    # Avoid catastrophic cancellation in s + sqrt(1+s^2) for negative
+    # scores.  From (1-u)(1+u)=r^2, rho=r/(1-u) on that branch.
+    denominator = jnp.where(s < 0, one - u, one)
+    rho = jnp.where(s < 0, r / denominator, s + rad * r)
     k2 = rho * rho
     k4 = k2 * k2
     return k4 * k4
@@ -161,11 +165,24 @@ def pallas_afa_forward(
     Returns:
         Attention output tensor Y of shape matching q and input dtype.
     """
+    if q.ndim != 4 or k.ndim != 4 or v.ndim != 4:
+        raise ValueError("q, k, and v must all have shape (batch, heads, sequence, dimension)")
+    if q.shape != k.shape or q.shape != v.shape:
+        raise ValueError(f"q, k, and v shapes must match, got {q.shape}, {k.shape}, and {v.shape}")
+    if not (0.0 <= sink_omega < float("inf")):
+        raise ValueError("sink_omega must be finite and nonnegative")
+    if block_q <= 0 or block_k <= 0:
+        raise ValueError("block_q and block_k must be positive")
+
     batch_size, num_heads, seq_len, head_dim = q.shape
+    if head_dim <= 0:
+        raise ValueError("head dimension must be positive")
     if seq_len % block_q != 0 or seq_len % block_k != 0:
         raise ValueError(
             f"seq_len ({seq_len}) must be divisible by block_q ({block_q}) and block_k ({block_k})"
         )
+    if valid_seq_len is not None and not 0 < valid_seq_len <= seq_len:
+        raise ValueError("valid_seq_len must be in [1, seq_len]")
 
     num_q_blocks = seq_len // block_q
     num_k_blocks = seq_len // block_k
@@ -261,6 +278,10 @@ def exact_afa_reference(
     Returns:
         Exact attention output tensor.
     """
+    if q.ndim != 4 or q.shape != k.shape or q.shape != v.shape:
+        raise ValueError("q, k, and v must have the same four-dimensional shape")
+    if not (0.0 <= sink_omega < float("inf")):
+        raise ValueError("sink_omega must be finite and nonnegative")
     head_dim = q.shape[-1]
     seq_len = q.shape[-2]
     scale = float(1.0 / math.sqrt(head_dim))
@@ -315,7 +336,18 @@ def tiled_afa_forward(
     Returns:
         Attention output tensor Y.
     """
+    if q.ndim != 4 or q.shape != k.shape or q.shape != v.shape:
+        raise ValueError("q, k, and v must have the same four-dimensional shape")
+    if not (0.0 <= sink_omega < float("inf")):
+        raise ValueError("sink_omega must be finite and nonnegative")
+    if block_q <= 0 or block_k <= 0:
+        raise ValueError("block_q and block_k must be positive")
+
     batch_size, num_heads, seq_len, head_dim = q.shape
+    if seq_len % block_q != 0 or seq_len % block_k != 0:
+        raise ValueError("sequence length must be divisible by both tile dimensions")
+    if valid_seq_len is not None and not 0 < valid_seq_len <= seq_len:
+        raise ValueError("valid_seq_len must be in [1, seq_len]")
     scale = float(1.0 / math.sqrt(head_dim))
     num_q_blocks = seq_len // block_q
     num_k_blocks = seq_len // block_k
@@ -470,12 +502,18 @@ def algebraic_flash_attention(
     Returns:
         Attention output tensor Y of shape (B, H, L, D).
     """
+    if q.ndim != 4 or q.shape != k.shape or q.shape != v.shape:
+        raise ValueError("q, k, and v must have the same four-dimensional shape")
+    if block_q <= 0 or block_k <= 0:
+        raise ValueError("block_q and block_k must be positive")
+
     orig_seq_len = q.shape[-2]
+    tile_multiple = math.lcm(block_q, block_k)
 
     # Check if padding is needed to reach tile multiples
-    rem = orig_seq_len % block_q
+    rem = orig_seq_len % tile_multiple
     if rem != 0:
-        pad_len = block_q - rem
+        pad_len = tile_multiple - rem
         pad_config = [(0, 0), (0, 0), (0, pad_len), (0, 0)]
         q_pad = jnp.pad(q, pad_config)
         k_pad = jnp.pad(k, pad_config)
@@ -520,4 +558,3 @@ def algebraic_flash_attention(
         out = out[:, :, :orig_seq_len, :]
 
     return out
-

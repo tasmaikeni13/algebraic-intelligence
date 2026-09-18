@@ -9,7 +9,7 @@ def oace_loss_fp64(
     gamma: float = 2.0,
     reduction: Optional[str] = "mean",
 ) -> np.ndarray:
-    """Independent float64 NumPy implementation of OACE loss."""
+    """Independent float64 NumPy implementation of the proper OACE score."""
     p = np.asarray(probabilities, dtype=np.float64)
     targets = np.asarray(targets)
     gamma = float(gamma)
@@ -17,8 +17,10 @@ def oace_loss_fp64(
     if targets.ndim == p.ndim - 1 and targets.shape == p.shape[:-1]:
         # Integer targets
         y = (np.arange(p.shape[-1]) == np.expand_dims(targets, -1)).astype(np.float64)
+        target_power_sum = np.ones(p.shape[:-1], dtype=np.float64)
     elif targets.shape == p.shape:
         y = targets.astype(np.float64)
+        target_power_sum = np.sum(np.where(y > 0.0, y ** (7.0 / 8.0), 0.0), axis=-1)
     else:
         raise ValueError(f"Incompatible shapes: probs {p.shape}, targets {targets.shape}")
 
@@ -27,7 +29,11 @@ def oace_loss_fp64(
     r2 = 1.0 / np.sqrt(r1)
     r3 = 1.0 / np.sqrt(r2)
 
-    loss = gamma * 8.0 * (np.sum(y * r3, axis=-1) - 1.0)
+    loss = gamma * (
+        8.0 * np.sum(y * r3, axis=-1)
+        + (8.0 / 7.0) * np.sum(p * r3, axis=-1)
+        - (64.0 / 7.0) * target_power_sum
+    )
 
     if reduction == "mean":
         return np.mean(loss)
@@ -63,8 +69,8 @@ def oace_vjp_fp64(
     r3 = 1.0 / np.sqrt(r2)
 
     upstream = np.expand_dims(upstream, -1)
-    # dL/dp_i = -gamma * y_i * p_i^{-9/8} = -gamma * y_i * r3 * r1^2
-    dp = -gamma * y * r3 * (r1 * r1) * upstream
+    # dL/dp_i = gamma * (p_i^-1/8 - y_i p_i^-9/8)
+    dp = gamma * r3 * (1.0 - y * (r1 * r1)) * upstream
     return dp
 
 

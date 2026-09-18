@@ -122,14 +122,21 @@ def boundary_stability(place):
         loss_finite = bool(jax.block_until_ready(jnp.all(jnp.isfinite(loss))))
         dp_finite = bool(jax.block_until_ready(jnp.all(jnp.isfinite(dp))))
 
-        # Gradient at target has magnitude 8 * pk^{-1/8} (from Thm 4.15)
-        bound = float(8.0 * (pk ** (-1.0 / 8.0)))
-        passed = bool(loss_finite and dp_finite and bound <= 107.0)
+        # This is the probability-domain gradient.  It is intentionally not
+        # confused with the finite gradient after composition with
+        # AVN-bounded A-Softmax.
+        target_grad = float(jax.block_until_ready(jnp.max(jnp.abs(dp[..., 0]))))
+        expected = abs(pk ** (-1.0 / 8.0) - pk ** (-9.0 / 8.0))
+        scaled_error = abs(target_grad - expected) / (1.0 + expected)
+        passed = bool(loss_finite and dp_finite and scaled_error <= 2.0e-4)
         rows.append({
             "pk": pk,
             "loss_finite": loss_finite,
             "dp_finite": dp_finite,
-            "bound": bound,
+            "probability_gradient_magnitude": target_grad,
+            "expected_probability_gradient_magnitude": expected,
+            "scaled_error": scaled_error,
+            "tolerance": 2.0e-4,
             "passed": passed,
         })
     return {"rows": rows, "passed": all(r["passed"] for r in rows)}

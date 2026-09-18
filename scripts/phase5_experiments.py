@@ -40,6 +40,10 @@ def audit():
 
     # 1. Source AST walk
     violations = source_audit(source)
+    for node in ast.walk(ast.parse(source)):
+        name = node.attr if isinstance(node, ast.Attribute) else node.id if isinstance(node, ast.Name) else None
+        if name == "sqrt":
+            violations.append({"line": node.lineno, "name": name})
 
     # 2. Token / regex check on non-comment/non-string tokens
     tokens = []
@@ -66,7 +70,7 @@ def audit():
     graph_violations = {}
     for name, trace in traces.items():
         counts = primitives_in(trace)
-        invalid = sorted(set(counts.keys()) & FORBIDDEN)
+        invalid = sorted(set(counts.keys()) & (FORBIDDEN | {"sqrt"}))
         if invalid:
             graph_violations[name] = invalid
 

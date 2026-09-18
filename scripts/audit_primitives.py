@@ -4,6 +4,10 @@ import ast
 from collections import Counter
 from pathlib import Path
 import re
+import sys
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 
 import jax
 import jax.numpy as jnp
@@ -50,7 +54,7 @@ def primitives_in(value):
 
 
 def audit():
-    source = Path(__file__).resolve().parents[1].joinpath("src/primitives.py").read_text()
+    source = ROOT.joinpath("src/primitives.py").read_text()
     x = jnp.ones((2, 8), dtype=jnp.float32)
     traces = {
         "alu_forward": jax.make_jaxpr(alu)(x),

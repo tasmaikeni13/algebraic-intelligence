@@ -275,12 +275,31 @@ def main():
     if jax.process_index() == 0:
         print("TPU benchmarks:", r["benchmarks"]["passed"], flush=True)
 
+    hlo_rows = []
+    for name, content in hlo.items():
+        lower = content.lower()
+        is_ards = "ards_step" in name
+        row = {
+            "name": name,
+            "raw_sqrt_count": lower.count("stablehlo.sqrt "),
+            "rsqrt_count": lower.count("stablehlo.rsqrt "),
+        }
+        row["passed"] = (not is_ards) or (
+            row["raw_sqrt_count"] == 0 and row["rsqrt_count"] >= 2
+        )
+        hlo_rows.append(row)
+    r["hlo_audit"] = {
+        "rows": hlo_rows,
+        "passed": bool(hlo_rows) and all(row["passed"] for row in hlo_rows),
+    }
+
     r["passed"] = all(
         r[k]["passed"]
         for k in (
             "parity",
             "quadratic_sweep",
             "benchmarks",
+            "hlo_audit",
         )
     )
 

@@ -28,6 +28,17 @@ class GradientTransformation(NamedTuple):
     update: Callable[[Any, AlgebraicAdamWState, Optional[Any]], Tuple[Any, AlgebraicAdamWState]]
 
 
+def _algebraic_square_root(x: jax.Array) -> jax.Array:
+    """Evaluate the nonnegative square root using only rsqrt and multiply.
+
+    The explicit zero branch avoids the indeterminate product ``0 * rsqrt(0)``.
+    This keeps exact Optax-style ``sqrt(v) + eps`` semantics without emitting a
+    square-root opcode outside the project's permitted primitive set.
+    """
+    inverse_root = jax.lax.rsqrt(x)
+    return jnp.where(x == 0, jnp.zeros_like(x), x * inverse_root)
+
+
 def _rational_power(base: jax.Array, n: jax.Array) -> jax.Array:
     """Exact polynomial power via 24-bit binary exponentiation: O(log t) multiplications.
 
@@ -114,8 +125,10 @@ def algebraic_adamw(
         eps: Small stability constant (default: 1e-8).
         weight_decay: Decoupled weight decay factor (default: 1e-2).
         mask: Optional PyTree mask or predicate callable for selective weight decay.
-        use_rsqrt: If True, preconditions via hat_m * rsqrt(hat_v + eps^2);
-                   if False, preconditions via hat_m / (sqrt(hat_v) + eps) matching Optax.
+        use_rsqrt: If True, preconditions via hat_m * rsqrt(hat_v + eps^2).
+            If False, retains exact Optax ``sqrt(hat_v) + eps`` semantics but
+            constructs the square root as ``hat_v * rsqrt(hat_v)`` so the
+            compiled graph still contains no raw square-root instruction.
 
     Returns:
         Optax-compatible GradientTransformation with init and update functions.
@@ -173,7 +186,7 @@ def algebraic_adamw(
             )
         else:
             preconditioned = jax.tree_util.tree_map(
-                lambda m, v: (m / debias1) / (jnp.sqrt(v / debias2) + eps_val),
+                lambda m, v: (m / debias1) / (_algebraic_square_root(v / debias2) + eps_val),
                 new_mu,
                 new_nu,
             )

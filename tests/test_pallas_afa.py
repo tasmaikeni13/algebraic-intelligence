@@ -22,6 +22,7 @@ import numpy as np
 import pytest
 
 from src.kernels.pallas_afa import (
+    _vmu_octic_kernel,
     afa_kernel,
     pallas_afa_forward,
     tiled_afa_forward,
@@ -29,6 +30,7 @@ from src.kernels.pallas_afa import (
     distributed_ring_afa,
     algebraic_flash_attention,
 )
+from src.attention import octic_kernel
 from tests.reference_attention import reference_afa
 
 
@@ -78,6 +80,15 @@ def test_reference_oracle_parity():
     diff = np.max(np.abs(ref_np - np.array(ref_jax)))
     rel_err = diff / np.max(np.abs(ref_np))
     assert rel_err <= 1.0e-12, f"Oracle mismatch: {rel_err}"
+
+
+def test_vmu_kernel_negative_tail_is_cancellation_safe():
+    """Phase 6 must retain the stable negative-tail identity from Phase 2."""
+    scores = jnp.array([-1.0e2, -1.0e3, -1.0e4], dtype=jnp.float32)
+    phase2 = np.asarray(octic_kernel(scores), dtype=np.float64)
+    phase6 = np.asarray(_vmu_octic_kernel(scores), dtype=np.float64)
+    assert np.all(phase6 > 0.0)
+    np.testing.assert_allclose(phase6, phase2, rtol=2e-5, atol=0.0)
 
 
 def test_tiled_afa_numerical_accuracy_fp64():
@@ -156,6 +167,24 @@ def test_unified_interface_arbitrary_seq_len():
     assert y_unified.shape == (B, H, L, D)
     rel_err = np.max(np.abs(np.array(y_unified) - y_oracle)) / np.max(np.abs(y_oracle))
     assert rel_err <= 1.0e-5, f"Unified interface error too high: {rel_err}"
+
+
+def test_unified_interface_uses_common_tile_multiple():
+    """Different query/key tile sizes must not silently drop a remainder."""
+    key = jax.random.PRNGKey(205)
+    shape = (1, 1, 190, 32)
+    q = jax.random.normal(key, shape)
+    k = jax.random.normal(jax.random.fold_in(key, 1), shape)
+    v = jax.random.normal(jax.random.fold_in(key, 2), shape)
+    actual = algebraic_flash_attention(q, k, v, block_q=64, block_k=128)
+    expected = exact_afa_reference(q, k, v)
+    np.testing.assert_allclose(actual, expected, rtol=2e-5, atol=2e-5)
+
+
+def test_tiled_interface_rejects_partial_tiles():
+    x = jnp.ones((1, 1, 190, 32), dtype=jnp.float32)
+    with pytest.raises(ValueError, match="divisible"):
+        tiled_afa_forward(x, x, x, block_q=64, block_k=128)
 
 
 def test_additive_tile_associativity():

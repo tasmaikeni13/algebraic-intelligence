@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 
 from scripts.audit_primitives import FORBIDDEN, primitives_in, source_audit
+from src.attention import algebraic_softmax
 from src.loss import oace_loss, pearson_divergence
 from tests.reference_loss import (
     cross_entropy_fp64,
@@ -68,7 +69,7 @@ def test_oace_distribution_targets_parity():
 
 
 def test_simplex_boundary_stability():
-    """Verify zero NaNs, zero Infs, and bounded gradient at simplex boundary p_k = 1e-9."""
+    """Distinguish the probability gradient from the bounded composed score gradient."""
     K = 10
     pk_vals = np.logspace(-9, np.log10(1.0 - 1e-9), num=1000)
     for pk in pk_vals:
@@ -85,29 +86,49 @@ def test_simplex_boundary_stability():
         grad = np.asarray(jax.grad(lambda x: oace_loss(x, target, gamma=1.0))(p_jax))
         assert np.all(np.isfinite(grad)), f"Grad not finite at pk={pk}: {grad}"
 
-        # At target, grad is -pk^{-9/8}
-        # Magnitude at pk=1e-9 is 1e-9^{-1/8} * (1e-9)^{-1}
-        # In terms of logit-bounded gradient from Theorem 4.15:
-        # 8 * pk^{-1/8} <= 8 * (1e-9)^{-1/8} ~ 106.68
-        bound_eighth = 8.0 * (pk ** (-1.0 / 8.0))
-        assert bound_eighth <= 107.0, f"Exceeded boundary bound at pk={pk}: {bound_eighth}"
+        expected_target_grad = pk ** (-1.0 / 8.0) - pk ** (-9.0 / 8.0)
+        np.testing.assert_allclose(grad[0], expected_target_grad, rtol=2e-12, atol=1e-12)
+
+    # AVN-bounded A-Softmax supplies the finite score-space guarantee used by
+    # training.  This is deliberately a separate assertion from dL/dp above.
+    def composed(scores):
+        probabilities = algebraic_softmax(scores, sink_omega=0.5)
+        return oace_loss(probabilities, 0, gamma=1.0)
+
+    for scale in np.logspace(-3, 15, 64):
+        scores = jnp.linspace(-scale, scale, K, dtype=jnp.float64)
+        score_grad = np.asarray(jax.grad(composed)(scores))
+        assert np.all(np.isfinite(score_grad))
 
 
 def test_strict_propriety_and_monotonicity():
-    """Verify L_{1/8}(pk) is strictly proper, monotonic, with min 0.0 at pk = 1.0."""
-    pk_vals = np.linspace(1e-6, 1.0, 100_000, dtype=np.float64)
-    # L(pk) = 8 * (pk^{-1/8} - 1)
-    loss = 8.0 * (pk_vals ** (-1.0 / 8.0) - 1.0)
+    """The corrected power score is minimized at p=y, including soft targets."""
+    rng = np.random.default_rng(47)
+    for _ in range(100):
+        y_raw = rng.uniform(0.05, 1.0, size=8)
+        q_raw = rng.uniform(0.05, 1.0, size=8)
+        y = y_raw / y_raw.sum()
+        q = q_raw / q_raw.sum()
+        y_jax = jnp.asarray(y, dtype=jnp.float64)
+        q_jax = jnp.asarray(q, dtype=jnp.float64)
 
-    # Minimum at pk = 1.0
-    min_loss = float(loss[-1])
-    assert abs(min_loss) <= 1e-15, f"Minimum value at pk=1.0 must be 0.0, got {min_loss}"
-    assert np.all(loss >= -1e-15), "Loss must be non-negative everywhere"
+        at_truth = float(oace_loss(y_jax, y_jax, gamma=1.0))
+        away = float(oace_loss(q_jax, y_jax, gamma=1.0))
+        assert abs(at_truth) <= 2e-14
+        assert away > at_truth
 
-    # Strictly monotonically decreasing: dL/dpk = -pk^{-9/8} < 0
-    deriv = -pk_vals ** (-9.0 / 8.0)
-    assert np.all(deriv < 0.0), "Derivative must be strictly negative on (0, 1]"
-    assert np.all(np.diff(loss) < 0.0), "Loss must be strictly monotonically decreasing"
+        grad_at_truth = jax.grad(lambda p: oace_loss(p, y_jax, gamma=1.0))(y_jax)
+        np.testing.assert_allclose(grad_at_truth, 0.0, atol=2e-13)
+
+    # Along the symmetric hard-label path, increasing the target probability
+    # strictly decreases the proper score toward its unique boundary minimum.
+    pk_vals = np.linspace(1e-6, 1.0 - 1e-9, 10_000)
+    probs = np.full((len(pk_vals), 8), 0.0)
+    probs[:, 0] = pk_vals
+    probs[:, 1:] = ((1.0 - pk_vals) / 7.0)[:, None]
+    losses = np.asarray(oace_loss(jnp.asarray(probs), jnp.zeros(len(pk_vals), dtype=jnp.int32), gamma=1.0, reduction="none"))
+    assert np.all(losses >= -1e-12)
+    assert np.all(np.diff(losses) < 0.0)
 
 
 @pytest.mark.parametrize("dtype,tol", [(jnp.float64, 1e-13), (jnp.float32, 1e-5)])

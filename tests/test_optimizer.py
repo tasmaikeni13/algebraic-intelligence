@@ -177,6 +177,10 @@ def test_optimizer_zero_transcendental_audit():
 
     # 1. AST audit
     violations = source_audit(source)
+    for node in ast.walk(ast.parse(source)):
+        name = node.attr if isinstance(node, ast.Attribute) else node.id if isinstance(node, ast.Name) else None
+        if name == "sqrt":
+            violations.append({"line": node.lineno, "name": name})
     assert violations == [], f"AST audit detected forbidden nodes: {violations}"
 
     # 2. Token-level regex inspection
@@ -196,7 +200,7 @@ def test_optimizer_zero_transcendental_audit():
 
     jaxpr_up = jax.make_jaxpr(lambda p, s, g: opt.update(g, s, p))(p, s, g)
     counts_up = primitives_in(jaxpr_up)
-    forbidden_up = set(counts_up.keys()) & FORBIDDEN
+    forbidden_up = set(counts_up.keys()) & (FORBIDDEN | {"sqrt"})
     assert forbidden_up == set(), f"Forbidden primitives in update graph: {forbidden_up}"
 
     sched = ards_schedule(1e-3, 100, 1000, alpha=1.0)
