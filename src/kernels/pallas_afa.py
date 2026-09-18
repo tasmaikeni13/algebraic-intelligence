@@ -109,7 +109,12 @@ def afa_kernel(
         v_tile = v_ref[0, 0]  # (block_k, head_dim)
 
         # 2a. Systolic Matrix Multiplication on MXU: S = (Q @ K^T) * scale
-        s_bc = jnp.matmul(q_tile, k_tile.T) * scale
+        s_bc = lax.dot_general(
+            q_tile,
+            k_tile,
+            (((1,), (1,)), ((), ())),
+            preferred_element_type=jnp.float32,
+        ) * scale
 
         # 2b. Three-Stage Squaring Kernel on VMU: P = rho(S)^8
         p_bc = _vmu_octic_kernel(s_bc)
@@ -127,7 +132,11 @@ def afa_kernel(
 
         # 2e. Pure Additive Tile Accumulation (NO running-max subtraction!):
         # Accumulate numerator: O_b += P_bc @ V_c (MXU matmul)
-        o_acc_ref[...] = o_acc_ref[...] + jnp.matmul(p_bc.astype(v_tile.dtype), v_tile)
+        o_acc_ref[...] = o_acc_ref[...] + lax.dot(
+            p_bc.astype(v_tile.dtype),
+            v_tile,
+            preferred_element_type=jnp.float32,
+        )
 
         # Accumulate denominator: D_b += sum_j P_bc[:, j] (VMU reduction)
         # Mosaic's TPU layout represents a row reduction as a [block_q, 1]

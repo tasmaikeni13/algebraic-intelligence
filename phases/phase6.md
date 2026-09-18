@@ -89,7 +89,12 @@ def afa_kernel(
         d_acc_ref[...] = jnp.zeros_like(d_acc_ref)
     
     # 1. Systolic Matrix Multiply on MXU: S_bc = (Q_b @ K_c^T) * scale
-    s_bc = jnp.matmul(q_ref[0, 0], k_ref[0, 0].T) * scale
+    s_bc = lax.dot_general(
+        q_ref[0, 0],
+        k_ref[0, 0],
+        (((1,), (1,)), ((), ())),
+        preferred_element_type=jnp.float32,
+    ) * scale
     
     # 2. Causal Masking (if applicable) using rational negative floor:
     # Under Zero-Transcendental Axiom, masked positions receive large negative value
@@ -107,7 +112,11 @@ def afa_kernel(
     
     # 4. Pure Additive Tile Accumulation (Zero running-max subtraction!):
     # Accumulate into numerator matrix: O_b += P_bc @ V_c (MXU matmul)
-    o_acc_ref[...] += jnp.matmul(p_bc.astype(v_ref.dtype), v_ref[0, 0])
+    o_acc_ref[...] += lax.dot(
+        p_bc.astype(v_ref.dtype),
+        v_ref[0, 0],
+        preferred_element_type=jnp.float32,
+    )
     
     # Accumulate row sums while retaining Mosaic's 128-lane layout.
     d_acc_ref[...] += jnp.sum(p_bc, axis=1)[:, None]
