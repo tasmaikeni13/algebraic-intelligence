@@ -52,7 +52,7 @@ FORBIDDEN_HLO_OPS = [
 ]
 
 
-def run_parity(place):
+def run_parity(place, mesh):
     """Verify Algebraic FlashAttention numerical parity on TPU against float64 oracle."""
     rng = np.random.default_rng(642 + jax.process_index())
     rows = []
@@ -80,16 +80,29 @@ def run_parity(place):
         v = place(v_host).astype(dtype)
 
         # Exercise the production Pallas kernel, not the un-tiled reference.
-        afa_call = jax.jit(
-            functools.partial(
-                pallas_afa_forward,
+        @functools.partial(jax.jit)
+        @functools.partial(
+            shard_map,
+            mesh=mesh,
+            in_specs=(
+                P('d', None, None, None),
+                P('d', None, None, None),
+                P('d', None, None, None),
+            ),
+            out_specs=P('d', None, None, None),
+            check_rep=False,
+        )
+        def afa_call(q_loc, k_loc, v_loc):
+            return pallas_afa_forward(
+                q_loc,
+                k_loc,
+                v_loc,
                 sink_omega=0.5,
                 causal=causal,
                 block_q=128,
                 block_k=128,
                 interpret=False,
             )
-        )
         out_afa = jax.block_until_ready(afa_call(q, k, v))
 
         local_stats = []
@@ -504,7 +517,7 @@ def main():
     # 1. Parity evaluation
     if p_idx == 0:
         print("Running numerical parity checks...")
-    parity_res = run_parity(place)
+    parity_res = run_parity(place, mesh)
 
     # 2. Benchmarks
     if p_idx == 0:
