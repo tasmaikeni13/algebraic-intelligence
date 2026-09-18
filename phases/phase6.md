@@ -113,7 +113,7 @@ def afa_kernel(
     @pl.when(k_blk_idx == num_k_blocks - 1)
     def finalize():
         o_ref[0, 0] = o_acc_ref[...].astype(o_ref.dtype)
-        d_ref[0, 0] = d_acc_ref[...]
+        d_ref[0, 0, :, 0] = d_acc_ref[...]
 ```
 
 ### 3.2 Pallas Grid & Memory BlockSpecs
@@ -144,7 +144,7 @@ def pallas_afa_forward(q, k, v, sink_omega=0.5):
     ]
     out_specs = [
         pl.BlockSpec((1, 1, B_q, head_dim), lambda b, h, i, j: (b, h, i, 0)),
-        pl.BlockSpec((1, 1, B_q), lambda b, h, i, j: (b, h, i)),
+        pl.BlockSpec((1, 1, B_q, 1), lambda b, h, i, j: (b, h, i, 0)),
     ]
     kernel_fn = functools.partial(
         afa_kernel,
@@ -174,7 +174,7 @@ def pallas_afa_forward(q, k, v, sink_omega=0.5):
         kernel_fn,
         out_shape=[
             jax.ShapeDtypeStruct(q.shape, q.dtype),
-            jax.ShapeDtypeStruct((batch_size, num_heads, seq_len), jnp.float32),
+            jax.ShapeDtypeStruct((batch_size, num_heads, seq_len, 1), jnp.float32),
         ],
         grid_spec=grid_spec,
         compiler_params=pltpu.CompilerParams(
@@ -184,7 +184,7 @@ def pallas_afa_forward(q, k, v, sink_omega=0.5):
     )(q, k, v)
     
     # Final normalization in VMU: Y = O / (D + sink_omega)
-    return out_o / (out_d[..., None] + sink_omega)
+    return out_o / (out_d + sink_omega)
 ```
 
 ---

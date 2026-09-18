@@ -75,7 +75,7 @@ def afa_kernel(
         k_ref: Slice of K in VMEM of shape (1, 1, block_k, head_dim).
         v_ref: Slice of V in VMEM of shape (1, 1, block_k, head_dim).
         o_ref: Output numerator slice in VMEM of shape (1, 1, block_q, head_dim).
-        d_ref: Output denominator slice in VMEM of shape (1, 1, block_q).
+        d_ref: Output denominator slice in VMEM of shape (1, 1, block_q, 1).
         o_acc_ref: VMEM scratch accumulator for numerator of shape (block_q, head_dim).
         d_acc_ref: VMEM scratch accumulator for denominator of shape (block_q,).
         scale: Scaling factor 1 / sqrt(head_dim).
@@ -135,7 +135,7 @@ def afa_kernel(
     @pl.when(k_blk_idx == (num_k_blocks - 1))
     def _finalize():
         o_ref[0, 0] = o_acc_ref[...].astype(o_ref.dtype)
-        d_ref[0, 0] = d_acc_ref[...]
+        d_ref[0, 0, :, 0] = d_acc_ref[...]
 
 
 def pallas_afa_forward(
@@ -199,7 +199,9 @@ def pallas_afa_forward(
     ]
     out_specs = [
         pl.BlockSpec((1, 1, block_q, head_dim), lambda b, h, i, j: (b, h, i, 0)),
-        pl.BlockSpec((1, 1, block_q), lambda b, h, i, j: (b, h, i)),
+        # Keep a trailing singleton dimension so TPU's block-layout rule sees
+        # (block_q, 1): block_q is divisible by 8 and 1 is the full last dim.
+        pl.BlockSpec((1, 1, block_q, 1), lambda b, h, i, j: (b, h, i, 0)),
     ]
 
     accum_dtype = jnp.float64 if q.dtype == jnp.float64 else jnp.float32
@@ -244,7 +246,7 @@ def pallas_afa_forward(
         kernel_fn,
         out_shape=[
             jax.ShapeDtypeStruct(q.shape, q.dtype),
-            jax.ShapeDtypeStruct((batch_size, num_heads, seq_len), accum_dtype),
+            jax.ShapeDtypeStruct((batch_size, num_heads, seq_len, 1), accum_dtype),
         ],
         grid_spec=grid_spec,
         compiler_params=compiler_params,
@@ -252,7 +254,7 @@ def pallas_afa_forward(
     )(q, k, v)
 
     # Final normalization on VMU: Y = O / (D + sink_omega)
-    denom = out_d[..., None] + sink_omega
+    denom = out_d + sink_omega
     return (out_o / denom.astype(out_o.dtype)).astype(q.dtype)
 
 
