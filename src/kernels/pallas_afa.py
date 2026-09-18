@@ -52,7 +52,6 @@ def afa_kernel(
     k_ref,
     v_ref,
     o_ref,
-    d_ref,
     o_acc_ref,
     d_acc_ref,
     *,
@@ -62,6 +61,7 @@ def afa_kernel(
     num_k_blocks: int = 1,
     block_q: int = 128,
     block_k: int = 128,
+    head_dim: int = 128,
     valid_seq_len: Optional[int] = None,
 ):
     """Pure Additive Algebraic FlashAttention Tile Kernel for TPU v4.
@@ -74,16 +74,17 @@ def afa_kernel(
         q_ref: Slice of Q in VMEM of shape (1, 1, block_q, head_dim).
         k_ref: Slice of K in VMEM of shape (1, 1, block_k, head_dim).
         v_ref: Slice of V in VMEM of shape (1, 1, block_k, head_dim).
-        o_ref: Output numerator slice in VMEM of shape (1, 1, block_q, head_dim).
-        d_ref: Output denominator slice in VMEM of shape (1, 1, block_q, 1).
+        o_ref: Normalized output slice in VMEM of shape (1, 1, block_q, head_dim).
         o_acc_ref: VMEM scratch accumulator for numerator of shape (block_q, head_dim).
-        d_acc_ref: VMEM scratch accumulator for denominator of shape (block_q,).
+        d_acc_ref: TPU-layout-safe replicated denominator scratch of shape
+            (block_q, 128).
         scale: Scaling factor 1 / sqrt(head_dim).
         sink_omega: Nonnegative attention sink scalar mass.
         causal: Boolean flag indicating causal autoregressive masking.
         num_k_blocks: Total number of key/value tiles along sequence dimension.
         block_q: Query tile sequence length.
         block_k: Key tile sequence length.
+        head_dim: Attention head dimension.
         valid_seq_len: Optional unpadded active sequence length.
     """
     b_idx = pl.program_id(0)
@@ -129,13 +130,21 @@ def afa_kernel(
         o_acc_ref[...] = o_acc_ref[...] + jnp.matmul(p_bc.astype(v_tile.dtype), v_tile)
 
         # Accumulate denominator: D_b += sum_j P_bc[:, j] (VMU reduction)
-        d_acc_ref[...] = d_acc_ref[...] + jnp.sum(p_bc, axis=-1)
+        # Mosaic's TPU layout represents a row reduction as a [block_q, 1]
+        # value broadcast across a 128-lane minor dimension.  Keeping that
+        # representation in scratch avoids an unsupported implicit layout
+        # change to a rank-1 vector.
+        d_acc_ref[...] = d_acc_ref[...] + jnp.sum(p_bc, axis=1)[:, None]
 
     # 3. Write out accumulated sums on the final key tile (k_blk_idx == num_k_blocks - 1)
     @pl.when(k_blk_idx == (num_k_blocks - 1))
     def _finalize():
-        o_ref[0, 0] = o_acc_ref[...].astype(o_ref.dtype)
-        d_ref[0, 0, :, 0] = d_acc_ref[...]
+        if head_dim <= 128:
+            denominator = d_acc_ref[:, :head_dim]
+        else:
+            denominator = pltpu.repeat(d_acc_ref[...], head_dim // 128, axis=1)
+        normalized = o_acc_ref[...] / (denominator + sink_omega)
+        o_ref[0, 0] = normalized.astype(o_ref.dtype)
 
 
 def pallas_afa_forward(
@@ -177,6 +186,8 @@ def pallas_afa_forward(
     batch_size, num_heads, seq_len, head_dim = q.shape
     if head_dim <= 0:
         raise ValueError("head dimension must be positive")
+    if head_dim > 128 and head_dim % 128 != 0:
+        raise ValueError("head dimensions above 128 must be divisible by 128 for TPU layout")
     if seq_len % block_q != 0 or seq_len % block_k != 0:
         raise ValueError(
             f"seq_len ({seq_len}) must be divisible by block_q ({block_q}) and block_k ({block_k})"
@@ -197,18 +208,15 @@ def pallas_afa_forward(
         pl.BlockSpec((1, 1, block_k, head_dim), lambda b, h, i, j: (b, h, j, 0)),
         pl.BlockSpec((1, 1, block_k, head_dim), lambda b, h, i, j: (b, h, j, 0)),
     ]
-    out_specs = [
-        pl.BlockSpec((1, 1, block_q, head_dim), lambda b, h, i, j: (b, h, i, 0)),
-        # Keep a trailing singleton dimension so TPU's block-layout rule sees
-        # (block_q, 1): block_q is divisible by 8 and 1 is the full last dim.
-        pl.BlockSpec((1, 1, block_q, 1), lambda b, h, i, j: (b, h, i, 0)),
-    ]
+    out_specs = pl.BlockSpec(
+        (1, 1, block_q, head_dim), lambda b, h, i, j: (b, h, i, 0)
+    )
 
     accum_dtype = jnp.float64 if q.dtype == jnp.float64 else jnp.float32
 
     scratch_shapes = [
         pltpu.VMEM((block_q, head_dim), accum_dtype),
-        pltpu.VMEM((block_q,), accum_dtype),
+        pltpu.VMEM((block_q, 128), accum_dtype),
     ]
 
     kernel_fn = functools.partial(
@@ -219,6 +227,7 @@ def pallas_afa_forward(
         num_k_blocks=num_k_blocks,
         block_q=block_q,
         block_k=block_k,
+        head_dim=head_dim,
         valid_seq_len=valid_seq_len,
     )
 
@@ -242,20 +251,15 @@ def pallas_afa_forward(
         dimension_semantics=("parallel", "parallel", "parallel", "arbitrary")
     )
 
-    out_o, out_d = pl.pallas_call(
+    out_o = pl.pallas_call(
         kernel_fn,
-        out_shape=[
-            jax.ShapeDtypeStruct(q.shape, q.dtype),
-            jax.ShapeDtypeStruct((batch_size, num_heads, seq_len, 1), accum_dtype),
-        ],
+        out_shape=jax.ShapeDtypeStruct(q.shape, q.dtype),
         grid_spec=grid_spec,
         compiler_params=compiler_params,
         interpret=interpret,
     )(q, k, v)
 
-    # Final normalization on VMU: Y = O / (D + sink_omega)
-    denom = out_d + sink_omega
-    return (out_o / denom.astype(out_o.dtype)).astype(q.dtype)
+    return out_o
 
 
 def exact_afa_reference(

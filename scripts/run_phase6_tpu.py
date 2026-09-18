@@ -325,7 +325,9 @@ def run_streaming_contract_evaluation(place, mesh):
 
     block_q = block_k = 128
     input_tile_bytes = (block_q * d + 2 * block_k * d) * 2
-    accumulator_bytes = (block_q * d + block_q + block_q * block_k) * 4
+    # Denominators occupy a replicated 128-lane scratch layout required by
+    # Mosaic's TPU row-reduction lowering.
+    accumulator_bytes = (block_q * d + block_q * 128 + block_q * block_k) * 4
     conservative_tile_working_set_bytes = input_tile_bytes + accumulator_bytes
     vmem_budget_bytes = 16 * 1024 * 1024
     minimum_external_bytes = 4 * b * h * l * d * 2

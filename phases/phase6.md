@@ -68,9 +68,9 @@ from jax import lax
 from jax.experimental import pallas as pl
 
 def afa_kernel(
-    q_ref, k_ref, v_ref, o_ref, d_ref, o_acc_ref, d_acc_ref, *,
+    q_ref, k_ref, v_ref, o_ref, o_acc_ref, d_acc_ref, *,
     scale: float, sink_omega: float, causal: bool, num_k_blocks: int,
-    block_q: int, block_k: int, valid_seq_len: int | None,
+    block_q: int, block_k: int, head_dim: int, valid_seq_len: int | None,
 ):
     """
     Pure Additive Algebraic FlashAttention Tile Kernel for TPU v4.
@@ -78,7 +78,9 @@ def afa_kernel(
     """
     # q_ref: (1, 1, B_q, d) VMEM window
     # k_ref/v_ref: (1, 1, B_k, d) VMEM windows
-    # o_acc_ref/d_acc_ref: persistent VMEM scratch across key blocks
+    # o_acc_ref: (B_q, d) numerator scratch across key blocks
+    # d_acc_ref: (B_q, 128) replicated denominator scratch. Mosaic represents
+    # row reductions in this TPU-layout-safe 128-lane form.
     k_blk_idx = pl.program_id(3)
 
     @pl.when(k_blk_idx == 0)
@@ -107,13 +109,13 @@ def afa_kernel(
     # Accumulate into numerator matrix: O_b += P_bc @ V_c (MXU matmul)
     o_acc_ref[...] += jnp.matmul(p_bc.astype(v_ref.dtype), v_ref[0, 0])
     
-    # Accumulate into denominator vector: D_b += sum_j P_bc[:, j] (VMU reduction)
-    d_acc_ref[...] += jnp.sum(p_bc, axis=-1)
+    # Accumulate row sums while retaining Mosaic's 128-lane layout.
+    d_acc_ref[...] += jnp.sum(p_bc, axis=1)[:, None]
 
     @pl.when(k_blk_idx == num_k_blocks - 1)
     def finalize():
-        o_ref[0, 0] = o_acc_ref[...].astype(o_ref.dtype)
-        d_ref[0, 0, :, 0] = d_acc_ref[...]
+        denominator = d_acc_ref[:, :head_dim]  # D <= 128 shown here
+        o_ref[0, 0] = (o_acc_ref[...] / (denominator + sink_omega)).astype(o_ref.dtype)
 ```
 
 ### 3.2 Pallas Grid & Memory BlockSpecs
@@ -142,10 +144,9 @@ def pallas_afa_forward(q, k, v, sink_omega=0.5):
         pl.BlockSpec((1, 1, B_k, head_dim), lambda b, h, i, j: (b, h, j, 0)),
         pl.BlockSpec((1, 1, B_k, head_dim), lambda b, h, i, j: (b, h, j, 0)),
     ]
-    out_specs = [
-        pl.BlockSpec((1, 1, B_q, head_dim), lambda b, h, i, j: (b, h, i, 0)),
-        pl.BlockSpec((1, 1, B_q, 1), lambda b, h, i, j: (b, h, i, 0)),
-    ]
+    out_specs = pl.BlockSpec(
+        (1, 1, B_q, head_dim), lambda b, h, i, j: (b, h, i, 0)
+    )
     kernel_fn = functools.partial(
         afa_kernel,
         scale=scale,
@@ -154,6 +155,7 @@ def pallas_afa_forward(q, k, v, sink_omega=0.5):
         num_k_blocks=seq_len // B_k,
         block_q=B_q,
         block_k=B_k,
+        head_dim=head_dim,
         valid_seq_len=None,
     )
     
@@ -167,15 +169,12 @@ def pallas_afa_forward(q, k, v, sink_omega=0.5):
         out_specs=out_specs,
         scratch_shapes=[
             pltpu.VMEM((B_q, head_dim), jnp.float32),
-            pltpu.VMEM((B_q,), jnp.float32),
+            pltpu.VMEM((B_q, 128), jnp.float32),
         ],
     )
-    out_o, out_d = pl.pallas_call(
+    out_o = pl.pallas_call(
         kernel_fn,
-        out_shape=[
-            jax.ShapeDtypeStruct(q.shape, q.dtype),
-            jax.ShapeDtypeStruct((batch_size, num_heads, seq_len, 1), jnp.float32),
-        ],
+        out_shape=jax.ShapeDtypeStruct(q.shape, q.dtype),
         grid_spec=grid_spec,
         compiler_params=pltpu.CompilerParams(
             dimension_semantics=("parallel", "parallel", "parallel", "arbitrary")
@@ -183,8 +182,7 @@ def pallas_afa_forward(q, k, v, sink_omega=0.5):
         interpret=False,
     )(q, k, v)
     
-    # Final normalization in VMU: Y = O / (D + sink_omega)
-    return out_o / (out_d + sink_omega)
+    return out_o
 ```
 
 ---
