@@ -1,13 +1,13 @@
 # Phase 1 PASS — gate version 2
 
-Completed 2026-09-16 on the required four-host, 16-chip TPU v4 slice. All CPU, formal, numerical, purity, statistical, and hardware gates pass.
+Reverified 2026-09-18 on the required four-host, 16-chip TPU v4 slice. All CPU, formal, numerical, purity, statistical, and hardware gates pass.
 
 ## Gate inventory
 
 | Gate | Outcome and direct evidence |
 | --- | --- |
 | Lean certificates | Clean root build; no warnings or project placeholders: [lean-build.log](lean-build.log), `metrics.json:formal` |
-| Unit and evidence validation | 34 tests passed: [pytest.log](pytest.log) |
+| Unit and evidence validation | 128 repository tests passed: [pytest.log](pytest.log) |
 | Algebraic purity | Zero forbidden source/graph operations; cached ALU/AVN VJPs contain no division or rsqrt: `metrics.json:purity` |
 | Reflection / derivative / inflection | Errors 0 / 4.440892098500626e-16 / 0: `metrics.json:numerical` |
 | ALU Lipschitz | 1.0443310539518174 ≤ 1.05: `metrics.json:numerical` |
@@ -23,14 +23,14 @@ Completed 2026-09-16 on the required four-host, 16-chip TPU v4 slice. All CPU, f
 
 | Dtype | Operation | Latency µs, mean ± SEM | 95% CI µs | Baseline / algebraic throughput |
 | --- | --- | --- | --- | --- |
-| float32 | alu_forward | 355.88 ± 3.67 | [348.59, 363.17] | 1.0405 |
-| float32 | avn_forward | 357.39 ± 3.47 | [350.49, 364.28] | 1.0019 |
-| float32 | alu_forward_backward | 459.21 ± 4.23 | [450.81, 467.62] | 1.0243 |
-| float32 | avn_forward_backward | 511.42 ± 43.82 | [424.48, 598.37] | 1.2085 |
-| bfloat16 | alu_forward | 365.66 ± 14.86 | [336.17, 395.15] | 1.0304 |
-| bfloat16 | avn_forward | 353.87 ± 11.92 | [330.22, 377.53] | 1.0100 |
-| bfloat16 | alu_forward_backward | 700.50 ± 255.61 | [193.30, 1207.69] | 1.0424 |
-| bfloat16 | avn_forward_backward | 461.66 ± 14.88 | [432.13, 491.18] | 1.2307 |
+| float32 | alu_forward | 363.07 ± 16.52 | [330.30, 395.84] | 1.0633 |
+| float32 | avn_forward | 463.85 ± 115.80 | [234.08, 693.61] | 1.0362 |
+| float32 | alu_forward_backward | 448.98 ± 2.63 | [443.77, 454.19] | 1.0424 |
+| float32 | avn_forward_backward | 466.66 ± 7.66 | [451.46, 481.86] | 1.2220 |
+| bfloat16 | alu_forward | 350.49 ± 2.67 | [345.19, 355.79] | 1.0356 |
+| bfloat16 | avn_forward | 350.22 ± 4.01 | [342.27, 358.17] | 1.0230 |
+| bfloat16 | alu_forward_backward | 437.53 ± 2.96 | [431.66, 443.39] | 1.0365 |
+| bfloat16 | avn_forward_backward | 451.30 ± 9.92 | [431.61, 470.99] | 1.2209 |
 
 ## TPU residual study
 

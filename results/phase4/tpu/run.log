@@ -6,13 +6,13 @@ SSH: Attempting to connect to worker 3...
 TPU parity: True
 TPU boundary stability: True
 TPU Fisher equivalence: True
-TPU loss benchmark float32 K=256 {'forward': 1.074, 'forward_backward': 1.061}
-TPU loss benchmark float32 K=1024 {'forward': 1.077, 'forward_backward': 1.059}
-TPU loss benchmark float32 K=4096 {'forward': 1.047, 'forward_backward': 1.059}
-TPU loss benchmark float32 K=32000 {'forward': 1.068, 'forward_backward': 1.036}
-TPU loss benchmark bfloat16 K=256 {'forward': 1.084, 'forward_backward': 1.048}
-TPU loss benchmark bfloat16 K=1024 {'forward': 1.055, 'forward_backward': 1.074}
-TPU loss benchmark bfloat16 K=4096 {'forward': 1.069, 'forward_backward': 1.062}
-TPU loss benchmark bfloat16 K=32000 {'forward': 1.036, 'forward_backward': 1.05}
+TPU loss benchmark float32 K=256 {'forward': 1.059, 'forward_backward': 1.053}
+TPU loss benchmark float32 K=1024 {'forward': 1.051, 'forward_backward': 1.038}
+TPU loss benchmark float32 K=4096 {'forward': 1.069, 'forward_backward': 1.061}
+TPU loss benchmark float32 K=32000 {'forward': 1.047, 'forward_backward': 1.038}
+TPU loss benchmark bfloat16 K=256 {'forward': 1.048, 'forward_backward': 1.043}
+TPU loss benchmark bfloat16 K=1024 {'forward': 1.072, 'forward_backward': 1.051}
+TPU loss benchmark bfloat16 K=4096 {'forward': 1.07, 'forward_backward': 1.054}
+TPU loss benchmark bfloat16 K=32000 {'forward': 1.054, 'forward_backward': 1.045}
 TPU benchmarks: True
 TPU PHASE 4 PASS

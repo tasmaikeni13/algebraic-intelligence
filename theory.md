@@ -55,14 +55,14 @@ Historically, artificial intelligence has inherited its mathematical toolkit fro
 
 We challenge the necessity of this transcendental foundation. We argue that cognitive intelligence—defined as the capacity for hierarchical abstraction, relational reasoning, associative memory retrieval, sequence induction, and in-context learning—does not fundamentally depend on transcendental calculus. Intelligence is fundamentally an algebraic phenomenon: it arises from the composition of multilinear maps, polynomial representations, projective normalizations, group-theoretic rotations, and rational optimization dynamics over ordered fields.
 
-By eliminating every transcendental function, we demonstrate that algebraic operations are not merely approximations to continuous ideals; they provide strictly superior mathematical properties on discrete computing substrates: bounded derivatives, uniform Lipschitz guarantees, exact tile commutativity, rational attention sinks, and quantization stability.
+Eliminating transcendental functions exposes a different set of mathematical and hardware tradeoffs: bounded primitive derivatives, normalized-coordinate entrywise Jacobian bounds, exact tile commutativity, rational attention sinks, and regime-dependent quantization behavior. The empirical gates below report both favorable results and retained counterexamples rather than asserting uniform superiority.
 
 ### 1.4 Outline of the Algebraic Stack
 
 The paper is organized around the foundational layers of the Algebraic Stack:
 - **Section 2** establishes the three foundational primitives: the Algebraic Variance Scalar $\tau$, the Algebraic Gate $\beta$, and the Algebraic Kernel $\rho$.
 - **Section 3** develops the Algebraic Linear Unit (ALU), establishing its $\mathcal{O}(1)$ backward pass, Lipschitz constant, and exact inflection point alignment with GELU.
-- **Section 4** develops the Algebraic Softmax (A-Softmax) operator with algebraic power-sharpening ($n = 8$), the $\alpha$-Algebraic Cross-Entropy ($\alpha$-ACE) family with its canonical Octo-Algebraic Cross-Entropy (OACE) at $\alpha = 1/n$, proving the uniform Jacobian bound and FP4 quantization stability.
+- **Section 4** develops the Algebraic Softmax (A-Softmax) operator with algebraic power-sharpening ($n = 8$), the $\alpha$-Algebraic Cross-Entropy ($\alpha$-ACE) family with its canonical Octo-Algebraic Cross-Entropy (OACE) at $\alpha = 1/n$, proving a normalized-coordinate entrywise Jacobian bound and characterizing both favorable and unfavorable quantization regimes.
 - **Section 5** develops the Algebraic Divergence (AD), establishing strict propriety on the simplex interior, Pearson $\chi^2$ equivalence, and elimination of gradient explosion under AVN pre-bounding.
 - **Section 6** establishes Algebraic Variance Normalization (AVN), proving the zero-parameter HBM corollary and the Coupling Identity.
 - **Section 7** presents Algebraic Geometric Ordering (AGO) via static rank-2 Cayley rotations, proving exact shift equivariance and $\mathcal{O}(1)$ autoregressive updates.
@@ -249,7 +249,7 @@ Zero transcendental function unit cycles are consumed.
 
 ### 4.7 Quantization Robustness and Rational Attention Sinks
 
-**Proposition 4.10 (FP4 Quantization Robustness and Outlier Dampening).** Because $\rho$ is globally 2-Lipschitz, $\operatorname{Var}(\rho(X)) \le 4\operatorname{Var}(X)$. In trained transformers where attention score matrices contain prominent logit outliers (e.g. specialized key tokens and attention sinks), exponential softmax suffers from severe variance inflation, while A-Softmax pre-bounds coordinates via AVN and dampens perturbations through its entrywise Lipschitz-bounded kernel, achieving over $100\times$ noise reduction ($\Delta_{\text{soft}} / \Delta_{\text{alg}} \approx 228.17\times$). Under unscaled Gaussian inputs without outliers, local sensitivity is governed by the derivative at tied logits.
+**Proposition 4.10 (FP4 Quantization Characterization).** Because $\rho$ is globally 2-Lipschitz, $\operatorname{Var}(\rho(X)) \le 4\operatorname{Var}(X)$. In the declared canonical outlier benchmark ($K=128$, $s_0\mathrel{+}=6$, noise $\sigma=0.05$), A-Softmax pre-bounding yields a measured displacement ratio $\Delta_{\text{soft}} / \Delta_{\text{alg}} \approx 354.5$. This is an empirical result for that regime, not a uniform theorem: retained unscaled-Gaussian counterexamples show that A-Softmax can be more locally sensitive than Softmax.
 
 **Corollary 4.11 (Rational Attention Sinks).** The production API adds $\Omega\ge0$ to the denominator: $p_i=\rho(\hat{s}_i)^8/(Z+\Omega)$, where $Z=\sum_j\rho(\hat{s}_j)^8$. Token mass is $Z/(Z+\Omega)\le1$, and omitted sink mass is $\Omega/(Z+\Omega)$. The zero-sink formulas above are recovered at $\Omega=0$. The positive lower bound becomes $\rho(-\sqrt K)^8/(K\rho(\sqrt K)^8+\Omega)$.
 
@@ -801,7 +801,7 @@ The Phase 4 experiment contract is versioned in `phases/phase4.md`. Key findings
    domains and is withdrawn; the corrected gate checks finite gradients and
    analytical/autodiff agreement without asserting variance superiority.
 
-## Phase 5 implementation audit (2026-09-16)
+## Phase 5 implementation audit (2026-09-18)
 
 The Phase 5 experiment contract is versioned in `phases/phase5.md`. Key findings:
 1. **AdamW Native Algebraic Purity:** The standard AdamW update rule is inherently algebraic: moment accumulators
@@ -815,20 +815,32 @@ The Phase 5 experiment contract is versioned in `phases/phase5.md`. Key findings
 3. **Empirical Optimization Validation:** Evaluated across $10,000$ ill-conditioned quadratic surfaces with condition
    numbers $\kappa \in [10^2, 10^6]$, achieving $100\%$ loss reduction in 300 steps. Matches or slightly outperforms Cosine
    Annealing on non-convex stochastic landscapes (Rosenbrock $-2.39\%$ final loss, Rastrigin $+0.08\%$).
+4. **Default AdamW denominator semantics:** The default path preserves
+   $\hat m/(\sqrt{\hat v}+\epsilon)$ while constructing $\sqrt{\hat v}$ as
+   $\hat v\operatorname{rsqrt}(\hat v)$ with an explicit zero branch. Compiled
+   FP32 and BF16 ARDS steps contain two `rsqrt` operations and zero raw `sqrt`.
 
-## Phase 6 implementation audit (2026-09-16)
+## Phase 6 implementation audit (2026-09-18)
 
 The Phase 6 experiment contract is versioned in `phases/phase6.md`. Key findings:
 1. **Pure Additive Tiling in Vector Memory (VMEM):** Algebraic FlashAttention (AFA) completely replaces running-max
    subtraction $\exp(m_{\text{old}} - m_{\text{new}})$ with pure additive tile accumulation in TPU TensorCore Vector
    Memory (VMEM) and 128×128 Matrix Multiply Units (MXUs). The octic kernel evaluates via a 3-stage squaring circuit
    in VMU registers with strictly zero transcendental library calls.
-2. **Lock-Free Distributed Ring Attention over ICI:** Because partial numerators $\mathbf{O}_b^{(p)}$ and denominators
+2. **Implementation identity and baseline:** Numerical parity, HLO auditing, and
+   timing all exercise the real `pallas_afa_forward` kernel. At $L=2048$ and
+   $L=4096$, it reaches throughput ratios $1.0177$ and $1.0266$ against
+   `jax.experimental.pallas.ops.tpu.flash_attention`.
+3. **Storage rather than invented bandwidth:** The conservative live tile set
+   is 288 KiB within the 16 MiB VMEM budget. Physical HBM utilization is not
+   inferred from logical reads and latency; such a claim requires profiler
+   counters and is not a Phase 6 gate.
+4. **Lock-Free Distributed Ring Attention over ICI:** Because partial numerators $\mathbf{O}_b^{(p)}$ and denominators
    $\mathbf{D}_b^{(p)}$ are purely additive, sequence-parallel Ring Attention across the 16 TPU v4 chips over the 3D Torus
    Inter-Chip Interconnect (ICI) requires zero inter-tile normalization synchronization barriers. A single final rational
    normalization evaluates at the conclusion of the ring traversal:
    $$\mathbf{Y}_b = \frac{\sum_{p=1}^{16} \mathbf{O}_b^{(p)}}{\Omega + \sum_{p=1}^{16} \mathbf{D}_b^{(p)}}.$$
-3. **Static XLA HLO Opcode Purity:** Inspection of lowered XLA HLO graphs confirms exactly 0 transcendental opcodes
+5. **Static XLA HLO Opcode Purity:** Inspection of lowered XLA HLO graphs confirms exactly 0 transcendental opcodes
    (`exponential`, `logarithm`, `sine`, `cosine`, `tanh`, `sigmoid`) and verifies that all matrix operations target the
    hardware systolic MXU directly.
 

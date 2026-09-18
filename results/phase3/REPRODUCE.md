@@ -3,7 +3,7 @@
 Run these commands in a fresh shell to reproduce the CPU and formal verification suite:
 
 ```bash
-git clone -b alternative https://github.com/tasmaikeni13/algebraic-intelligence.git
+git clone https://github.com/tasmaikeni13/algebraic-intelligence.git
 cd algebraic-intelligence
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt

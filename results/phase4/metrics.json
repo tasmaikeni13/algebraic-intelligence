@@ -9,7 +9,7 @@
     "jaxlib": "0.6.2",
     "numpy": "2.2.6",
     "scipy": "1.15.3",
-    "git_commit": "9fb3a7c2757756a28c508cd16a59f8a32ad7b744",
+    "git_commit": "a79de941f108066baac6a6abb3a30563da1f29ac",
     "git_dirty": true,
     "source_sha256": {
       "formal/AlgebraicTheory/Gate.lean": "1372e78d076a59a436da23b48bc81f2e7540f2448aaa98e9b73db8eeb95f61e9",
@@ -22,7 +22,7 @@
       "requirements-tpu.txt": "f18692d6a965b40a88c992986517edd25020ff568192045b8fbb7279a29e9e15",
       "requirements.txt": "509b55f548b3934bb2b8e1dde76964c4a0b2f187eb0654f18458f70cc8198848",
       "scripts/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "scripts/audit_primitives.py": "4534611e8f3e08eec0352cbd18323d20321ad85d8bd301d09daa69a6a001c67f",
+      "scripts/audit_primitives.py": "6576a6fb39e461a6339d5c27e03c33a0cf7e238a83384cbf66d97c5411d142c2",
       "scripts/launch_phase1_tpu.py": "45b6b39979f385acd723e1c1d9b625ee0418d8ea692698cb1acfc44cc8f273e8",
       "scripts/phase1_experiments.py": "0b9b83f048289076fd12f801d5239f74b8a4cf2e881ce6d3bba37b08c01aece0",
       "scripts/phase1_records.py": "d4063fa54dcda34a2d4aac9ecc58ce752bb6dc54080a10d87cd0c30cc6b5e3f1",
@@ -35,7 +35,7 @@
       "tests/reference_primitives.py": "fee82b0cef2e6d8dab94785f562e3adfd911bd5499f5335e964f08b03ff732a1",
       "tests/test_phase1_records.py": "0656bd9fe8b1c5203784f2d8df2e66762a18302235b61816a31f508c310c2e9b",
       "tests/test_primitives.py": "7045962476f1bb01a4609048745889bcf26d9d570f8d203d7e46364ad2d6554b",
-      "formal/AlgebraicTheory/Kernel.lean": "d37f9546c574abd1431e34d8965b4c3040c6b1dc981b93da79bba7cb5a57177e",
+      "formal/AlgebraicTheory/Kernel.lean": "a933646e02901e8d913f8e3b981de08c2f3c551e790ed4fb9c9d9961ecc0030c",
       "phases/phase2.md": "264e34962e2b06338804260af0a93e4c52e33a81055b19a4be90ff23cb496023",
       "scripts/launch_phase2_tpu.py": "2ef00e5ec9c4782a91287dd0005d2b2e279a7dfd3b84172b8865b67cb5a16675",
       "scripts/phase2_counterexamples.py": "f4c6f240438d67fd31c81b15014a8586a60a03b55b3f65b99f4d5e6121e7615e",
@@ -44,7 +44,7 @@
       "scripts/run_phase2_tpu.py": "3df75d5c0ca2cffba30e1de6882222f6c6708ec69b9feb5d42b239c0d1cca127",
       "scripts/run_verify_attention.py": "5c4a3146fefc10b65c9e25f9cb521c25f48b8e57c5e165ee4627c834781a361f",
       "src/attention.py": "91c46503d1e2d3272b7cbcd3cecd5d50232979078a0349e9ca198c954c16c60d",
-      "tests/reference_attention.py": "49fec6c6dd1fb6f666d72a5d22ac8cbe26f8c21e207742d324d4280e5eb1d761",
+      "tests/reference_attention.py": "4fe0808730099e41c5e15684e0db1928379b48c7cdf90ac6751fec10e69cc4c7",
       "tests/test_attention.py": "3e3eb35de837517bddd13b46b6576d797f4d536a37e3f0086080a0d7462161bd",
       "formal/AlgebraicTheory/Cayley.lean": "bd975dd2e4825b366a6ed991e799f2b178aa84cdb860ec5d1a82db0571aa0cde",
       "phases/phase3.md": "7a042294ca11ae715483a77a295c7977088ca10253cdd406fa7d2e5a29969fe2",
@@ -55,16 +55,16 @@
       "scripts/run_verify_ago.py": "9a6a5452c9420da1700507d411fb02f0fd8245d237b5c894e8b7a36c10d113bd",
       "tests/reference_ago.py": "013ca58cec4711e4621f77fd24718d6ace66be6d57c0af58a5b4cbefbb22ea8c",
       "tests/test_ago.py": "05d48cc0b1df173a53572d36961f20484c0dad1ede8e5acc57b32c1b4426cbbd",
-      "formal/AlgebraicTheory/Loss.lean": "cdeb962c22c7b2dab59d15216c3ebfd87a8a8f56a723cd8c3cd72ab3c2ef739f",
-      "phases/phase4.md": "381c87df158bcbed85e600fb3abfb5edb8882613eb677dea5edf912a3a6327d8",
+      "formal/AlgebraicTheory/Loss.lean": "7f9f3739a9ce93bb227e78531674bf9da5bd252c7c5bb9407a1788ccfd81ad89",
+      "phases/phase4.md": "fa5ada6fb1a2cdf1fe2e1cf234ad37337174120ade924fe4bfd56a43c55f134c",
       "scripts/launch_phase4_tpu.py": "6f8644f5766c48acc92005c05c026f46c8920298df6a159731002f77930d301f",
-      "scripts/phase4_experiments.py": "d079758c9a39df9827f573fbd888b5e6d05ba406ce416d5ea24ebb17bbbb9523",
+      "scripts/phase4_experiments.py": "f07cb3de4b684ad9724bbef463e247aced06d6cff365150016c359ae83c3bf11",
       "scripts/phase4_records.py": "a26e4c2a66be6faf4d962d2cdcc42b8a7ff75aa8bcbe5aa05f02684bbed0b6d0",
-      "scripts/run_phase4_tpu.py": "9b1191093e3cb0963537b76be5551364124c8851013b6c4d55f0af44363fca23",
+      "scripts/run_phase4_tpu.py": "5d23fe0a140943b2da1bb4c5ff78707ac8d1b7759fdce82dc4117bcb4ed34d59",
       "scripts/run_verify_loss.py": "ff10299ac4377bf6ef790217c317e0cbc0fb1c9938c50af2dd47ba34914f17e9",
-      "src/loss.py": "76789e11a20b03cb8325e8ec7a31c9f398f38c4244228611345b6a5893ecb245",
-      "tests/reference_loss.py": "fbe95857e1a7e717613c0ef81a1dff600b9a5127dfa29a88a03ce8bb7d40217b",
-      "tests/test_loss.py": "d1c3b92dd5f688b8aa66348e1d03d012e6a0b5232b4f5cc9f2f2041d3a211462"
+      "src/loss.py": "02c99d85c450343db5a2c15a25f2b744a1e7b2676c177d8a495ae5398a53a6f4",
+      "tests/reference_loss.py": "f28f2b824f7c7c67e625a783032959a13b619752a2c209e269f57a4fa292eb88",
+      "tests/test_loss.py": "ca70c4779ee8aac6d2edbbd4beade80ebbc20e1c87d7e0faa0b9de2fc2af4929"
     }
   },
   "command": [
@@ -99,31 +99,34 @@
       0.0,
       0.3
     ],
-    "variance_ce": 490.29375410151704,
-    "variance_oace": 1.7059993523099082,
-    "variance_ratio": 0.0034795453501875024,
-    "variance_ratio_threshold": 0.5,
-    "summary_ce": {
+    "gradient_domain": "logits",
+    "finite": true,
+    "analytical_vs_autodiff_max_error": 1.1102230246251565e-15,
+    "consistency_tolerance": 2e-12,
+    "variance_ce_norm": 0.07474887787395343,
+    "variance_oace_norm": 0.17029243698976398,
+    "variance_ratio_descriptive": 2.2781938917788507,
+    "summary_ce_norm": {
       "n": 100000,
-      "mean": 7.324413573519343,
-      "sem": 0.07002132939955423,
+      "mean": 0.6111756233250409,
+      "sem": 0.0008645786567467827,
       "ci95": [
-        7.187172628614373,
-        7.461654518424313
+        0.6094810597854153,
+        0.6128701868646665
       ],
-      "min": 1.0191900128809657,
-      "max": 1528.0166287741517
+      "min": 0.020171588570197383,
+      "max": 1.3925282817003208
     },
-    "summary_oace": {
+    "summary_oace_norm": {
       "n": 100000,
-      "mean": 9.251496089936685,
-      "sem": 0.004130395153582806,
+      "mean": 0.7999086653532168,
+      "sem": 0.0013049679686918114,
       "ci95": [
-        9.243400566207422,
-        9.259591613665949
+        0.7973509441755449,
+        0.8024663865308888
       ],
-      "min": 8.019030806700252,
-      "max": 20.003500299715732
+      "min": 0.04229943274335325,
+      "max": 3.341056672982123
     },
     "passed": true
   },
@@ -133,9 +136,11 @@
     "pk_max": 0.999999999,
     "has_nan": false,
     "has_inf": false,
-    "max_grad_magnitude": 106.68171457306592,
-    "grad_at_boundary": 106.68171457306592,
-    "theoretical_bound": 107.0,
+    "probability_gradient_at_boundary": 13335214308.298025,
+    "probability_gradient_max_scaled_error": 5.771218529500068e-16,
+    "score_gradient_max_magnitude": 6794.725126733753,
+    "score_gradient_all_finite": true,
+    "note": "dL/dp is singular as p approaches zero; AVN+A-Softmax makes the composed score gradient finite",
     "passed": true
   },
   "fisher_information_ratio": {
@@ -148,8 +153,10 @@
   },
   "strict_propriety_and_monotonicity": {
     "samples": 100000,
-    "min_value_at_one": 0.0,
-    "non_negative": true,
+    "dimension": 10,
+    "max_abs_score_at_truth": 5.329070518200751e-15,
+    "minimum_random_competitor_regret": 0.009974488339189236,
+    "max_stationarity_error": 2.220446049250313e-16,
     "strictly_decreasing": true,
     "passed": true
   },
@@ -162,9 +169,9 @@
       "mean_grad_variance": 0.0187407060698024
     },
     "oace": {
-      "final_loss": 2.715407609939575,
+      "final_loss": 3.1611220836639404,
       "test_accuracy": 0.7475,
-      "mean_grad_variance": 0.12407031975055967
+      "mean_grad_variance": 0.48998625405365603
     },
     "accuracy_delta": 0.004999999999999893,
     "passed": true

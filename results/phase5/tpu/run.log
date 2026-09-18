@@ -5,9 +5,9 @@ SSH: Attempting to connect to worker 2...
 SSH: Attempting to connect to worker 3...
 TPU parity: True
 TPU quadratic sweep: True
-TPU optimizer benchmark float32 shape=(1024, 1024) ratio=1.004
-TPU optimizer benchmark float32 shape=(2048, 2048) ratio=1.007
-TPU optimizer benchmark bfloat16 shape=(1024, 1024) ratio=1.008
-TPU optimizer benchmark bfloat16 shape=(2048, 2048) ratio=1.000
+TPU optimizer benchmark float32 shape=(1024, 1024) ratio=0.997
+TPU optimizer benchmark float32 shape=(2048, 2048) ratio=1.002
+TPU optimizer benchmark bfloat16 shape=(1024, 1024) ratio=1.001
+TPU optimizer benchmark bfloat16 shape=(2048, 2048) ratio=1.003
 TPU benchmarks: True
 TPU PHASE 5 PASS

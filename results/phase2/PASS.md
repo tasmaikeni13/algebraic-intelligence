@@ -1,6 +1,6 @@
 # Phase 2 PASS — Octic Algebraic Attention & 2-Lipschitz Bounds (A-Softmax)
 
-Completed 2026-09-16 on the required four-host, 16-chip TPU v4 slice (`my-tpu-v4` in `us-central2-b`). All CPU, formal Lean 4, numerical parity, purity, statistical Monte Carlo, 2-Lipschitz Jacobian, and distributed TPU hardware gates pass with zero failures.
+Reverified 2026-09-18 on the required four-host, 16-chip TPU v4 slice (`my-tpu-v4` in `us-central2-b`). All CPU, formal Lean 4, numerical parity, purity, statistical Monte Carlo, normalized-coordinate entrywise Jacobian, and distributed TPU hardware gates pass with zero failures.
 
 ---
 
@@ -9,7 +9,7 @@ Completed 2026-09-16 on the required four-host, 16-chip TPU v4 slice (`my-tpu-v4
 | Gate | Requirement | Outcome | Direct Evidence |
 | :--- | :--- | :--- | :--- |
 | **Lean Certificates** | Clean compilation of `formal/AlgebraicTheory/Kernel.lean`; 0 sorry, 0 admit, 0 axioms | 1526 jobs compiled cleanly; 0 warnings | [`formal/lean-build.log`](lean-build.log), [`formal/AlgebraicTheory/Kernel.lean`](../../formal/AlgebraicTheory/Kernel.lean), `metrics.json:formal` |
-| **Unit & Evidence Suite** | Comprehensive pytest coverage (oracles, VJP, AST purity, edge cases) | 58 passed in 11.46s | [`pytest.log`](pytest.log), [`tests/test_attention.py`](../../tests/test_attention.py) |
+| **Unit & Evidence Suite** | Comprehensive pytest coverage (oracles, VJP, AST purity, edge cases) | 128 repository tests passed | [`pytest.log`](pytest.log), [`tests/test_attention.py`](../../tests/test_attention.py) |
 | **AST & Algebraic Purity** | Zero forbidden transcendental ops (`exp`, `log`, `softmax`, raw `sqrt`); exactly 3 squarings | Verified clean AST walk | `metrics.json:purity`, [`src/attention.py`](../../src/attention.py#L17-L26) |
 | **Entrywise 2-Lipschitz Bound** | $\max \|J_{ij}\| \le 2.0$ entrywise on normalized scores; oracle error $\le 2\times 10^{-5}$ | $\max \|J\| = 1.9927 \le 2.0$; error $2.66\times 10^{-15}$ | `metrics.json:jacobian`, [`jacobians.npz`](jacobians.npz), `tpu/metrics.json:jacobian` |
 | **Attention Distribution Parity** | 1D Wasserstein-1 Earth Mover Distance $W_1(p, q) \le 0.05$ across all $L \in [64, 4096]$ | $W_1 \in [0.0003, 0.0203] \le 0.05$ | `metrics.json:monte_carlo`, `tpu/metrics.json:monte_carlo` |
@@ -17,7 +17,7 @@ Completed 2026-09-16 on the required four-host, 16-chip TPU v4 slice (`my-tpu-v4
 | **Simplex & Mass Conservation** | Total mass $Z / (Z + \Omega) \le 1.0 + 16\epsilon_{\text{mach}}$ for all finite/extreme inputs | Mass $\le 1.0 + 16\epsilon_{\text{mach}}$; zero nonfinite | `metrics.json:scalar`, `metrics.json:monte_carlo` |
 | **Sub-byte Noise Robustness** | $\ge 100\times$ noise suppression ratio over Softmax in canonical outlier regime | $354.51\times$ on TPU ($354.48\times$ on CPU) | `metrics.json:monte_carlo.quantization_robustness`, `tpu/metrics.json:monte_carlo` |
 | **TPU Numerical Parity** | 80 configurations across FP32/BF16, 4 lengths, 5 scales (including $10^{15}$), 2 sinks | 80 / 80 passed on 16 TPU v4 chips | `tpu/metrics.json:parity` |
-| **TPU Synchronized Throughput** | $\ge 90\%$ forward and forward+backward throughput vs JAX Softmax baseline | 12 / 12 configurations passed ($92.5\% - 98.7\%$) | `tpu/metrics.json:benchmarks`, [`tpu/latencies.json`](tpu/latencies.json) |
+| **TPU Synchronized Throughput** | $\ge 90\%$ forward and forward+backward throughput vs JAX Softmax baseline | 12 / 12 configurations passed ($93.77\% - 99.28\%$) | `tpu/metrics.json:benchmarks`, [`tpu/latencies.json`](tpu/latencies.json) |
 
 ---
 
@@ -27,18 +27,18 @@ Evaluated across all 16 physical TPU v4 chips on `my-tpu-v4` (topology $2 \times
 
 | Dtype | Sequence Length $L$ | Forward Throughput Ratio | Forward + Backward Throughput Ratio | Gate Status ($\ge 90\%$) |
 | :---: | :---: | :---: | :---: | :---: |
-| **float32** | 128 | 0.978 | 0.961 | **PASS** |
-| **float32** | 256 | 0.969 | 0.959 | **PASS** |
-| **float32** | 512 | 0.966 | 0.972 | **PASS** |
-| **float32** | 1024 | 0.971 | 0.963 | **PASS** |
-| **float32** | 2048 | 0.964 | 0.960 | **PASS** |
-| **float32** | 4096 | 0.974 | 0.964 | **PASS** |
-| **bfloat16** | 128 | 0.978 | 0.925 | **PASS** |
-| **bfloat16** | 256 | 0.965 | 0.957 | **PASS** |
-| **bfloat16** | 512 | 0.973 | 0.947 | **PASS** |
-| **bfloat16** | 1024 | 0.959 | 0.950 | **PASS** |
-| **bfloat16** | 2048 | 0.973 | 0.945 | **PASS** |
-| **bfloat16** | 4096 | 0.949 | 0.938 | **PASS** |
+| **float32** | 128 | 0.977 | 0.960 | **PASS** |
+| **float32** | 256 | 0.971 | 0.972 | **PASS** |
+| **float32** | 512 | 0.962 | 0.968 | **PASS** |
+| **float32** | 1024 | 0.966 | 0.964 | **PASS** |
+| **float32** | 2048 | 0.965 | 0.945 | **PASS** |
+| **float32** | 4096 | 0.959 | 0.952 | **PASS** |
+| **bfloat16** | 128 | 0.984 | 0.938 | **PASS** |
+| **bfloat16** | 256 | 0.975 | 0.949 | **PASS** |
+| **bfloat16** | 512 | 0.973 | 0.959 | **PASS** |
+| **bfloat16** | 1024 | 0.993 | 0.946 | **PASS** |
+| **bfloat16** | 2048 | 0.968 | 0.941 | **PASS** |
+| **bfloat16** | 4096 | 0.977 | 0.944 | **PASS** |
 
 ---
 
@@ -105,10 +105,9 @@ The following formal theorems are compiled without `sorry`, `admit`, or non-stan
 ## 6. Full Reproduction Commands from a Fresh Shell
 
 ```bash
-# 1. Clone repository and checkout branch 'alternative'
+# 1. Clone the repository
 git clone https://github.com/tasmaikeni13/algebraic-intelligence.git
 cd algebraic-intelligence
-git checkout alternative
 
 # 2. Setup Python 3.10 virtual environment
 python3 -m venv .venv
@@ -141,8 +140,7 @@ PASS
 
 ## 7. Execution Environment & Fingerprint
 
-- **Git Commit**: `0d37545` (branch: `alternative`)
-- **Git Status**: Clean working tree on branch `alternative`
+- **Git/source identity**: The exact clean commit and SHA-256 source inventory are recorded in [`tpu/metrics.json`](tpu/metrics.json) and [`tpu/snapshot.txt`](tpu/snapshot.txt).
 - **TPU Hardware**: Google Cloud TPU v4 Pod slice (`my-tpu-v4`, zone `us-central2-b`)
 - **TPU Device Inventory**: 16 TPU v4 physical chips (32 TensorCores, 4 worker hosts)
 - **Mesh Configuration**: `jax.sharding.Mesh(shape={'data': 2, 'fsdp': 2, 'model': 4})`

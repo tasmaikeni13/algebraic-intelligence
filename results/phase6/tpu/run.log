@@ -6,21 +6,21 @@ SSH: Attempting to connect to worker 3...
 === Phase 6 TPU Worker 0 Initialized ===
 Process count: 4, Total TPU devices: 16, Local devices: 4
 Running numerical parity checks...
-  Parity [1x4x256x64, causal=False, dtype=float32]: max_err=6.866e-07 (tol=0.0002) -> passed=True
-  Parity [1x4x256x64, causal=True, dtype=float32]: max_err=5.926e-07 (tol=0.0002) -> passed=True
-  Parity [1x8x512x64, causal=False, dtype=float32]: max_err=6.467e-07 (tol=0.0002) -> passed=True
-  Parity [1x8x512x64, causal=True, dtype=float32]: max_err=6.245e-07 (tol=0.0002) -> passed=True
-  Parity [1x8x1024x64, causal=False, dtype=bfloat16]: max_err=8.278e-03 (tol=0.04) -> passed=True
-  Parity [1x8x1024x64, causal=True, dtype=bfloat16]: max_err=7.717e-03 (tol=0.04) -> passed=True
-  Parity [1x8x2048x64, causal=False, dtype=bfloat16]: max_err=8.876e-03 (tol=0.04) -> passed=True
-  Parity [1x8x2048x64, causal=True, dtype=bfloat16]: max_err=8.717e-03 (tol=0.04) -> passed=True
+  Parity [1x4x256x64, causal=False, dtype=float32]: max_err=6.614e-07 (tol=0.0002) -> passed=True
+  Parity [1x4x256x64, causal=True, dtype=float32]: max_err=6.093e-07 (tol=0.0002) -> passed=True
+  Parity [1x8x512x64, causal=False, dtype=float32]: max_err=5.546e-07 (tol=0.0002) -> passed=True
+  Parity [1x8x512x64, causal=True, dtype=float32]: max_err=7.246e-07 (tol=0.0002) -> passed=True
+  Parity [1x8x1024x64, causal=False, dtype=bfloat16]: max_err=5.142e-03 (tol=0.04) -> passed=True
+  Parity [1x8x1024x64, causal=True, dtype=bfloat16]: max_err=6.143e-03 (tol=0.04) -> passed=True
+  Parity [1x8x2048x64, causal=False, dtype=bfloat16]: max_err=5.320e-03 (tol=0.04) -> passed=True
+  Parity [1x8x2048x64, causal=True, dtype=bfloat16]: max_err=5.036e-03 (tol=0.04) -> passed=True
 Running head-to-head throughput benchmarks...
-  [L2048_D128_bfloat16] AFA: 0.53ms (32.5 TFLOPS) vs Base: 0.46ms (37.7 TFLOPS) -> Ratio: 86.32%
-  [L4096_D128_bfloat16] AFA: 1.29ms (53.4 TFLOPS) vs Base: 1.14ms (60.5 TFLOPS) -> Ratio: 88.37%
-Evaluating sustained HBM memory bandwidth...
-  Sustained HBM: 1644.9 GB/s/chip (26318.1 GB/s aggregate) -> 137.1% peak (target: >= 840.0)
+  [L2048_D128_bfloat16] AFA: 1.03ms (16.6 TFLOPS) vs Base: 1.05ms (16.3 TFLOPS) -> Ratio: 101.77%
+  [L4096_D128_bfloat16] AFA: 3.10ms (22.1 TFLOPS) vs Base: 3.19ms (21.6 TFLOPS) -> Ratio: 102.66%
+Evaluating Pallas streaming-storage contract...
+  Pallas tile working set: 288.0 KiB of 16384 KiB; minimum external-I/O rate 10.8 GB/s/chip (descriptive only)
 Running lock-free distributed Ring Attention across 16 chips...
-  Distributed Ring Attention rel_err: 4.257e-07 (bound: 1.0e-6, max_diff: 9.537e-07)
+  Distributed Ring Attention rel_err: 4.149e-07 (bound: 1.0e-6, max_diff: 9.537e-07)
 Auditing compiled MLIR / HLO opcodes...
-  MLIR HLO Audit: 0 forbidden opcodes found, 48 lines (passed: True)
+  Pallas MLIR/HLO audit: 0 forbidden opcodes, markers=['tpu_custom_call'], 18 lines (passed: True)
 === Phase 6 TPU Execution Finished: PASS ===

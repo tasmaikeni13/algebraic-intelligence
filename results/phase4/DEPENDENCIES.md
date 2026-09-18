@@ -5,7 +5,7 @@ Phases 1, 2, 3, and 4 are fully implemented, formally certified, and verified on
 | Consumer | Repository State | Contract Carried Forward |
 | :--- | :--- | :--- |
 | **Phase 7 `src/model.py` (Pre-training & Forward Pass)** | Planned | Autoregressive language modeling and classification heads compute sequence loss using `oace_loss(probs, targets, gamma=2.0)`. Targets can be dense distributions or integer label indices. |
-| **Phase 8 `src/optimizer.py` (Optimization & Convergence)** | Planned | Backward pass gradients $\nabla_{p} \mathcal{L}_{1/8}$ are bounded on simplex boundaries ($\le 106.68$ at $p_k = 10^{-9}$), eliminating gradient explosion spikes without aggressive gradient clipping. |
+| **Phase 8 `src/optimizer.py` (Optimization & Convergence)** | Planned | The probability gradient is singular near the simplex boundary; training must preserve the verified AVN + A-Softmax probability floor and monitor the finite composed score gradient rather than rely on a false probability-gradient bound. |
 | **Phase 9 `src/evaluation.py` (Information Metrics & Evaluation)** | Planned | Model convergence and distribution matching evaluated via `pearson_divergence(p, q)`, recovering Fisher information geometry without transcendental logarithms ($H(D_P) = 2 \cdot H(D_{\mathrm{KL}})$). |
 
 ---

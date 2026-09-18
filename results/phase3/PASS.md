@@ -1,6 +1,6 @@
 # Phase 3 PASS — Algebraic Geometric Oscillators & Shift Equivariance (AGO)
 
-Completed 2026-09-16 on the four-host, 16-chip Cloud TPU v4 Pod slice (`my-tpu-v4` in `us-central2-b`). All formal Lean 4 proof certificates, CPU empirical bounds, zero-transcendental AST purity audits, out-of-distribution associative recall generalizations, and distributed TPU hardware gates pass with zero failures.
+Reverified 2026-09-18 on the four-host, 16-chip Cloud TPU v4 Pod slice (`my-tpu-v4` in `us-central2-b`). All formal Lean 4 proof certificates, CPU empirical bounds, zero-transcendental AST purity audits, out-of-distribution associative recall generalizations, and distributed TPU hardware gates pass with zero failures.
 
 ---
 
@@ -16,7 +16,7 @@ Completed 2026-09-16 on the four-host, 16-chip Cloud TPU v4 Pod slice (`my-tpu-v
 | **Cumulative Norm Conservation** | Sequential rotation norm drift $\le 1.0 \times 10^{-6}$ across $m \in [1, 8192]$ | $\max \text{drift} = 2.22 \times 10^{-16} \le 1.0 \times 10^{-6}$ | `metrics.json:norm_conservation`, `tpu/metrics.json:norm_conservation` |
 | **OOD Associative Recall Generalization** | Retrieval accuracy $\ge 95.0\%$ at $L=1024$ and $L=2048$ when trained on $L=256$ | $100.0\%$ at $L=1024$; $99.5\%$ at $L=2048$ | `metrics.json:associative_recall` |
 | **TPU Numerical Parity** | Parity against float64 CPU oracle across 20 configurations (FP32/BF16, 5 lengths, 2 head dims) | 20 / 20 passed on 16 TPU v4 cores | `tpu/metrics.json:parity` |
-| **TPU Synchronized Throughput** | Sustained throughput $\ge 90.0\%$ vs standard trigonometric RoPE on TPU across context lengths | 8 / 8 configurations passed ($98.6\% - 107.7\%$) | `tpu/metrics.json:benchmarks`, [`tpu/latencies.json`](tpu/latencies.json) |
+| **TPU Synchronized Throughput** | Sustained throughput $\ge 90.0\%$ vs standard trigonometric RoPE on TPU across context lengths | 8 / 8 configurations passed ($99.39\% - 107.67\%$) | `tpu/metrics.json:benchmarks`, [`tpu/latencies.json`](tpu/latencies.json) |
 
 ---
 
@@ -26,14 +26,14 @@ Evaluated across all 16 physical TPU v4 chips on `my-tpu-v4` (topology $2 \times
 
 | Dtype | Sequence Length $L$ | Global Shape | Forward Throughput Ratio (RoPE / AGO) | Forward + Backward Throughput Ratio | Gate Status ($\ge 90\%$) |
 | :---: | :---: | :---: | :---: | :---: | :---: |
-| **float32** | 512 | `(16, 512, 8, 64)` | 1.007 | 1.029 | **PASS** |
-| **float32** | 1024 | `(16, 1024, 8, 64)` | 0.997 | 1.021 | **PASS** |
-| **float32** | 2048 | `(16, 2048, 8, 64)` | 0.993 | 1.046 | **PASS** |
-| **float32** | 4096 | `(16, 4096, 8, 64)` | 1.000 | 1.064 | **PASS** |
-| **bfloat16** | 512 | `(16, 512, 8, 64)` | 0.993 | 1.020 | **PASS** |
-| **bfloat16** | 1024 | `(16, 1024, 8, 64)` | 0.986 | 1.030 | **PASS** |
-| **bfloat16** | 2048 | `(16, 2048, 8, 64)` | 1.001 | 1.056 | **PASS** |
-| **bfloat16** | 4096 | `(16, 4096, 8, 64)` | 1.003 | 1.077 | **PASS** |
+| **float32** | 512 | `(16, 512, 8, 64)` | 1.007 | 1.026 | **PASS** |
+| **float32** | 1024 | `(16, 1024, 8, 64)` | 1.007 | 1.027 | **PASS** |
+| **float32** | 2048 | `(16, 2048, 8, 64)` | 1.006 | 1.048 | **PASS** |
+| **float32** | 4096 | `(16, 4096, 8, 64)` | 1.001 | 1.064 | **PASS** |
+| **bfloat16** | 512 | `(16, 512, 8, 64)` | 1.000 | 1.019 | **PASS** |
+| **bfloat16** | 1024 | `(16, 1024, 8, 64)` | 1.000 | 1.042 | **PASS** |
+| **bfloat16** | 2048 | `(16, 2048, 8, 64)` | 0.994 | 1.045 | **PASS** |
+| **bfloat16** | 4096 | `(16, 4096, 8, 64)` | 1.001 | 1.077 | **PASS** |
 
 On TPU v4, Algebraic Geometric Oscillators achieve matching or slightly superior throughput to trigonometric RoPE because the Cayley rotation block compiles into 4 parallel Fused Multiply-Add (`FMA`) instructions per 2D coordinate pair on the TPU VMU vector execution units, with zero transcendental function approximation overhead.
 

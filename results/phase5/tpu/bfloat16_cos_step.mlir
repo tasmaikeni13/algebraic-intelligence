@@ -337,41 +337,51 @@ module @jit_step_cos attributes {mhlo.num_partitions = 16 : i32, mhlo.num_replic
     %303 = stablehlo.convert %299 : (tensor<8192x2048xbf16>) -> tensor<8192x2048xf32>
     %304 = stablehlo.broadcast_in_dim %288, dims = [] : (tensor<f32>) -> tensor<8192x2048xf32>
     %305 = stablehlo.divide %303, %304 : tensor<8192x2048xf32>
-    %306 = stablehlo.sqrt %305 : tensor<8192x2048xf32>
-    %cst_29 = stablehlo.constant dense<9.99999993E-9> : tensor<f32>
+    %306 = stablehlo.rsqrt %305 : tensor<8192x2048xf32>
+    %cst_29 = stablehlo.constant dense<0.000000e+00> : tensor<f32>
     %307 = stablehlo.broadcast_in_dim %cst_29, dims = [] : (tensor<f32>) -> tensor<8192x2048xf32>
-    %308 = stablehlo.add %306, %307 : tensor<8192x2048xf32>
-    %309 = stablehlo.divide %302, %308 : tensor<8192x2048xf32>
-    %cst_30 = stablehlo.constant dense<1.000980e-02> : tensor<bf16>
-    %310 = stablehlo.broadcast_in_dim %cst_30, dims = [] : (tensor<bf16>) -> tensor<8192x2048xbf16>
-    %311 = stablehlo.multiply %310, %arg0 : tensor<8192x2048xbf16>
-    %312 = stablehlo.convert %311 : (tensor<8192x2048xbf16>) -> tensor<8192x2048xf32>
-    %313 = stablehlo.add %309, %312 : tensor<8192x2048xf32>
-    %314 = stablehlo.convert %0 : (tensor<i32>) -> tensor<f32>
-    %cst_31 = stablehlo.constant dense<1.000000e+03> : tensor<f32>
-    %315 = stablehlo.divide %314, %cst_31 : tensor<f32>
-    %cst_32 = stablehlo.constant dense<0.000000e+00> : tensor<f32>
-    %cst_33 = stablehlo.constant dense<1.000000e+00> : tensor<f32>
-    %316 = call @clip(%315, %cst_32, %cst_33) : (tensor<f32>, tensor<f32>, tensor<f32>) -> tensor<f32>
-    %cst_34 = stablehlo.constant dense<3.14159274> : tensor<f32>
-    %317 = stablehlo.multiply %cst_34, %316 : tensor<f32>
-    %318 = stablehlo.cosine %317 : tensor<f32>
-    %319 = stablehlo.add %cst_33, %318 : tensor<f32>
-    %cst_35 = stablehlo.constant dense<4.500000e-04> : tensor<f32>
-    %320 = stablehlo.multiply %cst_35, %319 : tensor<f32>
-    %cst_36 = stablehlo.constant dense<9.99999974E-5> : tensor<f32>
-    %321 = stablehlo.add %cst_36, %320 : tensor<f32>
-    %322 = stablehlo.negate %321 : tensor<f32>
-    %323 = stablehlo.convert %322 : tensor<f32>
-    %324 = stablehlo.broadcast_in_dim %323, dims = [] : (tensor<f32>) -> tensor<8192x2048xf32>
-    %325 = stablehlo.multiply %324, %313 : tensor<8192x2048xf32>
-    %326 = stablehlo.convert %325 : (tensor<8192x2048xf32>) -> tensor<8192x2048xbf16>
-    %327 = stablehlo.add %arg0, %326 : tensor<8192x2048xbf16>
-    return %327, %0, %293, %299 : tensor<8192x2048xbf16>, tensor<i32>, tensor<8192x2048xbf16>, tensor<8192x2048xbf16>
+    %308 = stablehlo.compare  EQ, %305, %307,  FLOAT : (tensor<8192x2048xf32>, tensor<8192x2048xf32>) -> tensor<8192x2048xi1>
+    %309 = stablehlo.broadcast_in_dim %cst_29, dims = [] : (tensor<f32>) -> tensor<8192x2048xf32>
+    %310 = stablehlo.multiply %305, %306 : tensor<8192x2048xf32>
+    %311 = call @_where_0(%308, %309, %310) : (tensor<8192x2048xi1>, tensor<8192x2048xf32>, tensor<8192x2048xf32>) -> tensor<8192x2048xf32>
+    %cst_30 = stablehlo.constant dense<9.99999993E-9> : tensor<f32>
+    %312 = stablehlo.broadcast_in_dim %cst_30, dims = [] : (tensor<f32>) -> tensor<8192x2048xf32>
+    %313 = stablehlo.add %311, %312 : tensor<8192x2048xf32>
+    %314 = stablehlo.divide %302, %313 : tensor<8192x2048xf32>
+    %cst_31 = stablehlo.constant dense<1.000980e-02> : tensor<bf16>
+    %315 = stablehlo.broadcast_in_dim %cst_31, dims = [] : (tensor<bf16>) -> tensor<8192x2048xbf16>
+    %316 = stablehlo.multiply %315, %arg0 : tensor<8192x2048xbf16>
+    %317 = stablehlo.convert %316 : (tensor<8192x2048xbf16>) -> tensor<8192x2048xf32>
+    %318 = stablehlo.add %314, %317 : tensor<8192x2048xf32>
+    %319 = stablehlo.convert %0 : (tensor<i32>) -> tensor<f32>
+    %cst_32 = stablehlo.constant dense<1.000000e+03> : tensor<f32>
+    %320 = stablehlo.divide %319, %cst_32 : tensor<f32>
+    %cst_33 = stablehlo.constant dense<0.000000e+00> : tensor<f32>
+    %cst_34 = stablehlo.constant dense<1.000000e+00> : tensor<f32>
+    %321 = call @clip(%320, %cst_33, %cst_34) : (tensor<f32>, tensor<f32>, tensor<f32>) -> tensor<f32>
+    %cst_35 = stablehlo.constant dense<3.14159274> : tensor<f32>
+    %322 = stablehlo.multiply %cst_35, %321 : tensor<f32>
+    %323 = stablehlo.cosine %322 : tensor<f32>
+    %324 = stablehlo.add %cst_34, %323 : tensor<f32>
+    %cst_36 = stablehlo.constant dense<4.500000e-04> : tensor<f32>
+    %325 = stablehlo.multiply %cst_36, %324 : tensor<f32>
+    %cst_37 = stablehlo.constant dense<9.99999974E-5> : tensor<f32>
+    %326 = stablehlo.add %cst_37, %325 : tensor<f32>
+    %327 = stablehlo.negate %326 : tensor<f32>
+    %328 = stablehlo.convert %327 : tensor<f32>
+    %329 = stablehlo.broadcast_in_dim %328, dims = [] : (tensor<f32>) -> tensor<8192x2048xf32>
+    %330 = stablehlo.multiply %329, %318 : tensor<8192x2048xf32>
+    %331 = stablehlo.convert %330 : (tensor<8192x2048xf32>) -> tensor<8192x2048xbf16>
+    %332 = stablehlo.add %arg0, %331 : tensor<8192x2048xbf16>
+    return %332, %0, %293, %299 : tensor<8192x2048xbf16>, tensor<i32>, tensor<8192x2048xbf16>, tensor<8192x2048xbf16>
   }
   func.func private @_where(%arg0: tensor<i1>, %arg1: tensor<f32>, %arg2: tensor<f32>) -> tensor<f32> {
     %0 = stablehlo.select %arg0, %arg1, %arg2 : tensor<i1>, tensor<f32>
     return %0 : tensor<f32>
+  }
+  func.func private @_where_0(%arg0: tensor<8192x2048xi1>, %arg1: tensor<8192x2048xf32>, %arg2: tensor<8192x2048xf32>) -> tensor<8192x2048xf32> {
+    %0 = stablehlo.select %arg0, %arg1, %arg2 : tensor<8192x2048xi1>, tensor<8192x2048xf32>
+    return %0 : tensor<8192x2048xf32>
   }
   func.func private @clip(%arg0: tensor<f32>, %arg1: tensor<f32>, %arg2: tensor<f32>) -> tensor<f32> {
     %0 = stablehlo.maximum %arg1, %arg0 : tensor<f32>

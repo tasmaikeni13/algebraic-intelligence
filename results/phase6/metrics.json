@@ -1,7 +1,7 @@
 {
   "status": "PASS",
   "passed": true,
-  "elapsed_seconds": 16.067184686660767,
+  "elapsed_seconds": 79.39779710769653,
   "environment": {
     "python": "3.10.12 (main, Aug 31 2026, 10:18:17) [GCC 11.4.0]",
     "platform": "Linux-5.19.0-1022-gcp-x86_64-with-glibc2.35",
@@ -10,8 +10,8 @@
     "jaxlib": "0.6.2",
     "numpy": "2.2.6",
     "scipy": "1.15.3",
-    "git_commit": "367096a0ee064c6ed1c619ac667ea131438ee9c9",
-    "git_dirty": false,
+    "git_commit": "a79de941f108066baac6a6abb3a30563da1f29ac",
+    "git_dirty": true,
     "source_sha256": {
       "formal/AlgebraicTheory/Gate.lean": "1372e78d076a59a436da23b48bc81f2e7540f2448aaa98e9b73db8eeb95f61e9",
       "formal/AlgebraicTheory/Variance.lean": "18f15e5bc1a88ca8466d519ae7759267961180a76651a016d27dd8823278ff15",
@@ -23,7 +23,7 @@
       "requirements-tpu.txt": "f18692d6a965b40a88c992986517edd25020ff568192045b8fbb7279a29e9e15",
       "requirements.txt": "509b55f548b3934bb2b8e1dde76964c4a0b2f187eb0654f18458f70cc8198848",
       "scripts/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "scripts/audit_primitives.py": "4534611e8f3e08eec0352cbd18323d20321ad85d8bd301d09daa69a6a001c67f",
+      "scripts/audit_primitives.py": "6576a6fb39e461a6339d5c27e03c33a0cf7e238a83384cbf66d97c5411d142c2",
       "scripts/launch_phase1_tpu.py": "45b6b39979f385acd723e1c1d9b625ee0418d8ea692698cb1acfc44cc8f273e8",
       "scripts/phase1_experiments.py": "0b9b83f048289076fd12f801d5239f74b8a4cf2e881ce6d3bba37b08c01aece0",
       "scripts/phase1_records.py": "d4063fa54dcda34a2d4aac9ecc58ce752bb6dc54080a10d87cd0c30cc6b5e3f1",
@@ -56,36 +56,36 @@
       "scripts/run_verify_ago.py": "9a6a5452c9420da1700507d411fb02f0fd8245d237b5c894e8b7a36c10d113bd",
       "tests/reference_ago.py": "013ca58cec4711e4621f77fd24718d6ace66be6d57c0af58a5b4cbefbb22ea8c",
       "tests/test_ago.py": "05d48cc0b1df173a53572d36961f20484c0dad1ede8e5acc57b32c1b4426cbbd",
-      "formal/AlgebraicTheory/Loss.lean": "cdeb962c22c7b2dab59d15216c3ebfd87a8a8f56a723cd8c3cd72ab3c2ef739f",
-      "phases/phase4.md": "381c87df158bcbed85e600fb3abfb5edb8882613eb677dea5edf912a3a6327d8",
+      "formal/AlgebraicTheory/Loss.lean": "7f9f3739a9ce93bb227e78531674bf9da5bd252c7c5bb9407a1788ccfd81ad89",
+      "phases/phase4.md": "fa5ada6fb1a2cdf1fe2e1cf234ad37337174120ade924fe4bfd56a43c55f134c",
       "scripts/launch_phase4_tpu.py": "6f8644f5766c48acc92005c05c026f46c8920298df6a159731002f77930d301f",
-      "scripts/phase4_experiments.py": "d079758c9a39df9827f573fbd888b5e6d05ba406ce416d5ea24ebb17bbbb9523",
+      "scripts/phase4_experiments.py": "f07cb3de4b684ad9724bbef463e247aced06d6cff365150016c359ae83c3bf11",
       "scripts/phase4_records.py": "a26e4c2a66be6faf4d962d2cdcc42b8a7ff75aa8bcbe5aa05f02684bbed0b6d0",
-      "scripts/run_phase4_tpu.py": "9b1191093e3cb0963537b76be5551364124c8851013b6c4d55f0af44363fca23",
+      "scripts/run_phase4_tpu.py": "5d23fe0a140943b2da1bb4c5ff78707ac8d1b7759fdce82dc4117bcb4ed34d59",
       "scripts/run_verify_loss.py": "ff10299ac4377bf6ef790217c317e0cbc0fb1c9938c50af2dd47ba34914f17e9",
-      "src/loss.py": "76789e11a20b03cb8325e8ec7a31c9f398f38c4244228611345b6a5893ecb245",
-      "tests/reference_loss.py": "fbe95857e1a7e717613c0ef81a1dff600b9a5127dfa29a88a03ce8bb7d40217b",
-      "tests/test_loss.py": "d1c3b92dd5f688b8aa66348e1d03d012e6a0b5232b4f5cc9f2f2041d3a211462",
+      "src/loss.py": "02c99d85c450343db5a2c15a25f2b744a1e7b2676c177d8a495ae5398a53a6f4",
+      "tests/reference_loss.py": "f28f2b824f7c7c67e625a783032959a13b619752a2c209e269f57a4fa292eb88",
+      "tests/test_loss.py": "ca70c4779ee8aac6d2edbbd4beade80ebbc20e1c87d7e0faa0b9de2fc2af4929",
       "formal/AlgebraicTheory/Curvature.lean": "577bb49c2a71bd4e3897b82bb6cf5fb9e21fb5286f9a0fc214a4517e02d838b4",
-      "phases/phase5.md": "865e6685270fe52d707ba769e38493fa741b23d15533b2974dbeef43caa1584d",
+      "phases/phase5.md": "71c11b717eae4362af1cd52d759a267d94c7afd823d0f5a5664669cb7d44af53",
       "scripts/launch_phase5_tpu.py": "bd37b34bf34d721b2b1c63c58445ed7890dacd2ef7539fb1f992f17e8a50c7cc",
-      "scripts/phase5_experiments.py": "8ac832dfb832bb622d73903c2fad1d89b25fa11822bdabfbe2c7b4b094bcf59d",
+      "scripts/phase5_experiments.py": "350b77ef8beade493b87d486c6f450f3598acc6cfdea106d9a9aade9b3907607",
       "scripts/phase5_records.py": "7de13d350c6f3e3fd5d6bba174500bd758c9e36dce5e41e0196ae4088111b560",
-      "scripts/run_phase5_tpu.py": "5bbd824308f08d7de88da1dad25073543e16fb4a65df8c0c7a701f7d8ee7cdd7",
-      "scripts/run_verify_optimizer.py": "4b5d83e7cf5be63b2f4629e7fe65430cbe65f665779be62bf298899b349ab149",
-      "src/optimizer.py": "38613b4b81de49ee924accfc98ca4a9eec3254cc0da277cf13fa276b1b5ae9b5",
+      "scripts/run_phase5_tpu.py": "2de4d9a1526b6012eee2c7da4b76732978270bd97777bf19a75eb26a4f6bc0ce",
+      "scripts/run_verify_optimizer.py": "f3e8b95ab6a2a49faf615d61e40b962273f7b63fc218a66c621fa4a156c91d65",
+      "src/optimizer.py": "ae03cec8f8a2bb64141318cdc6b41da310b0937af4e0a4bf378acffb7e0a0ea2",
       "tests/reference_optimizer.py": "816305d57986159d5cf5cd689f989db113a03a698507381565298698a32360c9",
-      "tests/test_optimizer.py": "7e6466b3a7f9662a255f5bf5a9cde573aed78fba414cdc57bc9f7d5cfb22ac80",
-      "phases/phase6.md": "1a79ed1dd6752b2e5ec9d6a632ac18739425fd2af9dfa51d30b0ad00d3591f33",
-      "scripts/audit_xla_hlo.py": "284c87309472d773e89e91c7371515a9bd91371c714f636041f5ede5ea21c6b5",
+      "tests/test_optimizer.py": "e85c309c8cbc6c3b93e7fd243ce8592f94882910ef958f93ba698ed189f2a6eb",
+      "phases/phase6.md": "b7def74ac5a10d280a3238ae83cf60a64ac2024c8f56d592d0adf787418e92e9",
+      "scripts/audit_xla_hlo.py": "c7c6e7ce368fe7348491c5cdab135a230f3567bf62e3d633b5fbb24e97969db2",
       "scripts/launch_phase6_tpu.py": "5482c1fd1a7d33c66937c2692c6f24b61cc2106e60bd4b5ba700cc779050251d",
       "scripts/phase6_experiments.py": "f07bbc0f99633ca1c884b801fe0711904c1ac97bffbb75315710168f53db6fe0",
-      "scripts/phase6_records.py": "89f634f971f74a6f90ccc881b21198231db09a489d53be67da840c31238d0407",
-      "scripts/run_phase6_tpu.py": "ee15b8abd6e4686b9d10a3b8c027cc1dd980374d5eda500f803e00b94d216a9c",
-      "scripts/run_verify_pallas.py": "28cafc73bf20d36d3a5657b1e916c16cda1b6d18147f032f68e7effdeee9775d",
+      "scripts/phase6_records.py": "b905cca250db53732ce99cdc730552e0fa762c53bb4d51672ef7ede6530732f5",
+      "scripts/run_phase6_tpu.py": "632867c5603fb3acca724bede9642bc406aba3d26176febf382ff89148c4b907",
+      "scripts/run_verify_pallas.py": "f386d798519b0b241d804a4ea58317e9c47f8dee375d55dcb87a29a1dc018514",
       "src/kernels/__init__.py": "7df1c4256c7e99c85cefcbff3d4d93a4c86244b5965864ea96297c715371f3db",
-      "src/kernels/pallas_afa.py": "f0f99dd61b365a15ad3e58ba8104c63e962195812355db21e1485d0655fd6fd8",
-      "tests/test_pallas_afa.py": "51ac69fef95ea1a24ee80ba2a1062b9709c73b4a565be1a6be6b68ead0ff78ff"
+      "src/kernels/pallas_afa.py": "728b5c60fb29d5df1fd1ac4b6d0e466262edb75097ecf0209246f2bb49da03fa",
+      "tests/test_pallas_afa.py": "9de96feb287efcb4a3826341c13d6e18aa7803e53f9931282e5e346772685048"
     }
   },
   "purity": {
@@ -96,8 +96,8 @@
   },
   "hlo_audit": {
     "passed": true,
-    "hlo_length_chars": 12837,
-    "hlo_lines": 147,
+    "hlo_length_chars": 15674,
+    "hlo_lines": 178,
     "dot_instructions_count": 4,
     "rsqrt_instructions_count": 2,
     "forbidden_opcodes_found": [],
@@ -313,5 +313,28 @@
         "passed": true
       }
     ]
+  },
+  "inherited_phase5": {
+    "metrics_exist": true,
+    "pass_record_exists": true,
+    "status_pass": true,
+    "source_matches": true,
+    "passed": true
+  },
+  "formal": {
+    "passed": true,
+    "proof_scan_violations": []
+  },
+  "unit_tests": {
+    "passed": true
+  },
+  "hardware": {
+    "passed": true,
+    "source_matches": true,
+    "inventory_matches": true,
+    "path": "/home/tas_ken_rt25/algebraic-intelligence/results/phase6/tpu/metrics.json"
+  },
+  "local_cpu": {
+    "passed": true
   }
 }
