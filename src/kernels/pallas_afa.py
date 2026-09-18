@@ -113,6 +113,7 @@ def afa_kernel(
             q_tile,
             k_tile,
             (((1,), (1,)), ((), ())),
+            precision=lax.Precision.DEFAULT,
             preferred_element_type=jnp.float32,
         ) * scale
 
@@ -135,6 +136,7 @@ def afa_kernel(
         o_acc_ref[...] = o_acc_ref[...] + lax.dot(
             p_bc.astype(v_tile.dtype),
             v_tile,
+            precision=lax.Precision.DEFAULT,
             preferred_element_type=jnp.float32,
         )
 
