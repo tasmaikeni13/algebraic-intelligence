@@ -33,6 +33,9 @@ from src.attention import (
     CayleyRotary,
     _octic,
     _kernel,
+    _extract_cs,
+    _align_param,
+    _rotate_tensor,
 )
 from src.kernels.pallas_afa import _vmu_octic_kernel
 from src.loss import oace_loss
@@ -63,19 +66,43 @@ def count_parameters(params: Any) -> int:
     return sum(x.size for x in leaves)
 
 
+def _fast_alu_fwd(x):
+    s_sq = x * x
+    one = jnp.array(1.0, dtype=x.dtype)
+    rad = one + s_sq
+    r = jax.lax.rsqrt(rad)
+    u = x * r
+    denom = jnp.where(x < 0, one - u, one)
+    neg = (0.5 * u * r) / denom
+    pos = 0.5 * x * (one + u)
+    y = jnp.where(x < 0, neg, pos)
+    return y, u
+
+
+def _fast_alu_bwd(u, g):
+    half = jnp.array(0.5, dtype=g.dtype)
+    one = jnp.array(1.0, dtype=g.dtype)
+    deriv = half + u * (one - half * (u * u))
+    return (g * deriv,)
+
+
+@jax.custom_vjp
+def _fast_alu(x):
+    return _fast_alu_fwd(x)[0]
+
+
+_fast_alu.defvjp(_fast_alu_fwd, _fast_alu_bwd)
+
+
 def _alu_glu(x: jax.Array, w_g: jax.Array, w_u: jax.Array, w_d: jax.Array) -> jax.Array:
-    """Evaluates ALU-GLU: W_d [ (W_g x) * ALU(W_u x) ]."""
+    """Evaluates ALU-GLU: W_d [ (W_g x) * ALU(W_u x) ] in native hardware precision."""
     gate = jnp.matmul(x, w_g)
     up = jnp.matmul(x, w_u)
-    activated = alu(up)
+    activated = _fast_alu(up)
     return jnp.matmul(gate * activated, w_d)
 
 
-def _causal_algebraic_attention_fwd(q, k, v, sink_omega):
-    head_dim = q.shape[-1]
-    seq_len = q.shape[-2]
-    scale = jax.lax.rsqrt(jnp.array(head_dim, dtype=jnp.float32)).astype(q.dtype)
-
+def _causal_algebraic_attention_fwd(q, k, v, mask, scale, sink_omega):
     q_scaled = q * scale
     scores = jnp.matmul(q_scaled, jnp.swapaxes(k, -1, -2))
 
@@ -90,7 +117,6 @@ def _causal_algebraic_attention_fwd(q, k, v, sink_omega):
     k4 = k2 * k2
     k8 = k4 * k4
 
-    mask = jnp.tril(jnp.ones((seq_len, seq_len), dtype=bool))[None, None, :, :]
     p_masked = jnp.where(mask, k8, 0.0)
     d = jnp.sum(p_masked, axis=-1, keepdims=True) + jnp.array(sink_omega, dtype=v.dtype)
     w = p_masked * lax.reciprocal(d)
@@ -99,27 +125,29 @@ def _causal_algebraic_attention_fwd(q, k, v, sink_omega):
     return out, (q_scaled, k, v, w, r, scale, out)
 
 
-def _causal_algebraic_attention_bwd(sink_omega, cache, g_out):
-    del sink_omega
+def _causal_algebraic_attention_bwd(mask, scale, sink_omega, cache, g_out):
+    del mask, sink_omega
     q_scaled, k, v, w, r, scale, out = cache
 
     # FlashAttention-style analytical scalar row reduction along feature dim D
     D_i = jnp.sum(g_out * out, axis=-1, keepdims=True)
     g_w = jnp.matmul(g_out, jnp.swapaxes(v, -1, -2))
-    ds = 8.0 * r * w * (g_w - D_i)
+    ds = (8.0 * scale) * r * w * (g_w - D_i)
 
-    dq = jnp.matmul(ds, k) * scale
+    dq = jnp.matmul(ds, k)
     dk = jnp.matmul(jnp.swapaxes(ds, -1, -2), q_scaled)
     dv = jnp.matmul(jnp.swapaxes(w, -1, -2), g_out)
 
     return (dq.astype(q_scaled.dtype), dk.astype(k.dtype), dv.astype(v.dtype))
 
 
-@partial(jax.custom_vjp, nondiff_argnums=(3,))
+@partial(jax.custom_vjp, nondiff_argnums=(3, 4, 5))
 def _causal_algebraic_attention(
     q: jax.Array,
     k: jax.Array,
     v: jax.Array,
+    mask: jax.Array,
+    scale: float,
     sink_omega: float = 0.5,
 ) -> jax.Array:
     """Pure Algebraic Causal Attention with single-pass analytical FlashAttention VJP.
@@ -128,12 +156,14 @@ def _causal_algebraic_attention(
         q: Query tensor (B, H, T, D)
         k: Key tensor (B, H, T, D)
         v: Value tensor (B, H, T, D)
+        mask: Precomputed causal boolean mask (1, 1, T, T)
+        scale: Precomputed attention scale factor
         sink_omega: Nonnegative attention sink mass Omega
 
     Returns:
         Attention output tensor (B, H, T, D)
     """
-    return _causal_algebraic_attention_fwd(q, k, v, sink_omega)[0]
+    return _causal_algebraic_attention_fwd(q, k, v, mask, scale, sink_omega)[0]
 
 
 _causal_algebraic_attention.defvjp(_causal_algebraic_attention_fwd, _causal_algebraic_attention_bwd)
@@ -255,6 +285,12 @@ class AlgebraicTransformerLM:
         if rotary_params is None:
             rotary_params = build_cayley_rotary_matrix(self.head_dim, cfg.max_seq_len, dtype=cfg.dtype)
 
+        scale = float(jax.lax.rsqrt(jnp.array(self.head_dim, dtype=jnp.float32)))
+        mask = jnp.tril(jnp.ones((T, T), dtype=bool))[None, None, :, :]
+        c_raw, s_raw = _extract_cs(rotary_params)
+        c = _align_param(c_raw, (B, cfg.num_heads, T, self.head_dim), seq_axis=2)
+        s = _align_param(s_raw, (B, cfg.num_heads, T, self.head_dim), seq_axis=2)
+
         # 1. Token Embedding + Parameter-Free AVN
         x = params["token_embed"][tokens].astype(cfg.dtype)
         x = avn(x, eps=cfg.eps)
@@ -266,11 +302,12 @@ class AlgebraicTransformerLM:
             k = jnp.matmul(h1, layer["w_k"].astype(cfg.dtype)).reshape(B, T, cfg.num_heads, self.head_dim).swapaxes(1, 2)
             v = jnp.matmul(h1, layer["w_v"].astype(cfg.dtype)).reshape(B, T, cfg.num_heads, self.head_dim).swapaxes(1, 2)
 
-            # Apply AGO Cayley Rotations
-            q_rot, k_rot = apply_ago_rotations(q, k, rotary_params=rotary_params, seq_axis=2)
+            # Apply pre-aligned AGO Cayley Rotations
+            q_rot = _rotate_tensor(q, c, s)
+            k_rot = _rotate_tensor(k, c, s)
 
             # Octic AFA Causal Attention
-            attn_out = _causal_algebraic_attention(q_rot, k_rot, v, sink_omega=cfg.sink_omega)
+            attn_out = _causal_algebraic_attention(q_rot, k_rot, v, mask, scale, sink_omega=cfg.sink_omega)
             attn_flat = attn_out.swapaxes(1, 2).reshape(B, T, cfg.d_model)
             x = x + jnp.matmul(attn_flat, layer["w_o"].astype(cfg.dtype))
 
