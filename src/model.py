@@ -139,46 +139,43 @@ def _causal_algebraic_attention(
 _causal_algebraic_attention.defvjp(_causal_algebraic_attention_fwd, _causal_algebraic_attention_bwd)
 
 
-def _fused_oace_softmax_fwd(logits, targets, eps, gamma):
-    z = _accumulate(logits)
-    normalized, (y_norm, tau) = _avn_forward(z, eps)
-    k, r = _kernel(normalized)
-    sum_k = jnp.sum(k, axis=-1, keepdims=True)
-    p = k / sum_k
+def fused_oace_softmax_loss(logits, targets, eps=100.0, gamma=2.0):
+    """Factored closed-simplex A-Softmax and strictly proper OACE loss functional.
 
-    inv_eighth = jax.lax.rsqrt(jax.lax.rsqrt(jax.lax.rsqrt(p)))
-    p_78 = p * inv_eighth
+    Evaluates Bregman divergence L_{1/8} over closed vocabulary simplex with zero transcendentals.
+    Factors p_i^{-1/8} = S^{1/8} / rho_i and p_i^{7/8} = (S^{1/8} / S) * rho_i^7, replacing
+    3*V sequential rsqrt instructions on 50,257 elements with a single scalar rsqrt cascade
+    on the partition sum S.
+    """
+    inv_w = 1.0 / logits.shape[-1]
+    tau = jax.lax.rsqrt(jnp.sum(logits.astype(jnp.float32) ** 2, axis=-1, keepdims=True) * inv_w + eps).astype(logits.dtype)
+    normed = logits * tau
+
+    s_sq = normed * normed
+    one = jnp.array(1.0, dtype=normed.dtype)
+    rad = one + s_sq
+    r = jax.lax.rsqrt(rad)
+    u = normed * r
+    denom = jnp.where(normed < 0, one - u, one)
+    rho = jnp.where(normed < 0, r / denom, normed + rad * r)
+
+    k2 = rho * rho
+    k4 = k2 * k2
+    k8 = k4 * k4
+    sum_k = jnp.sum(k8, axis=-1, keepdims=True)
+
+    inv_S = jax.lax.reciprocal(sum_k)
+    S_eighth = jax.lax.rsqrt(jax.lax.rsqrt(jax.lax.rsqrt(inv_S)))
+
+    rho_7 = rho * k2 * k4
+    p_78 = (S_eighth * inv_S) * rho_7
     sum_p78 = jnp.sum(p_78, axis=-1, keepdims=True)
 
-    p_c = jnp.take_along_axis(p, targets[..., None], axis=-1)
-    p_c_inv8 = jax.lax.rsqrt(jax.lax.rsqrt(jax.lax.rsqrt(p_c)))
+    rho_c = jnp.take_along_axis(rho, targets[..., None], axis=-1)
+    p_c_inv8 = S_eighth * jax.lax.reciprocal(rho_c)
 
     loss = gamma * (8.0 * p_c_inv8.squeeze(-1) + (8.0 / 7.0) * sum_p78.squeeze(-1) - (64.0 / 7.0))
-    mean_loss = jnp.mean(loss)
-    return mean_loss, (normalized, tau, p, p_78, p_c_inv8, r, sum_p78, targets)
-
-
-def _fused_oace_softmax_bwd(eps, gamma, cache, g):
-    normalized, tau, p, p_78, p_c_inv8, r, sum_p78, targets = cache
-    V = p.shape[-1]
-    scalar_diff = sum_p78 - p_c_inv8
-    bracket = p_78 - p * scalar_diff
-    flat_targets = targets.reshape(-1)
-    flat_bracket = bracket.reshape(-1, V)
-    flat_bracket = flat_bracket.at[jnp.arange(flat_targets.shape[0]), flat_targets].add(-p_c_inv8.reshape(-1))
-    bracket = flat_bracket.reshape(bracket.shape)
-    normalized_g = (8.0 * gamma / float(targets.size)) * r * bracket * g
-    dx = _avn_backward(eps, (normalized, tau), normalized_g)[0]
-    return (dx.astype(normalized.dtype), None)
-
-
-@partial(jax.custom_vjp, nondiff_argnums=(2, 3))
-def fused_oace_softmax_loss(logits, targets, eps=100.0, gamma=2.0):
-    """Fused closed-simplex A-Softmax and OACE loss with single-pass analytical VJP."""
-    return _fused_oace_softmax_fwd(logits, targets, eps, gamma)[0]
-
-
-fused_oace_softmax_loss.defvjp(_fused_oace_softmax_fwd, _fused_oace_softmax_bwd)
+    return jnp.mean(loss)
 
 
 class AlgebraicTransformerLM:
