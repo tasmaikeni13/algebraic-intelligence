@@ -19,6 +19,7 @@ Strictly zero transcendental functions (zero exp, zero log, zero sin, zero cos).
 
 from dataclasses import dataclass
 from functools import partial
+import math
 from typing import Any, Dict, Optional, Tuple, Union
 
 import jax
@@ -239,6 +240,7 @@ class AlgebraicTransformerLM:
         self.head_dim = self.config.d_model // self.config.num_heads
         if self.head_dim % 2 != 0:
             raise ValueError(f"head_dim must be even for AGO Cayley rotation, got {self.head_dim}")
+        self.scale = 1.0 / math.sqrt(self.head_dim)
 
     def init_params(self, key: jax.Array) -> Dict[str, Any]:
         cfg = self.config
@@ -285,7 +287,7 @@ class AlgebraicTransformerLM:
         if rotary_params is None:
             rotary_params = build_cayley_rotary_matrix(self.head_dim, cfg.max_seq_len, dtype=cfg.dtype)
 
-        scale = float(jax.lax.rsqrt(jnp.array(self.head_dim, dtype=jnp.float32)))
+        scale = self.scale
         mask = jnp.tril(jnp.ones((T, T), dtype=bool))[None, None, :, :]
         c_raw, s_raw = _extract_cs(rotary_params)
         c = _align_param(c_raw, (B, cfg.num_heads, T, self.head_dim), seq_axis=2)
