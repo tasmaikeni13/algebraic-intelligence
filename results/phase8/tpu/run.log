@@ -1,0 +1,120 @@
+SSH key found in project metadata; not updating instance.
+SSH: Attempting to connect to worker 0...
+SSH: Attempting to connect to worker 1...
+SSH: Attempting to connect to worker 2...
+SSH: Attempting to connect to worker 3...
+Hardware Platform: tpu, Total Devices: 16, Processes: 4
+Created distributed mesh: Mesh('data': 2, 'fsdp': 2, 'model': 4, axis_types=(Auto, Auto, Auto))
+AST Zero-Transcendental Audit: PASS
+
+========================= Launching Sweep Arm: ALGEBRAIC | Seed 42 =========================
+  Hyperparameters: lr=0.0006, warmup=28, wd=0.01, beta1=0.9, beta2=0.99, sink=0.5, gamma=2.0
+  Target Budget: 600,000,000 tokens (572 steps)
+[Algebraic|Seed 42] Step   50/ 572 | Loss: 27.7426 | Grad: 0.606 | Throughput: 606,905 tok/s | Step: 1727.7ms
+[Algebraic|Seed 42] Step  100/ 572 | Loss: 24.0507 | Grad: 1.000 | Throughput: 607,063 tok/s | Step: 1727.3ms
+[Algebraic|Seed 42] Step  150/ 572 | Loss: 21.3500 | Grad: 1.000 | Throughput: 607,212 tok/s | Step: 1726.9ms
+[Algebraic|Seed 42] Step  200/ 572 | Loss: 19.7495 | Grad: 0.694 | Throughput: 607,228 tok/s | Step: 1726.8ms
+[Algebraic|Seed 42] Step  250/ 572 | Loss: 18.4689 | Grad: 0.641 | Throughput: 607,225 tok/s | Step: 1726.8ms
+[Algebraic|Seed 42] Step  300/ 572 | Loss: 17.5630 | Grad: 0.859 | Throughput: 607,122 tok/s | Step: 1727.1ms
+[Algebraic|Seed 42] Step  350/ 572 | Loss: 17.0555 | Grad: 0.907 | Throughput: 607,114 tok/s | Step: 1727.1ms
+[Algebraic|Seed 42] Step  400/ 572 | Loss: 16.4289 | Grad: 0.555 | Throughput: 607,221 tok/s | Step: 1726.8ms
+[Algebraic|Seed 42] Step  450/ 572 | Loss: 15.8949 | Grad: 0.605 | Throughput: 607,102 tok/s | Step: 1727.2ms
+[Algebraic|Seed 42] Step  500/ 572 | Loss: 15.6554 | Grad: 0.774 | Throughput: 607,144 tok/s | Step: 1727.1ms
+[Algebraic|Seed 42] Step  550/ 572 | Loss: 15.3391 | Grad: 0.810 | Throughput: 607,264 tok/s | Step: 1726.7ms
+[Algebraic|Seed 42] Evaluating validation perplexity on held-out FineWeb-Edu...
+[Algebraic|Seed 42] Result: Val Loss = 4.1991, Perplexity = 66.63
+
+========================= Launching Sweep Arm: ALGEBRAIC | Seed 43 =========================
+  Hyperparameters: lr=0.0006, warmup=28, wd=0.01, beta1=0.9, beta2=0.99, sink=0.5, gamma=2.0
+  Target Budget: 600,000,000 tokens (572 steps)
+[Algebraic|Seed 43] Step   50/ 572 | Loss: 28.0248 | Grad: 0.787 | Throughput: 606,903 tok/s | Step: 1727.7ms
+[Algebraic|Seed 43] Step  100/ 572 | Loss: 24.1173 | Grad: 1.000 | Throughput: 607,107 tok/s | Step: 1727.2ms
+[Algebraic|Seed 43] Step  150/ 572 | Loss: 21.4429 | Grad: 1.000 | Throughput: 607,042 tok/s | Step: 1727.4ms
+[Algebraic|Seed 43] Step  200/ 572 | Loss: 19.6720 | Grad: 0.907 | Throughput: 607,106 tok/s | Step: 1727.2ms
+[Algebraic|Seed 43] Step  250/ 572 | Loss: 18.4550 | Grad: 0.743 | Throughput: 607,012 tok/s | Step: 1727.4ms
+[Algebraic|Seed 43] Step  300/ 572 | Loss: 17.5529 | Grad: 0.818 | Throughput: 607,015 tok/s | Step: 1727.4ms
+[Algebraic|Seed 43] Step  350/ 572 | Loss: 17.0495 | Grad: 0.685 | Throughput: 607,099 tok/s | Step: 1727.2ms
+[Algebraic|Seed 43] Step  400/ 572 | Loss: 16.4497 | Grad: 0.768 | Throughput: 607,159 tok/s | Step: 1727.0ms
+[Algebraic|Seed 43] Step  450/ 572 | Loss: 16.0379 | Grad: 0.555 | Throughput: 606,899 tok/s | Step: 1727.8ms
+[Algebraic|Seed 43] Step  500/ 572 | Loss: 15.6926 | Grad: 0.553 | Throughput: 607,203 tok/s | Step: 1726.9ms
+[Algebraic|Seed 43] Step  550/ 572 | Loss: 15.4149 | Grad: 0.703 | Throughput: 607,206 tok/s | Step: 1726.9ms
+[Algebraic|Seed 43] Evaluating validation perplexity on held-out FineWeb-Edu...
+[Algebraic|Seed 43] Result: Val Loss = 4.1934, Perplexity = 66.25
+
+========================= Launching Sweep Arm: ALGEBRAIC | Seed 44 =========================
+  Hyperparameters: lr=0.0006, warmup=28, wd=0.01, beta1=0.9, beta2=0.99, sink=0.5, gamma=2.0
+  Target Budget: 600,000,000 tokens (572 steps)
+[Algebraic|Seed 44] Step   50/ 572 | Loss: 27.5194 | Grad: 0.792 | Throughput: 606,940 tok/s | Step: 1727.6ms
+[Algebraic|Seed 44] Step  100/ 572 | Loss: 23.7193 | Grad: 1.000 | Throughput: 606,880 tok/s | Step: 1727.8ms
+[Algebraic|Seed 44] Step  150/ 572 | Loss: 20.9214 | Grad: 0.771 | Throughput: 606,882 tok/s | Step: 1727.8ms
+[Algebraic|Seed 44] Step  200/ 572 | Loss: 19.4420 | Grad: 1.000 | Throughput: 606,890 tok/s | Step: 1727.8ms
+[Algebraic|Seed 44] Step  250/ 572 | Loss: 18.2187 | Grad: 0.754 | Throughput: 607,061 tok/s | Step: 1727.3ms
+[Algebraic|Seed 44] Step  300/ 572 | Loss: 17.6032 | Grad: 0.668 | Throughput: 607,092 tok/s | Step: 1727.2ms
+[Algebraic|Seed 44] Step  350/ 572 | Loss: 17.0088 | Grad: 0.814 | Throughput: 607,106 tok/s | Step: 1727.2ms
+[Algebraic|Seed 44] Step  400/ 572 | Loss: 16.4601 | Grad: 0.734 | Throughput: 607,013 tok/s | Step: 1727.4ms
+[Algebraic|Seed 44] Step  450/ 572 | Loss: 15.9036 | Grad: 0.636 | Throughput: 606,988 tok/s | Step: 1727.5ms
+[Algebraic|Seed 44] Step  500/ 572 | Loss: 15.4163 | Grad: 0.653 | Throughput: 606,925 tok/s | Step: 1727.7ms
+[Algebraic|Seed 44] Step  550/ 572 | Loss: 15.2958 | Grad: 0.765 | Throughput: 607,154 tok/s | Step: 1727.0ms
+[Algebraic|Seed 44] Evaluating validation perplexity on held-out FineWeb-Edu...
+[Algebraic|Seed 44] Result: Val Loss = 4.1903, Perplexity = 66.04
+
+========================= Launching Sweep Arm: BASELINE | Seed 42 =========================
+  Hyperparameters: lr=0.0006, warmup=28, wd=0.01, beta1=0.9, beta2=0.99, sink=0.5, gamma=2.0
+  Target Budget: 600,000,000 tokens (572 steps)
+[Baseline |Seed 42] Step   50/ 572 | Loss:  6.9868 | Grad: 0.596 | Throughput: 839,709 tok/s | Step: 1248.7ms
+[Baseline |Seed 42] Step  100/ 572 | Loss:  6.2280 | Grad: 0.680 | Throughput: 840,013 tok/s | Step: 1248.3ms
+[Baseline |Seed 42] Step  150/ 572 | Loss:  5.6068 | Grad: 0.375 | Throughput: 839,986 tok/s | Step: 1248.3ms
+[Baseline |Seed 42] Step  200/ 572 | Loss:  5.2109 | Grad: 0.179 | Throughput: 839,918 tok/s | Step: 1248.4ms
+[Baseline |Seed 42] Step  250/ 572 | Loss:  4.9102 | Grad: 0.261 | Throughput: 839,825 tok/s | Step: 1248.6ms
+[Baseline |Seed 42] Step  300/ 572 | Loss:  4.7100 | Grad: 0.307 | Throughput: 840,287 tok/s | Step: 1247.9ms
+[Baseline |Seed 42] Step  350/ 572 | Loss:  4.5963 | Grad: 0.196 | Throughput: 840,088 tok/s | Step: 1248.2ms
+[Baseline |Seed 42] Step  400/ 572 | Loss:  4.4866 | Grad: 0.188 | Throughput: 839,943 tok/s | Step: 1248.4ms
+[Baseline |Seed 42] Step  450/ 572 | Loss:  4.3930 | Grad: 0.151 | Throughput: 840,190 tok/s | Step: 1248.0ms
+[Baseline |Seed 42] Step  500/ 572 | Loss:  4.3682 | Grad: 0.158 | Throughput: 840,070 tok/s | Step: 1248.2ms
+[Baseline |Seed 42] Step  550/ 572 | Loss:  4.3349 | Grad: 0.155 | Throughput: 840,277 tok/s | Step: 1247.9ms
+[Baseline|Seed 42] Evaluating validation perplexity on held-out FineWeb-Edu...
+[Baseline|Seed 42] Result: Val Loss = 4.3521, Perplexity = 77.64
+
+========================= Launching Sweep Arm: BASELINE | Seed 43 =========================
+  Hyperparameters: lr=0.0006, warmup=28, wd=0.01, beta1=0.9, beta2=0.99, sink=0.5, gamma=2.0
+  Target Budget: 600,000,000 tokens (572 steps)
+[Baseline |Seed 43] Step   50/ 572 | Loss:  6.9364 | Grad: 0.640 | Throughput: 839,427 tok/s | Step: 1249.2ms
+[Baseline |Seed 43] Step  100/ 572 | Loss:  6.0913 | Grad: 0.289 | Throughput: 839,595 tok/s | Step: 1248.9ms
+[Baseline |Seed 43] Step  150/ 572 | Loss:  5.5429 | Grad: 0.250 | Throughput: 840,131 tok/s | Step: 1248.1ms
+[Baseline |Seed 43] Step  200/ 572 | Loss:  5.1346 | Grad: 0.241 | Throughput: 840,211 tok/s | Step: 1248.0ms
+[Baseline |Seed 43] Step  250/ 572 | Loss:  4.8757 | Grad: 0.392 | Throughput: 840,432 tok/s | Step: 1247.7ms
+[Baseline |Seed 43] Step  300/ 572 | Loss:  4.6604 | Grad: 0.198 | Throughput: 840,580 tok/s | Step: 1247.4ms
+[Baseline |Seed 43] Step  350/ 572 | Loss:  4.5683 | Grad: 0.219 | Throughput: 840,528 tok/s | Step: 1247.5ms
+[Baseline |Seed 43] Step  400/ 572 | Loss:  4.4515 | Grad: 0.198 | Throughput: 840,561 tok/s | Step: 1247.5ms
+[Baseline |Seed 43] Step  450/ 572 | Loss:  4.3938 | Grad: 0.151 | Throughput: 840,555 tok/s | Step: 1247.5ms
+[Baseline |Seed 43] Step  500/ 572 | Loss:  4.3540 | Grad: 0.152 | Throughput: 840,490 tok/s | Step: 1247.6ms
+[Baseline |Seed 43] Step  550/ 572 | Loss:  4.3340 | Grad: 0.146 | Throughput: 840,342 tok/s | Step: 1247.8ms
+[Baseline|Seed 43] Evaluating validation perplexity on held-out FineWeb-Edu...
+[Baseline|Seed 43] Result: Val Loss = 4.3328, Perplexity = 76.15
+
+========================= Launching Sweep Arm: BASELINE | Seed 44 =========================
+  Hyperparameters: lr=0.0006, warmup=28, wd=0.01, beta1=0.9, beta2=0.99, sink=0.5, gamma=2.0
+  Target Budget: 600,000,000 tokens (572 steps)
+[Baseline |Seed 44] Step   50/ 572 | Loss:  7.0065 | Grad: 0.873 | Throughput: 840,107 tok/s | Step: 1248.1ms
+[Baseline |Seed 44] Step  100/ 572 | Loss:  6.1179 | Grad: 0.321 | Throughput: 840,242 tok/s | Step: 1247.9ms
+[Baseline |Seed 44] Step  150/ 572 | Loss:  5.5662 | Grad: 0.239 | Throughput: 839,837 tok/s | Step: 1248.5ms
+[Baseline |Seed 44] Step  200/ 572 | Loss:  5.1687 | Grad: 0.245 | Throughput: 840,355 tok/s | Step: 1247.8ms
+[Baseline |Seed 44] Step  250/ 572 | Loss:  4.9068 | Grad: 0.292 | Throughput: 840,286 tok/s | Step: 1247.9ms
+[Baseline |Seed 44] Step  300/ 572 | Loss:  4.7539 | Grad: 0.180 | Throughput: 840,307 tok/s | Step: 1247.8ms
+[Baseline |Seed 44] Step  350/ 572 | Loss:  4.6212 | Grad: 0.188 | Throughput: 840,483 tok/s | Step: 1247.6ms
+[Baseline |Seed 44] Step  400/ 572 | Loss:  4.5144 | Grad: 0.191 | Throughput: 839,869 tok/s | Step: 1248.5ms
+[Baseline |Seed 44] Step  450/ 572 | Loss:  4.4178 | Grad: 0.172 | Throughput: 840,093 tok/s | Step: 1248.2ms
+[Baseline |Seed 44] Step  500/ 572 | Loss:  4.3383 | Grad: 0.146 | Throughput: 840,136 tok/s | Step: 1248.1ms
+[Baseline |Seed 44] Step  550/ 572 | Loss:  4.3437 | Grad: 0.141 | Throughput: 840,279 tok/s | Step: 1247.9ms
+[Baseline|Seed 44] Evaluating validation perplexity on held-out FineWeb-Edu...
+[Baseline|Seed 44] Result: Val Loss = 4.3663, Perplexity = 78.75
+
+==================== Phase 8 Sweep Summary ====================
+Runs Completed: 6/6
+Algebraic PPL:  66.31 (Loss std: 0.09%)
+Baseline PPL:   77.51 (Loss std: 0.32%)
+PPL Ratio:      0.8554 (Threshold <= 1.08)
+Peak Grad Norm: 1.0000 (Threshold <= 5.0)
+NaN / Inf:      0
+Loss Spikes:    5
+Overall Result: FAIL

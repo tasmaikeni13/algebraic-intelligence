@@ -1,0 +1,7 @@
+SSH key found in project metadata; not updating instance.
+SCP: Attempting to connect to worker 2...
+Bad packet length 4054042191.
+ssh_dispatch_run_fatal: Connection to 35.186.64.143 port 22: Connection corrupted
+lost connection
+Retrying: SCP command error: [/usr/bin/scp] exited with return code [1].
+SCP: Attempting to connect to worker 2...

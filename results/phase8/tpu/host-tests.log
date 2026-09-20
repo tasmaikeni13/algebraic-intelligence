@@ -1,0 +1,33 @@
+SSH key found in project metadata; not updating instance.
+SSH: Attempting to connect to worker 0...
+SSH: Attempting to connect to worker 1...
+SSH: Attempting to connect to worker 2...
+SSH: Attempting to connect to worker 3...
+.ss.ss.ss.ss.ss                                                                   [100%]
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_hparam_contracts.py:38: Phase 8 optimal configurations not yet generated
+SKIPPED [1] tests/test_hparam_contracts.py:60: Phase 8 optimal configurations not yet generated
+SKIPPED [1] tests/test_hparam_contracts.py:116: Phase 8 sweep ledger not yet produced
+SKIPPED [1] tests/test_hparam_contracts.py:144: Phase 8 metrics not yet produced
+2 passed, 4 skipped in 3.94s
+.ss                                                                   [100%]
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_hparam_contracts.py:38: Phase 8 optimal configurations not yet generated
+SKIPPED [1] tests/test_hparam_contracts.py:60: Phase 8 optimal configurations not yet generated
+SKIPPED [1] tests/test_hparam_contracts.py:116: Phase 8 sweep ledger not yet produced
+SKIPPED [1] tests/test_hparam_contracts.py:144: Phase 8 metrics not yet produced
+2 passed, 4 skipped in 4.02s
+.ss                                                                   [100%].ss                                                                   [100%]
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_hparam_contracts.py:38: Phase 8 optimal configurations not yet generated
+SKIPPED [1] tests/test_hparam_contracts.py:60: Phase 8 optimal configurations not yet generated
+SKIPPED [1] tests/test_hparam_contracts.py:116: Phase 8 sweep ledger not yet produced
+SKIPPED [1] tests/test_hparam_contracts.py:144: Phase 8 metrics not yet produced
+2 passed, 4 skipped in 3.92s
+
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_hparam_contracts.py:38: Phase 8 optimal configurations not yet generated
+SKIPPED [1] tests/test_hparam_contracts.py:60: Phase 8 optimal configurations not yet generated
+SKIPPED [1] tests/test_hparam_contracts.py:116: Phase 8 sweep ledger not yet produced
+SKIPPED [1] tests/test_hparam_contracts.py:144: Phase 8 metrics not yet produced
+2 passed, 4 skipped in 4.03s

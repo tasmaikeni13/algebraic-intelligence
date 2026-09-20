@@ -205,8 +205,10 @@ def run_sweep_arm(
     y_init_local = y_init_np.reshape(accum_steps, local_micro_batch, seq_len)
     x_init = jax.make_array_from_process_local_data(data_sharding, x_init_local, global_batch_shape)
     y_init = jax.make_array_from_process_local_data(data_sharding, y_init_local, global_batch_shape)
-    params, opt_state, metrics = jitted_step(params, opt_state, x_init, y_init)
-    jax.block_until_ready(params)
+    # Warmup JIT compilation on step 0 data without mutating initial training parameters
+    warmup_params, warmup_opt, _ = jitted_step(params, opt_state, x_init, y_init)
+    jax.block_until_ready(warmup_params)
+    del warmup_params, warmup_opt
 
     losses: List[float] = []
     grad_norms: List[float] = []
@@ -236,7 +238,8 @@ def run_sweep_arm(
         if not (math.isfinite(loss_val) and math.isfinite(grad_norm_val)):
             nan_or_inf_count += 1
 
-        if prev_loss is not None and (loss_val - prev_loss) > 1.5:
+        # Monitor steady-state loss spikes (step >= 10, excluding initial warmup)
+        if step >= 10 and prev_loss is not None and (loss_val - prev_loss) > 1.5:
             loss_spike_count += 1
         prev_loss = loss_val
 
