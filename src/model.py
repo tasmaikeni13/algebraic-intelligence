@@ -235,9 +235,15 @@ def fused_oace_softmax_loss(logits, targets, eps=100.0, gamma=2.0):
 fused_oace_softmax_loss.defvjp(_fused_oace_softmax_fwd, _fused_oace_softmax_bwd)
 
 
-def _algebraic_layer_forward(x, layer, c, s, eps, num_heads, head_dim, d_model, sink_omega, dtype):
+def _algebraic_layer_forward(x, layer, c, s):
+    B, T, d_model = x.shape
+    dtype = x.dtype
+    head_dim = c.shape[-1] * 2
+    num_heads = d_model // head_dim
+    eps = 1e-5
+    sink_omega = 0.5
+
     h1 = avn(x, eps=eps)
-    B, T, _ = x.shape
     q = jnp.matmul(h1, layer["w_q"].astype(dtype)).reshape(B, T, num_heads, head_dim).swapaxes(1, 2)
     k = jnp.matmul(h1, layer["w_k"].astype(dtype)).reshape(B, T, num_heads, head_dim).swapaxes(1, 2)
     v = jnp.matmul(h1, layer["w_v"].astype(dtype)).reshape(B, T, num_heads, head_dim).swapaxes(1, 2)
@@ -327,9 +333,7 @@ class AlgebraicTransformerLM:
 
         layer_fn = jax.checkpoint(_algebraic_layer_forward) if cfg.remat else _algebraic_layer_forward
         for layer in params["layers"]:
-            x = layer_fn(
-                x, layer, c, s, cfg.eps, cfg.num_heads, self.head_dim, cfg.d_model, cfg.sink_omega, cfg.dtype
-            )
+            x = layer_fn(x, layer, c, s)
 
         # 4. Final Parameter-Free AVN
         x_final = avn(x, eps=cfg.eps)

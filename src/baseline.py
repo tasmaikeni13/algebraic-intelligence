@@ -79,8 +79,14 @@ def _standard_swiglu(x: jax.Array, w_g: jax.Array, w_u: jax.Array, w_d: jax.Arra
     return jnp.matmul(gate * swish_up, w_d)
 
 
-def _baseline_layer_forward(x, layer, cos_angles, sin_angles, causal_mask, eps, num_heads, head_dim, d_model, scale, dtype):
-    B, T, _ = x.shape
+def _baseline_layer_forward(x, layer, cos_angles, sin_angles, causal_mask):
+    B, T, d_model = x.shape
+    dtype = x.dtype
+    head_dim = cos_angles.shape[-1] * 2
+    num_heads = d_model // head_dim
+    scale = 1.0 / math.sqrt(head_dim)
+    eps = 1e-5
+
     h = _standard_rmsnorm(x, layer["norm1_gamma"], eps)
     q = jnp.matmul(h, layer["w_q"].astype(dtype)).reshape(B, T, num_heads, head_dim).swapaxes(1, 2)
     k = jnp.matmul(h, layer["w_k"].astype(dtype)).reshape(B, T, num_heads, head_dim).swapaxes(1, 2)
@@ -168,9 +174,7 @@ class StandardTransformerLM:
 
         layer_fn = jax.checkpoint(_baseline_layer_forward) if cfg.remat else _baseline_layer_forward
         for layer in params["layers"]:
-            x = layer_fn(
-                x, layer, cos_angles, sin_angles, causal_mask, cfg.eps, cfg.num_heads, self.head_dim, cfg.d_model, scale, cfg.dtype
-            )
+            x = layer_fn(x, layer, cos_angles, sin_angles, causal_mask)
 
         x_final = _standard_rmsnorm(x, params["final_norm_gamma"], cfg.eps)
 
