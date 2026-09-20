@@ -13,6 +13,7 @@ Executes the equal-budget multi-seed hyperparameter search protocol:
 """
 
 import argparse
+from dataclasses import asdict
 from datetime import datetime, timezone
 import json
 import math
