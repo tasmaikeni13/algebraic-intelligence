@@ -18,19 +18,21 @@ Strictly zero transcendental functions (zero exp, zero log, zero sin, zero cos).
 """
 
 from dataclasses import dataclass
+from functools import partial
 from typing import Any, Dict, Optional, Tuple, Union
 
 import jax
 from jax import lax
 import jax.numpy as jnp
 
-from src.primitives import alu, avn
+from src.primitives import alu, avn, _accumulate, _avn_forward, _avn_backward
 from src.attention import (
     algebraic_softmax,
     apply_ago_rotations,
     build_cayley_rotary_matrix,
     CayleyRotary,
     _octic,
+    _kernel,
 )
 from src.kernels.pallas_afa import _vmu_octic_kernel
 from src.loss import oace_loss
@@ -105,6 +107,45 @@ def _causal_algebraic_attention(
     d = jnp.sum(p_v, axis=-1, keepdims=True) + jnp.array(sink_omega, dtype=v.dtype)
     w = p_v * lax.reciprocal(d)
     return jnp.matmul(w, v).astype(q.dtype)
+
+
+def _fused_oace_softmax_fwd(logits, targets, eps, gamma):
+    z = _accumulate(logits)
+    normalized, (y_norm, tau) = _avn_forward(z, eps)
+    k, r = _kernel(normalized)
+    sum_k = jnp.sum(k, axis=-1, keepdims=True)
+    p = k / sum_k
+
+    inv_eighth = jax.lax.rsqrt(jax.lax.rsqrt(jax.lax.rsqrt(p)))
+    p_78 = p * inv_eighth
+    sum_p78 = jnp.sum(p_78, axis=-1, keepdims=True)
+
+    p_c = jnp.take_along_axis(p, targets[..., None], axis=-1)
+    p_c_inv8 = jax.lax.rsqrt(jax.lax.rsqrt(jax.lax.rsqrt(p_c)))
+
+    loss = gamma * (8.0 * p_c_inv8.squeeze(-1) + (8.0 / 7.0) * sum_p78.squeeze(-1) - (64.0 / 7.0))
+    mean_loss = jnp.mean(loss)
+    return mean_loss, (normalized, tau, p, p_78, p_c_inv8, r, sum_p78, targets)
+
+
+def _fused_oace_softmax_bwd(eps, gamma, cache, g):
+    normalized, tau, p, p_78, p_c_inv8, r, sum_p78, targets = cache
+    V = p.shape[-1]
+    scalar_diff = sum_p78 - p_c_inv8
+    target_mask = jax.nn.one_hot(targets, V, dtype=p.dtype)
+    bracket = p_78 - target_mask * p_c_inv8 - p * scalar_diff
+    normalized_g = (8.0 * gamma / float(targets.size)) * r * bracket * g
+    dx = _avn_backward(eps, (normalized, tau), normalized_g)[0]
+    return (dx.astype(normalized.dtype), None)
+
+
+@partial(jax.custom_vjp, nondiff_argnums=(2, 3))
+def fused_oace_softmax_loss(logits, targets, eps=100.0, gamma=2.0):
+    """Fused closed-simplex A-Softmax and OACE loss with single-pass analytical VJP."""
+    return _fused_oace_softmax_fwd(logits, targets, eps, gamma)[0]
+
+
+fused_oace_softmax_loss.defvjp(_fused_oace_softmax_fwd, _fused_oace_softmax_bwd)
 
 
 class AlgebraicTransformerLM:
@@ -212,9 +253,5 @@ class AlgebraicTransformerLM:
         cfg = self.config
         logits = self.forward(params, tokens, rotary_params=rotary_params)
 
-        # Bounded A-Softmax probability projection on closed vocabulary simplex (zero sink)
-        probs = algebraic_softmax(logits, sink_omega=0.0, eps=cfg.eps_vocab)
-
-        # Strictly proper OACE power score
-        loss = oace_loss(probs, targets, gamma=cfg.gamma, reduction="mean")
+        loss = fused_oace_softmax_loss(logits, targets, eps=cfg.eps_vocab, gamma=cfg.gamma)
         return loss, {"logits": logits, "loss": loss}
