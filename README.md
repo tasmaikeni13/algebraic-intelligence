@@ -76,8 +76,8 @@ All autonomous research and verification in this repository is governed by [`pha
 - [**Phase 5: Algebraic Optimization & Rational Scheduling**](phases/phase5.md) — **VERIFIED PASS** ([PASS.md](results/phase5/PASS.md)) (AdamW Native Algebraic Verification, ARDS Rational Decay Schedule, Ill-Conditioned $\kappa \le 10^6$ Sweep, Non-Convex Stochastic Parity)
 - [**Phase 6: Hardware-Fused Kernels & Algebraic FlashAttention on 16 TPU v4 Pod**](phases/phase6.md) — **VERIFIED PASS** ([PASS.md](results/phase6/PASS.md)) (real JAX Pallas TPU kernel, bounded additive tile accumulation, $101.8\%$–$102.7\%$ Pallas-baseline throughput, lock-free Ring Attention over ICI)
 - [**Phase 7: Full Architecture Assembly & Pilot Pretraining**](phases/phase7.md) — **VERIFIED PASS** ([PASS.md](results/phase7/PASS.md)) (15.9M LM on WikiText-103 across 16 TPU v4 chips / v4-32 Pod slice, $\text{PPL}_{\text{ratio}} = 0.8539$ [14.6% PPL reduction], $90.22\%$ throughput parity, 0 NaNs/spikes, 0 transcendentals)
-- [**Phase 8: Systematic Hyperparameter Sweeping & Architecture Tuning**](phases/phase8.md) (Equal-Budget 48-Trial Sweep on 100M FineWeb-Edu Tokens on 16 TPU v4 Pod for Apples-to-Apples Parity)
-- [**Phase 9: Frontier Pretraining: 125M Parameters on 2.5B Tokens**](phases/phase9.md) (6 Runs across Seeds 42, 43, 44 on 2.5B FineWeb-Edu Tokens on 16 TPU v4 Pod, Downstream Zero-Shot Reasoning)
+- [**Phase 8: Systematic Hyperparameter Sweeping & Architecture Tuning**](phases/phase8.md) (Equal-Budget Tuning for Both Architectures: AlgebraicTransformerLM vs StandardTransformerLM across 3 Seeds [42, 43, 44] on 600M FineWeb-Edu Tokens each [6 Runs Total] on 16 TPU v4 Pod / v4-32 for Apples-to-Apples Parity)
+- [**Phase 9: Frontier Pretraining: 125M Parameters on 2.5B Tokens**](phases/phase9.md) (Main Frontier Pretraining: 125M Parameters across 6 Runs [2 Architectures $\times$ Seeds 42, 43, 44] on 2.5B FineWeb-Edu Tokens each on 16 TPU v4 Pod / v4-32, Downstream Zero-Shot Reasoning)
 - [**Phase 10: Comprehensive Research Paper, Clean-Room Replication, & Release**](phases/phase10.md) (Fresh-Clone Reproduction on 16 TPU v4 Pod, Standalone Manuscript, Full Completion Matrix)
 
 

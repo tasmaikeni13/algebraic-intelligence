@@ -55,7 +55,7 @@ The autonomous research lifecycle is organized into **exactly ten sequential pha
 | [**`phase5.md`**](phase5.md) | **Algebraic Optimization & Rational Scheduling** | AdamW algebraic purity verification (zero $e^x, \ln x$), decoupled weight decay invariance, and ARDS rational decay schedule $\operatorname{rsqrt}(1 + \alpha t^2)$. |
 | [**`phase6.md`**](phase6.md) | **Hardware-Fused Kernels & Algebraic FlashAttention (Pallas / XLA HLO)** | Real JAX Pallas TPU AFA kernel with bounded VMEM tile storage, pure additive accumulation, Pallas FlashAttention baseline parity, and no unsupported physical-HBM claim. |
 | [**`phase7.md`**](phase7.md) | **Full Architecture Assembly & Pilot Pretraining** | Complete `AlgebraicTransformerLM` assembly and $10^5$-step pilot pretraining (15M parameters on WikiText-103 on 16 TPU v4 chips) vs. `StandardTransformerLM`. |
-| [**`phase8.md`**](phase8.md) | **Systematic Hyperparameter Sweeping & Architecture Tuning** | Equal-budget 48-trial Pareto tuning study on 100M-token FineWeb-Edu slice on 16 TPU v4 Pod to discover optimal hyperparameters for both architectures. |
+| [**`phase8.md`**](phase8.md) | **Systematic Hyperparameter Sweeping & Architecture Tuning** | Equal-budget tuning study for both architectures (`AlgebraicTransformerLM` and `StandardTransformerLM`) across 3 seeds (42, 43, 44) on 600M FineWeb-Edu tokens each (6 runs total) on 16 TPU v4 Pod / v4-32. |
 | [**`phase9.md`**](phase9.md) | **Frontier Pretraining: 125M Parameters on 2.5B Tokens** | Head-to-head pretraining across 6 runs (2 architectures $\times$ Seeds 42, 43, 44) on 2.5B FineWeb-Edu tokens across 16 TPU v4 chips; statistical significance (mean $\pm$ SEM). |
 | [**`phase10.md`**](phase10.md) | **Comprehensive Research Paper, Clean-Room Replication, & Release** | Clean-room fresh-clone replication on 16 TPU v4 Pod slice, standalone paper finalization (`theory.md`), full completion matrix, and open-source publication package. |
 
@@ -80,7 +80,7 @@ The defining acceptance gate for every algebraic primitive is the **Universal Pa
 | **Phase 5** | **AdamW + ARDS** | AdamW + Cosine | Non-convex stochastic optimization (Rosenbrock & Rastrigin) with ARDS rational decay vs. Cosine Annealing | Final loss within $\le 2\%$ of Cosine Annealing; strictly zero transcendental function calls. |
 | **Phase 6** | **AFA** | JAX Pallas TPU FlashAttention | Real Pallas kernel throughput, compiler identity, bounded tile storage, and ring parity | Throughput $\ge 85\%$ of the Pallas baseline; working set fits 16 MiB VMEM; no physical-HBM gate without profiler counters. |
 | **Phase 7** | **Pilot (15M)** | Standard Transformer (15M) | $10^5$-step pretraining on WikiText-103 under identical token order | Validation perplexity within $\le 1.08\times$ ($\le 8\%$ degradation); throughput $\ge 90\%$. |
-| **Phase 8** | **Sweep** | Standard Transformer | 48 equal-budget trials (24/arch) on 100M FineWeb-Edu tokens | Fair apples-to-apples hyperparameter discovery for both architectures. |
+| **Phase 8** | **Sweep** | Standard Transformer | Multi-seed tuning study (2 archs $\times$ Seeds 42, 43, 44) on 600M FineWeb-Edu tokens each (6 runs total) | Fair apples-to-apples hyperparameter discovery for both architectures prior to 2.5B-token main run. |
 | **Phase 9** | **Full (125M)** | Standard Transformer (125M) | 2.5B FineWeb-Edu tokens across Seeds 42, 43, 44 | Validation perplexity within $\le 1.08\times$ ($\le 8\%$ degradation); downstream zero-shot reasoning within $2.0\%$ absolute margin. |
 
 ---
@@ -194,7 +194,7 @@ algebraic-intelligence/
 │   ├── run_benchmark_pallas.py      # Benchmark runner for Phase 6 AFA on TPU v4
 │   ├── audit_xla_hlo.py             # Static XLA HLO opcode and fusion inspector
 │   ├── run_pilot_15m.py             # Phase 7: 15M LM pretraining on WikiText-103
-│   ├── run_hparam_sweep.py          # Phase 8: Systematic 48-trial hyperparameter sweep
+│   ├── run_hparam_sweep.py          # Phase 8: Systematic multi-seed hyperparameter tuning (6 runs on 600M tokens each)
 │   ├── run_pretrain_125m.py         # Phase 9: 125M LM on 2.5B FineWeb-Edu tokens (Seeds 42, 43, 44)
 │   └── clean_room_reproduce.py      # Phase 10: One-command end-to-end audit
 └── results/                         # Empirical records and PASS logs
