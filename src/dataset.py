@@ -67,6 +67,21 @@ def ensure_wikitext103_ready(data_dir: Optional[Path] = None) -> Tuple[Path, Pat
     return train_npy, valid_npy
 
 
+def ensure_fineweb_ready(data_dir: Optional[Path] = None) -> Tuple[Path, Path, Path]:
+    """Ensures tokenized FineWeb-Edu binary arrays exist.
+
+    Returns:
+        Tuple of (sweep_npy_path, valid_npy_path, train_2_5b_npy_path).
+    """
+    if data_dir is None:
+        data_dir = DEFAULT_DATA_DIR
+    data_dir = Path(data_dir)
+    sweep_path = data_dir / "fineweb_sweep_600M.npy"
+    valid_path = data_dir / "fineweb_valid.npy"
+    train_path = data_dir / "fineweb_train_2_5B.npy"
+    return sweep_path, valid_path, train_path
+
+
 class ShardedTokenLoader:
     """SPMD data-parallel sequence batch generator for distributed pretraining."""
 
@@ -85,6 +100,7 @@ class ShardedTokenLoader:
         self.seq_len = seq_len
         self.process_index = process_index
         self.process_count = process_count
+        self.seed = seed
 
         assert batch_size % process_count == 0, (
             f"batch_size ({batch_size}) must be divisible by process_count ({process_count})"
@@ -105,7 +121,7 @@ class ShardedTokenLoader:
             y: target token ids of shape (local_batch_size, seq_len)
         """
         # Deterministic sequence offset calculation across all hosts
-        step_rng = np.random.default_rng(10007 * (step + 1) + 42)
+        step_rng = np.random.default_rng(10007 * (step + 1) + self.seed)
         global_indices = step_rng.integers(
             0, self.total_tokens - self.span, size=self.batch_size
         )

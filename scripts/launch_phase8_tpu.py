@@ -1,0 +1,154 @@
+#!/usr/bin/env python3
+"""Copy a committed snapshot and launch Phase 8 hyperparameter sweep on the TPU v4-32 Pod slice.
+
+Executes the equal-budget sweep study across 16 TPU v4 chips across 4 hosts in us-central2-b.
+"""
+
+import argparse
+from datetime import datetime, timezone
+import os
+from pathlib import Path
+import shlex
+import shutil
+import subprocess
+import sys
+import tempfile
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--name", default="my-tpu-v4")
+    parser.add_argument("--zone", default="us-central2-b")
+    parser.add_argument("--output", type=Path, default=ROOT / "results/phase8/tpu")
+    parser.add_argument("--tokens-per-run", type=int, default=600_000_000, help="Tokens per run")
+    parser.add_argument("--batch-size", type=int, default=512, help="Global batch size in sequences")
+    parser.add_argument("--seq-len", type=int, default=2048, help="Context length")
+    parser.add_argument("--seeds", nargs="+", type=int, default=[42, 43, 44])
+    parser.add_argument("--log-every", type=int, default=50)
+    args = parser.parse_args()
+    out = args.output.resolve()
+    out.mkdir(parents=True, exist_ok=True)
+
+    def run(command, log):
+        with (out / log).open("w") as file:
+            process = subprocess.Popen(command, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            for line in process.stdout:
+                file.write(line)
+                file.flush()
+                print(line, end="", flush=True)
+            code = process.wait()
+        if code:
+            raise RuntimeError(f"Command failed with exit {code}; see {out / log}")
+
+    def ssh(command, log, worker="all"):
+        run(["gcloud", "compute", "tpus", "tpu-vm", "ssh", args.name, "--zone", args.zone,
+             "--worker", worker, "--quiet", "--command", command], log)
+
+    print("Checking TPU accelerator availability...", flush=True)
+    ssh("if sudo -n fuser -s /dev/accel*; then echo 'TPU devices in use; waiting/exiting'; exit 73; fi", "availability.log")
+
+    commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+    branch = subprocess.check_output(["git", "branch", "--show-current"], cwd=ROOT, text=True).strip()
+    if not branch:
+        branch = "main"
+
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    label = f"algebraic-phase8-{commit[:12]}-{stamp}"
+    remote = f"/tmp/{label}"
+    quote = shlex.quote
+
+    print(f"Creating Git bundle for snapshot: {label}...", flush=True)
+    with tempfile.TemporaryDirectory(prefix="algebraic-phase8-") as temporary:
+        bundle = Path(temporary) / "source.bundle"
+        subprocess.run(["git", "bundle", "create", str(bundle), "HEAD"], cwd=ROOT, check=True)
+        run(["gcloud", "compute", "tpus", "tpu-vm", "scp", str(bundle), f"{args.name}:{remote}.bundle",
+             "--zone", args.zone, "--worker", "all", "--quiet"], "copy.log")
+
+    print("Cloning snapshot and installing dependencies across all TPU workers...", flush=True)
+    setup = (
+        f"git clone --quiet {quote(remote+'.bundle')} {quote(remote)} && "
+        f"python3 -m venv {quote(remote+'/venv')} && "
+        f"{quote(remote+'/venv/bin/pip')} install -r {quote(remote+'/requirements-tpu.txt')} pyarrow"
+    )
+    ssh(setup, "setup.log")
+
+    # Distribute FineWeb-Edu tokenized cache to all workers
+    sweep_file = ROOT / "data/fineweb_sweep_600M.npy"
+    if not sweep_file.exists():
+        sweep_file = ROOT / "data/fineweb_train_2_5B.npy"
+    valid_file = ROOT / "data/fineweb_valid.npy"
+
+    if sweep_file.exists() and valid_file.exists():
+        print("Distributing FineWeb-Edu dataset cache to all TPU workers...", flush=True)
+        dest_0 = Path(remote) / "data"
+        dest_0.mkdir(parents=True, exist_ok=True)
+        # Worker 0 local symlink/copy
+        if not (dest_0 / sweep_file.name).exists():
+            try:
+                os.symlink(sweep_file, dest_0 / sweep_file.name)
+            except OSError:
+                shutil.copy2(sweep_file, dest_0 / sweep_file.name)
+        if not (dest_0 / valid_file.name).exists():
+            try:
+                os.symlink(valid_file, dest_0 / valid_file.name)
+            except OSError:
+                shutil.copy2(valid_file, dest_0 / valid_file.name)
+
+        for w in range(1, 4):
+            print(f"Syncing dataset cache to worker {w}...", flush=True)
+            ssh(f"mkdir -p {quote(remote+'/data')}", f"mkdir-data-{w}.log", worker=str(w))
+            run([
+                "gcloud", "compute", "tpus", "tpu-vm", "scp",
+                str(sweep_file), str(valid_file),
+                f"{args.name}:{remote}/data/",
+                "--zone", args.zone, "--worker", str(w), "--quiet"
+            ], f"scp-data-{w}.log")
+
+    print("Running host unit tests across workers...", flush=True)
+    ssh(f"cd {quote(remote)} && JAX_PLATFORMS=cpu JAX_ENABLE_X64=1 venv/bin/python -m pytest -q tests/test_hparam_contracts.py", "host-tests.log")
+    (out / "snapshot.txt").write_text(f"commit={commit}\nremote_directory={remote}\n")
+
+    seeds_str = " ".join(str(s) for s in args.seeds)
+    cmd = (
+        f"cd {quote(remote)} && PYTHONUNBUFFERED=1 venv/bin/python scripts/run_hparam_sweep.py "
+        f"--output-dir {quote(remote+'/measurements')} "
+        f"--tokens-per-run {args.tokens_per_run} "
+        f"--batch-size {args.batch_size} "
+        f"--seq-len {args.seq_len} "
+        f"--seeds {seeds_str} "
+        f"--log-every {args.log_every}"
+    )
+
+    try:
+        print("Launching distributed hyperparameter sweep across all 16 TPU v4 chips...", flush=True)
+        ssh(cmd, "run.log")
+    finally:
+        print("Downloading sweep results from workers...", flush=True)
+        download = out / "download" / label
+        download.mkdir(parents=True, exist_ok=True)
+        for worker in range(4):
+            try:
+                run([
+                    "gcloud", "compute", "tpus", "tpu-vm", "scp", "--recurse",
+                    f"{args.name}:{remote}/measurements", str(download / f"worker-{worker}"),
+                    "--zone", args.zone, "--worker", str(worker), "--quiet"
+                ], f"download-{worker}.log")
+            except Exception as e:
+                print(f"Warning downloading from worker {worker}: {e}", flush=True)
+
+        candidates = list(download.rglob("metrics.json"))
+        if candidates:
+            coord_dir = candidates[0].parent
+            for file in coord_dir.iterdir():
+                if file.is_file():
+                    shutil.copy2(file, out / file.name)
+                    # Also copy to results/phase8/
+                    shutil.copy2(file, (ROOT / "results/phase8") / file.name)
+            print(f"Successfully retrieved Phase 8 artifacts to {out} and results/phase8/", flush=True)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
