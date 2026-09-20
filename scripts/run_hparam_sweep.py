@@ -142,7 +142,7 @@ def run_sweep_arm(
         schedule_fn = ards_schedule(
             learning_rate=hparams.learning_rate,
             warmup_steps=hparams.warmup_steps,
-            decay_steps=total_steps,
+            decay_steps=int(total_steps * 0.8),
         )
         optimizer_tx = algebraic_adamw(
             learning_rate=schedule_fn,
@@ -354,12 +354,12 @@ def main():
             f"Dataset files not found in {args.data_dir}. Run scripts/prepare_fineweb_edu.py first."
         )
 
-    # Candidate hyperparameters chosen from search space bounds (Table 2.1)
-    # Algebraic optimal candidate: lr=6e-4, warmup=2000, wd=0.05, beta1=0.90, beta2=0.99, sink=0.5, gamma=2.0
+    # Candidate hyperparameters calibrated for 512-batch training context:
+    # 5% linear warmup (28 steps of 572 total steps), decoupled weight decay 0.01
     alg_hparams = HparamConfig(
         learning_rate=6e-4,
-        warmup_steps=2000,
-        weight_decay=0.05,
+        warmup_steps=28,
+        weight_decay=0.01,
         beta1=0.90,
         beta2=0.99,
         sink_omega=0.5,
@@ -368,11 +368,11 @@ def main():
         max_grad_norm=1.0,
     )
 
-    # Baseline optimal candidate: lr=6e-4, warmup=2000, wd=0.05, beta1=0.90, beta2=0.99, min_lr=5e-5
+    # Baseline optimal candidate: lr=6e-4, warmup=28, wd=0.01, beta1=0.90, beta2=0.99, min_lr=5e-5
     base_hparams = HparamConfig(
         learning_rate=6e-4,
-        warmup_steps=2000,
-        weight_decay=0.05,
+        warmup_steps=28,
+        weight_decay=0.01,
         beta1=0.90,
         beta2=0.99,
         min_lr=5e-5,
