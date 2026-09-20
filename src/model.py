@@ -59,6 +59,7 @@ class ModelConfig:
     tie_embeddings: bool = True
     dtype: Any = jnp.bfloat16
     param_dtype: Any = jnp.float32
+    remat: bool = False
 
 
 def count_parameters(params: Any) -> int:
@@ -234,6 +235,33 @@ def fused_oace_softmax_loss(logits, targets, eps=100.0, gamma=2.0):
 fused_oace_softmax_loss.defvjp(_fused_oace_softmax_fwd, _fused_oace_softmax_bwd)
 
 
+def _algebraic_layer_forward(x, layer, c, s, eps, num_heads, head_dim, d_model, sink_omega, dtype):
+    h1 = avn(x, eps=eps)
+    B, T, _ = x.shape
+    q = jnp.matmul(h1, layer["w_q"].astype(dtype)).reshape(B, T, num_heads, head_dim).swapaxes(1, 2)
+    k = jnp.matmul(h1, layer["w_k"].astype(dtype)).reshape(B, T, num_heads, head_dim).swapaxes(1, 2)
+    v = jnp.matmul(h1, layer["w_v"].astype(dtype)).reshape(B, T, num_heads, head_dim).swapaxes(1, 2)
+
+    # Apply pre-aligned AGO Cayley Rotations
+    q_rot = _rotate_tensor(q, c, s)
+    k_rot = _rotate_tensor(k, c, s)
+
+    # Octic AFA Causal Attention
+    attn_out = _causal_algebraic_attention(q_rot, k_rot, v, sink_omega=sink_omega)
+    attn_flat = attn_out.swapaxes(1, 2).reshape(B, T, d_model)
+    x = x + jnp.matmul(attn_flat, layer["w_o"].astype(dtype))
+
+    # 3. ALU-GLU FFN Sub-Layer
+    h2 = avn(x, eps=eps)
+    ffn_out = _alu_glu(
+        h2,
+        layer["w_g"].astype(dtype),
+        layer["w_u"].astype(dtype),
+        layer["w_d"].astype(dtype),
+    )
+    return x + ffn_out
+
+
 class AlgebraicTransformerLM:
     """Pure Algebraic Causal Transformer language model."""
 
@@ -297,31 +325,11 @@ class AlgebraicTransformerLM:
         x = params["token_embed"][tokens].astype(cfg.dtype)
         x = avn(x, eps=cfg.eps)
 
+        layer_fn = jax.checkpoint(_algebraic_layer_forward) if cfg.remat else _algebraic_layer_forward
         for layer in params["layers"]:
-            # 2. Multi-Head Attention Sub-Layer
-            h1 = avn(x, eps=cfg.eps)
-            q = jnp.matmul(h1, layer["w_q"].astype(cfg.dtype)).reshape(B, T, cfg.num_heads, self.head_dim).swapaxes(1, 2)
-            k = jnp.matmul(h1, layer["w_k"].astype(cfg.dtype)).reshape(B, T, cfg.num_heads, self.head_dim).swapaxes(1, 2)
-            v = jnp.matmul(h1, layer["w_v"].astype(cfg.dtype)).reshape(B, T, cfg.num_heads, self.head_dim).swapaxes(1, 2)
-
-            # Apply pre-aligned AGO Cayley Rotations
-            q_rot = _rotate_tensor(q, c, s)
-            k_rot = _rotate_tensor(k, c, s)
-
-            # Octic AFA Causal Attention
-            attn_out = _causal_algebraic_attention(q_rot, k_rot, v, sink_omega=cfg.sink_omega)
-            attn_flat = attn_out.swapaxes(1, 2).reshape(B, T, cfg.d_model)
-            x = x + jnp.matmul(attn_flat, layer["w_o"].astype(cfg.dtype))
-
-            # 3. ALU-GLU FFN Sub-Layer
-            h2 = avn(x, eps=cfg.eps)
-            ffn_out = _alu_glu(
-                h2,
-                layer["w_g"].astype(cfg.dtype),
-                layer["w_u"].astype(cfg.dtype),
-                layer["w_d"].astype(cfg.dtype),
+            x = layer_fn(
+                x, layer, c, s, cfg.eps, cfg.num_heads, self.head_dim, cfg.d_model, cfg.sink_omega, cfg.dtype
             )
-            x = x + ffn_out
 
         # 4. Final Parameter-Free AVN
         x_final = avn(x, eps=cfg.eps)
@@ -346,4 +354,4 @@ class AlgebraicTransformerLM:
         logits = self.forward(params, tokens, rotary_params=rotary_params)
 
         loss = fused_oace_softmax_loss(logits, targets, eps=cfg.eps_vocab, gamma=cfg.gamma)
-        return loss, {"logits": logits, "loss": loss}
+        return loss, {"loss": loss}

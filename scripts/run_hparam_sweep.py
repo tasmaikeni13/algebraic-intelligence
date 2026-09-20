@@ -122,9 +122,15 @@ def run_sweep_arm(
 
     valid_tokens = np.load(valid_path, mmap_mode="r")
 
+    accum_steps = 16
+    assert batch_size % accum_steps == 0, f"batch_size {batch_size} must be divisible by accum_steps {accum_steps}"
+    micro_batch_size = batch_size // accum_steps
+    local_micro_batch = loader.local_batch_size // accum_steps
+    global_batch_shape = (accum_steps, micro_batch_size, seq_len)
+
     sharding = ModelSharding(mesh)
     from jax.sharding import NamedSharding, PartitionSpec as P
-    data_sharding = NamedSharding(mesh, P(('data', 'fsdp', 'model'), None))
+    data_sharding = NamedSharding(mesh, P(None, ('data', 'fsdp', 'model'), None))
 
     # Initialize model
     if is_alg:
@@ -149,6 +155,7 @@ def run_sweep_arm(
             optimizer_tx=optimizer_tx,
             rotary_params=rotary_dev,
             max_grad_norm=hparams.max_grad_norm,
+            accum_steps=accum_steps,
         )
     else:
         model_cfg = get_125m_baseline_config()
@@ -175,6 +182,7 @@ def run_sweep_arm(
             cos_angles=cos_dev,
             sin_angles=sin_dev,
             max_grad_norm=hparams.max_grad_norm,
+            accum_steps=accum_steps,
         )
 
     # Initialize weights
@@ -193,8 +201,10 @@ def run_sweep_arm(
 
     # Compile with step 0
     x_init_np, y_init_np = loader.get_batch(0)
-    x_init = jax.make_array_from_process_local_data(data_sharding, x_init_np, (batch_size, seq_len))
-    y_init = jax.make_array_from_process_local_data(data_sharding, y_init_np, (batch_size, seq_len))
+    x_init_local = x_init_np.reshape(accum_steps, local_micro_batch, seq_len)
+    y_init_local = y_init_np.reshape(accum_steps, local_micro_batch, seq_len)
+    x_init = jax.make_array_from_process_local_data(data_sharding, x_init_local, global_batch_shape)
+    y_init = jax.make_array_from_process_local_data(data_sharding, y_init_local, global_batch_shape)
     params, opt_state, metrics = jitted_step(params, opt_state, x_init, y_init)
     jax.block_until_ready(params)
 
@@ -210,8 +220,10 @@ def run_sweep_arm(
     for step in range(total_steps):
         t0 = time.perf_counter()
         x_np, y_np = loader.get_batch(step)
-        x_jax = jax.make_array_from_process_local_data(data_sharding, x_np, (batch_size, seq_len))
-        y_jax = jax.make_array_from_process_local_data(data_sharding, y_np, (batch_size, seq_len))
+        x_local = x_np.reshape(accum_steps, local_micro_batch, seq_len)
+        y_local = y_np.reshape(accum_steps, local_micro_batch, seq_len)
+        x_jax = jax.make_array_from_process_local_data(data_sharding, x_local, global_batch_shape)
+        y_jax = jax.make_array_from_process_local_data(data_sharding, y_local, global_batch_shape)
 
         params, opt_state, metrics = jitted_step(params, opt_state, x_jax, y_jax)
         loss_val = float(jax.device_get(metrics["loss"]))

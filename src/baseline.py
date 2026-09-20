@@ -29,6 +29,7 @@ class BaselineConfig:
     tie_embeddings: bool = True
     dtype: Any = jnp.bfloat16
     param_dtype: Any = jnp.float32
+    remat: bool = False
 
 
 def _standard_rmsnorm(x: jax.Array, gamma: jax.Array, eps: float = 1e-5) -> jax.Array:
@@ -76,6 +77,31 @@ def _standard_swiglu(x: jax.Array, w_g: jax.Array, w_u: jax.Array, w_d: jax.Arra
     # Swish: z * sigmoid(z)
     swish_up = up * jax.nn.sigmoid(up)
     return jnp.matmul(gate * swish_up, w_d)
+
+
+def _baseline_layer_forward(x, layer, cos_angles, sin_angles, causal_mask, eps, num_heads, head_dim, d_model, scale, dtype):
+    B, T, _ = x.shape
+    h = _standard_rmsnorm(x, layer["norm1_gamma"], eps)
+    q = jnp.matmul(h, layer["w_q"].astype(dtype)).reshape(B, T, num_heads, head_dim).swapaxes(1, 2)
+    k = jnp.matmul(h, layer["w_k"].astype(dtype)).reshape(B, T, num_heads, head_dim).swapaxes(1, 2)
+    v = jnp.matmul(h, layer["w_v"].astype(dtype)).reshape(B, T, num_heads, head_dim).swapaxes(1, 2)
+
+    q_rot, k_rot = _apply_standard_rope(q, k, cos_angles, sin_angles)
+
+    scores = jnp.matmul(q_rot, k_rot.swapaxes(-1, -2)) * scale
+    scores = jnp.where(causal_mask, scores, -1e4)
+    attn_weights = jax.nn.softmax(scores, axis=-1)
+    attn_out = jnp.matmul(attn_weights, v).swapaxes(1, 2).reshape(B, T, d_model)
+    x = x + jnp.matmul(attn_out, layer["w_o"].astype(dtype))
+
+    h2 = _standard_rmsnorm(x, layer["norm2_gamma"], eps)
+    ffn_out = _standard_swiglu(
+        h2,
+        layer["w_g"].astype(dtype),
+        layer["w_u"].astype(dtype),
+        layer["w_d"].astype(dtype),
+    )
+    return x + ffn_out
 
 
 class StandardTransformerLM:
@@ -140,30 +166,11 @@ class StandardTransformerLM:
         scale = 1.0 / math.sqrt(self.head_dim)
         causal_mask = jnp.tril(jnp.ones((T, T), dtype=bool))[None, None, :, :]
 
+        layer_fn = jax.checkpoint(_baseline_layer_forward) if cfg.remat else _baseline_layer_forward
         for layer in params["layers"]:
-            # 1. Multi-head Attention
-            h = _standard_rmsnorm(x, layer["norm1_gamma"], cfg.eps)
-            q = jnp.matmul(h, layer["w_q"].astype(cfg.dtype)).reshape(B, T, cfg.num_heads, self.head_dim).swapaxes(1, 2)
-            k = jnp.matmul(h, layer["w_k"].astype(cfg.dtype)).reshape(B, T, cfg.num_heads, self.head_dim).swapaxes(1, 2)
-            v = jnp.matmul(h, layer["w_v"].astype(cfg.dtype)).reshape(B, T, cfg.num_heads, self.head_dim).swapaxes(1, 2)
-
-            q_rot, k_rot = _apply_standard_rope(q, k, cos_angles, sin_angles)
-
-            scores = jnp.matmul(q_rot, k_rot.swapaxes(-1, -2)) * scale
-            scores = jnp.where(causal_mask, scores, -1e4)
-            attn_weights = jax.nn.softmax(scores, axis=-1)
-            attn_out = jnp.matmul(attn_weights, v).swapaxes(1, 2).reshape(B, T, cfg.d_model)
-            x = x + jnp.matmul(attn_out, layer["w_o"].astype(cfg.dtype))
-
-            # 2. SwiGLU FFN
-            h2 = _standard_rmsnorm(x, layer["norm2_gamma"], cfg.eps)
-            ffn_out = _standard_swiglu(
-                h2,
-                layer["w_g"].astype(cfg.dtype),
-                layer["w_u"].astype(cfg.dtype),
-                layer["w_d"].astype(cfg.dtype),
+            x = layer_fn(
+                x, layer, cos_angles, sin_angles, causal_mask, cfg.eps, cfg.num_heads, self.head_dim, cfg.d_model, scale, cfg.dtype
             )
-            x = x + ffn_out
 
         x_final = _standard_rmsnorm(x, params["final_norm_gamma"], cfg.eps)
 
@@ -186,4 +193,4 @@ class StandardTransformerLM:
         log_probs = jax.nn.log_softmax(logits, axis=-1)
         target_log_probs = jnp.take_along_axis(log_probs, targets[..., None], axis=-1).squeeze(-1)
         loss = -jnp.mean(target_log_probs)
-        return loss, {"logits": logits, "loss": loss}
+        return loss, {"loss": loss}

@@ -57,6 +57,7 @@ def get_125m_algebraic_config(sink_omega: float = 0.5, gamma: float = 2.0) -> Mo
         tie_embeddings=True,
         dtype=jnp.bfloat16,
         param_dtype=jnp.float32,
+        remat=True,
     )
 
 
@@ -73,6 +74,7 @@ def get_125m_baseline_config() -> BaselineConfig:
         tie_embeddings=True,
         dtype=jnp.bfloat16,
         param_dtype=jnp.float32,
+        remat=True,
     )
 
 
@@ -116,22 +118,39 @@ def train_step_algebraic_fn(
     optimizer_tx,
     rotary_params,
     max_grad_norm: float = 1.0,
+    accum_steps: int = 16,
 ):
-    """Factory returning a JIT-compilable single training step for AlgebraicTransformerLM."""
+    """Factory returning a JIT-compilable single training step for AlgebraicTransformerLM with gradient accumulation."""
     def step_fn(params, opt_state, tokens, targets):
-        def loss_fn(p):
-            loss_val, aux = model.loss(p, tokens, targets, rotary_params=rotary_params)
-            return loss_val, aux
+        init_grads = jax.tree_util.tree_map(lambda p: jnp.zeros_like(p), params)
 
-        (loss, aux), raw_grads = jax.value_and_grad(loss_fn, has_aux=True)(params)
-        clipped_grads, grad_norm = _clip_grad_norm_algebraic(raw_grads, max_grad_norm)
+        def micro_step(carry, mb):
+            accum_loss, accum_grads = carry
+            tok, tgt = mb
+            def loss_fn(p):
+                loss_val, aux = model.loss(p, tok, tgt, rotary_params=rotary_params)
+                return loss_val, aux
+            (loss, aux), grads = jax.value_and_grad(loss_fn, has_aux=True)(params)
+            new_loss = accum_loss + loss / accum_steps
+            new_grads = jax.tree_util.tree_map(
+                lambda acc, g: acc + (g / accum_steps).astype(acc.dtype),
+                accum_grads,
+                grads,
+            )
+            return (new_loss, new_grads), None
+
+        (total_loss, accum_grads), _ = lax.scan(
+            micro_step, (jnp.array(0.0, dtype=jnp.float32), init_grads), (tokens, targets)
+        )
+
+        clipped_grads, grad_norm = _clip_grad_norm_algebraic(accum_grads, max_grad_norm)
         updates, new_opt_state = optimizer_tx.update(clipped_grads, opt_state, params)
         new_params = jax.tree_util.tree_map(lambda p, u: (p + u).astype(p.dtype), params, updates)
 
         metrics = {
-            "loss": loss,
+            "loss": total_loss,
             "grad_norm": grad_norm,
-            "is_finite": jnp.isfinite(loss) & jnp.isfinite(grad_norm),
+            "is_finite": jnp.isfinite(total_loss) & jnp.isfinite(grad_norm),
         }
         return new_params, new_opt_state, metrics
 
@@ -144,22 +163,39 @@ def train_step_baseline_fn(
     cos_angles,
     sin_angles,
     max_grad_norm: float = 1.0,
+    accum_steps: int = 16,
 ):
-    """Factory returning a JIT-compilable single training step for StandardTransformerLM."""
+    """Factory returning a JIT-compilable single training step for StandardTransformerLM with gradient accumulation."""
     def step_fn(params, opt_state, tokens, targets):
-        def loss_fn(p):
-            loss_val, aux = model.loss(p, tokens, targets, cos_angles=cos_angles, sin_angles=sin_angles)
-            return loss_val, aux
+        init_grads = jax.tree_util.tree_map(lambda p: jnp.zeros_like(p), params)
 
-        (loss, aux), raw_grads = jax.value_and_grad(loss_fn, has_aux=True)(params)
-        clipped_grads, grad_norm = _clip_grad_norm_algebraic(raw_grads, max_grad_norm)
+        def micro_step(carry, mb):
+            accum_loss, accum_grads = carry
+            tok, tgt = mb
+            def loss_fn(p):
+                loss_val, aux = model.loss(p, tok, tgt, cos_angles=cos_angles, sin_angles=sin_angles)
+                return loss_val, aux
+            (loss, aux), grads = jax.value_and_grad(loss_fn, has_aux=True)(params)
+            new_loss = accum_loss + loss / accum_steps
+            new_grads = jax.tree_util.tree_map(
+                lambda acc, g: acc + (g / accum_steps).astype(acc.dtype),
+                accum_grads,
+                grads,
+            )
+            return (new_loss, new_grads), None
+
+        (total_loss, accum_grads), _ = lax.scan(
+            micro_step, (jnp.array(0.0, dtype=jnp.float32), init_grads), (tokens, targets)
+        )
+
+        clipped_grads, grad_norm = _clip_grad_norm_algebraic(accum_grads, max_grad_norm)
         updates, new_opt_state = optimizer_tx.update(clipped_grads, opt_state, params)
         new_params = jax.tree_util.tree_map(lambda p, u: (p + u).astype(p.dtype), params, updates)
 
         metrics = {
-            "loss": loss,
+            "loss": total_loss,
             "grad_norm": grad_norm,
-            "is_finite": jnp.isfinite(loss) & jnp.isfinite(grad_norm),
+            "is_finite": jnp.isfinite(total_loss) & jnp.isfinite(grad_norm),
         }
         return new_params, new_opt_state, metrics
 
