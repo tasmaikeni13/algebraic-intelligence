@@ -11,7 +11,9 @@ import json
 import math
 import os
 from pathlib import Path
+import sys
 import time
+from typing import Any, Dict, Optional, Tuple
 
 if "JAX_PLATFORMS" not in os.environ:
     os.environ["JAX_PLATFORMS"] = "tpu,cpu"
@@ -48,6 +50,7 @@ def run_training_arm(
     optimizer_tx,
     train_step_fn,
     loader: ShardedTokenLoader,
+    mesh: Any,
     total_steps: int,
     log_every: int,
     eval_every: int,
@@ -60,12 +63,23 @@ def run_training_arm(
     if proc_idx == 0:
         print(f"\n{'='*20} Starting Pretraining: {model_name} ({total_steps} steps) {'='*20}", flush=True)
 
+    sharding = ModelSharding(mesh)
+    from jax.sharding import NamedSharding, PartitionSpec as P
+    data_sharding = NamedSharding(mesh, P(('data', 'fsdp', 'model'), None))
+
     init_key = jax.random.PRNGKey(seed)
     params = model.init_params(init_key)
     opt_state = optimizer_tx.init(params)
 
-    # JIT-compile the step function
-    jitted_step = jax.jit(train_step_fn)
+    params = jax.device_put(params, sharding.replicated)
+    opt_state = jax.device_put(opt_state, sharding.replicated)
+
+    # JIT-compile the step function with SPMD sharding annotations
+    jitted_step = jax.jit(
+        train_step_fn,
+        in_shardings=(sharding.replicated, sharding.replicated, data_sharding, data_sharding),
+        out_shardings=(sharding.replicated, sharding.replicated, sharding.replicated),
+    )
 
     # Metrics trackers
     losses = []
@@ -76,8 +90,14 @@ def run_training_arm(
     step_times = []
 
     # Warmup JIT compilation with step 0 data
-    x_init, y_init = loader.get_batch(0)
-    params, opt_state, metrics = jitted_step(params, opt_state, jnp.asarray(x_init), jnp.asarray(y_init))
+    x_init_np, y_init_np = loader.get_batch(0)
+    x_init = jax.make_array_from_process_local_data(
+        data_sharding, x_init_np, (loader.batch_size, loader.seq_len)
+    )
+    y_init = jax.make_array_from_process_local_data(
+        data_sharding, y_init_np, (loader.batch_size, loader.seq_len)
+    )
+    params, opt_state, metrics = jitted_step(params, opt_state, x_init, y_init)
     jax.block_until_ready(params)
 
     start_time = time.perf_counter()
@@ -86,8 +106,12 @@ def run_training_arm(
     for step in range(total_steps):
         t0 = time.perf_counter()
         x_np, y_np = loader.get_batch(step)
-        x_jax = jnp.asarray(x_np)
-        y_jax = jnp.asarray(y_np)
+        x_jax = jax.make_array_from_process_local_data(
+            data_sharding, x_np, (loader.batch_size, loader.seq_len)
+        )
+        y_jax = jax.make_array_from_process_local_data(
+            data_sharding, y_np, (loader.batch_size, loader.seq_len)
+        )
 
         params, opt_state, metrics = jitted_step(params, opt_state, x_jax, y_jax)
         # Block until ready for accurate timing
@@ -131,16 +155,24 @@ def run_training_arm(
     if proc_idx == 0:
         print(f"[{model_name}] Training Complete in {total_duration:.1f}s. Evaluating held-out perplexity...", flush=True)
 
-    # Evaluate validation perplexity
-    valid_ppl = evaluate_perplexity(
-        model,
+    # Extract local replica for evaluation on worker 0
+    params_eval = jax.tree_util.tree_map(
+        lambda p: jnp.asarray(p.addressable_data(0)) if hasattr(p, "addressable_data") else p,
         params,
-        valid_path,
-        seq_len=loader.seq_len,
-        batch_size=32,
-        max_eval_batches=20,
-        is_algebraic=is_algebraic,
     )
+    if proc_idx == 0:
+        valid_ppl = evaluate_perplexity(
+            model,
+            params_eval,
+            valid_path,
+            seq_len=loader.seq_len,
+            batch_size=32,
+            max_eval_batches=20,
+            is_algebraic=is_algebraic,
+        )
+        print(f"[{model_name}] Validation Perplexity: {valid_ppl:.2f}", flush=True)
+    else:
+        valid_ppl = 0.0
 
     if proc_idx == 0:
         print(f"[{model_name}] Validation Perplexity: {valid_ppl:.2f}", flush=True)
@@ -274,6 +306,7 @@ def main():
         optimizer_tx=opt_base,
         train_step_fn=step_fn_base,
         loader=loader,
+        mesh=mesh,
         total_steps=args.steps,
         log_every=args.log_every,
         eval_every=args.eval_every,
@@ -289,6 +322,7 @@ def main():
         optimizer_tx=opt_alg,
         train_step_fn=step_fn_alg,
         loader=loader,
+        mesh=mesh,
         total_steps=args.steps,
         log_every=args.log_every,
         eval_every=args.eval_every,
