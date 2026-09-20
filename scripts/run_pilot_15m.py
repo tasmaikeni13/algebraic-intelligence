@@ -275,19 +275,19 @@ def main():
     rotary_params = build_cayley_rotary_matrix(head_dim, cfg_alg.max_seq_len, dtype=cfg_alg.dtype)
     cos_angles, sin_angles = _build_standard_rope(head_dim, cfg_base.max_seq_len)
 
-    # 6. Schedulers & Optimizers
-    # ARDS rational decay for algebraic model
+    # Schedulers & Optimizers
     decay_steps = int(args.steps * 0.8)
+    actual_warmup = min(args.warmup_steps, max(1, int(args.steps * 0.05)))
     alg_schedule = ards_schedule(
         learning_rate=args.lr,
-        warmup_steps=args.warmup_steps,
+        warmup_steps=actual_warmup,
         decay_steps=decay_steps,
         alpha=1.0,
     )
     # Cosine annealing for baseline model
     base_schedule = create_cosine_schedule(
         learning_rate=args.lr,
-        warmup_steps=args.warmup_steps,
+        warmup_steps=actual_warmup,
         total_steps=args.steps,
     )
 

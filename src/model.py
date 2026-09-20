@@ -71,6 +71,35 @@ def _alu_glu(x: jax.Array, w_g: jax.Array, w_u: jax.Array, w_d: jax.Array) -> ja
     return jnp.matmul(gate * activated, w_d)
 
 
+def _vmu_octic_fwd(s):
+    s_sq = s * s
+    one = jnp.array(1.0, dtype=s.dtype)
+    rad = one + s_sq
+    r = lax.rsqrt(rad)
+    u = s * r
+    denominator = jnp.where(s < 0, one - u, one)
+    rho = jnp.where(s < 0, r / denominator, s + rad * r)
+    k2 = rho * rho
+    k4 = k2 * k2
+    k8 = k4 * k4
+    return k8, (k8, r)
+
+
+def _vmu_octic_bwd(cache, g):
+    k8, r = cache
+    eight = jnp.array(8.0, dtype=g.dtype)
+    return (eight * r * k8 * g,)
+
+
+@jax.custom_vjp
+def _vmu_octic_fast(s):
+    """Octic VMU kernel preserving native hardware precision with single-multiply VJP."""
+    return _vmu_octic_fwd(s)[0]
+
+
+_vmu_octic_fast.defvjp(_vmu_octic_fwd, _vmu_octic_bwd)
+
+
 def _causal_algebraic_attention(
     q: jax.Array,
     k: jax.Array,
@@ -90,23 +119,22 @@ def _causal_algebraic_attention(
     """
     head_dim = q.shape[-1]
     seq_len = q.shape[-2]
-    scale = jax.lax.rsqrt(jnp.array(head_dim, dtype=jnp.float32))
+    scale = jax.lax.rsqrt(jnp.array(head_dim, dtype=jnp.float32)).astype(q.dtype)
 
-    q_scaled = (q * scale.astype(q.dtype))
+    q_scaled = q * scale
     scores = jnp.matmul(q_scaled, jnp.swapaxes(k, -1, -2))
 
-    # VMU octic kernel rho^8 with single-multiply custom VJP
-    p = _octic(scores)
+    # Native VMU octic kernel rho^8 in native precision with single-multiply custom VJP
+    p = _vmu_octic_fast(scores)
 
     # Causal lower-triangular mask
     mask = jnp.tril(jnp.ones((seq_len, seq_len), dtype=bool))[None, None, :, :]
     p_masked = jnp.where(mask, p, 0.0)
 
     # Additive output with pre-normalized weights (eliminates dual-path backward bottleneck)
-    p_v = p_masked.astype(v.dtype)
-    d = jnp.sum(p_v, axis=-1, keepdims=True) + jnp.array(sink_omega, dtype=v.dtype)
-    w = p_v * lax.reciprocal(d)
-    return jnp.matmul(w, v).astype(q.dtype)
+    d = jnp.sum(p_masked, axis=-1, keepdims=True) + jnp.array(sink_omega, dtype=v.dtype)
+    w = p_masked * lax.reciprocal(d)
+    return jnp.matmul(w, v)
 
 
 def _fused_oace_softmax_fwd(logits, targets, eps, gamma):
