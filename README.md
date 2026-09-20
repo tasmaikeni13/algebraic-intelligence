@@ -16,8 +16,9 @@
 - **Phase 4 (Algebraic Loss Functionals & Information Metrics):** [PASS](results/phase4/PASS.md). Adds the strictly proper non-local OACE power score (`oace_loss`) and Pearson $\chi^2$ divergence (`pearson_divergence`), a closed-form zero-transcendental VJP, Lean certificates, $10^5$-sample soft-target propriety and same-domain label-noise checks, exact probability-gradient verification, finite AVN + A-Softmax composed gradients, Fisher metric ratio $2.0$, and $103.8\%$–$107.2\%$ TPU throughput ratios versus cross-entropy ([Reproduction Guide](results/phase4/REPRODUCE.md), [Status](results/phase4/STATUS.md)).
 - **Phase 5 (Algebraic Optimization & Rational Scheduling):** [PASS](results/phase5/PASS.md). Adds JAX Algebraic AdamW (`algebraic_adamw`) with exact polynomial debiasing, Optax-compatible default denominator semantics lowered without raw `sqrt`, and Algebraic Rational Decay (`ards_schedule`) via hardware $\operatorname{rsqrt}$. The gates include Lean certificates, $10^4$ ill-conditioned trials, non-convex parity, compiled-HLO checks with zero raw `sqrt`, and $99.73\%$–$100.29\%$ TPU throughput ratios versus cosine scheduling ([Reproduction Guide](results/phase5/REPRODUCE.md), [Status](results/phase5/STATUS.md)).
 - **Phase 6 (Hardware-Fused Kernels & Algebraic FlashAttention on 16 TPU v4 Pod):** [PASS](results/phase6/PASS.md). Adds the real JAX Pallas TPU kernel `pallas_afa_forward`, additive tiled accumulation, FP32 accumulation, TPU-legal dtype-specific dot precision, and a 288 KiB bounded working set. Eight FP32/BF16 parity configurations pass; throughput is $101.77\%$ at $L=2048$ and $102.66\%$ at $L=4096$ versus JAX's Pallas TPU FlashAttention; 16-chip ring relative error is $4.15\times10^{-7}$. Physical HBM utilization is deliberately not inferred without profiler counters ([Reproduction Guide](results/phase6/REPRODUCE.md), [Status](results/phase6/STATUS.md)).
+- **Phase 7 (Full Architecture Assembly & Pilot Pretraining on 16 TPU v4 Chips / v4-32 Pod Slice):** [PASS](results/phase7/PASS.md). Assembles the complete end-to-end `AlgebraicTransformerLM` (AVN + AGO + A-Softmax + ALU-GLU + OACE + Algebraic AdamW with ARDS) at 15.9M parameter scale against a compute-matched `StandardTransformerLM` baseline on WikiText-103 across a 4-host Cloud TPU v4-32 Pod slice (16 physical chips, 32 TensorCores). Valid perplexity parity passes with a **14.6% perplexity reduction** ($\text{PPL}_{\text{alg}} = 400.77$ vs $\text{PPL}_{\text{base}} = 469.35$, ratio = $\mathbf{0.8539} \le 1.08\times$), steady-state throughput achieves **$90.22\%$ hardware throughput parity** ($2,915,698\text{ tok/s}$ vs $3,231,782\text{ tok/s}$, ratio $\ge 0.90\times$), 0 NaNs/Infs, 0 loss spikes ($\Delta \mathcal{L} > 1.5$), peak gradient norm is $1.000$, and AST audit verifies exactly 0 transcendental calls across the production stack with machine-checked Lean 4 composition proofs in `Composition.lean` ([PASS Record](results/phase7/PASS.md), [Metrics](results/phase7/metrics.json)).
 
-The architecture and later-phase results described below for Phases 7–10 are research-draft
+The architecture and later-phase results described below for Phases 8–10 are research-draft
 claims to be executed in subsequent phases.
 
 ## Executive Summary
@@ -54,7 +55,8 @@ We answer this question affirmatively by constructing and verifying the **Algebr
 │       ├── Cayley.lean             # AGO Cayley transform: SO(2) orthogonality, det=1, shift-equivariance
 │       ├── Loss.lean               # Algebraic Divergence (Pearson chi^2) expansion & OACE power chain
 │       ├── Curvature.lean          # AdamW algebraic properties: debiasing, decoupled decay, and curvature
-│       └── Variance.lean           # AVN bounded normalization & Coupling Identity
+│       ├── Variance.lean           # AVN bounded normalization & Coupling Identity
+│       └── Composition.lean        # End-to-end signal propagation & Lipschitz composition bounds
 ├── skills/                         # Autonomous Scientific Research Skills & Frameworks
 └── phases/                         # Autonomous Research Execution & Self-Correction Engine
     ├── README.md                   # Master governing protocol, adaptive dependency cascading, and phase index
@@ -73,7 +75,7 @@ All autonomous research and verification in this repository is governed by [`pha
 - [**Phase 4: Algebraic Loss Functionals & Information Metrics**](phases/phase4.md) — **VERIFIED PASS** ([PASS.md](results/phase4/PASS.md)) (strictly proper non-local OACE, exact probability gradient, finite composed gradient, Pearson $\chi^2$, Fisher equivalence)
 - [**Phase 5: Algebraic Optimization & Rational Scheduling**](phases/phase5.md) — **VERIFIED PASS** ([PASS.md](results/phase5/PASS.md)) (AdamW Native Algebraic Verification, ARDS Rational Decay Schedule, Ill-Conditioned $\kappa \le 10^6$ Sweep, Non-Convex Stochastic Parity)
 - [**Phase 6: Hardware-Fused Kernels & Algebraic FlashAttention on 16 TPU v4 Pod**](phases/phase6.md) — **VERIFIED PASS** ([PASS.md](results/phase6/PASS.md)) (real JAX Pallas TPU kernel, bounded additive tile accumulation, $101.8\%$–$102.7\%$ Pallas-baseline throughput, lock-free Ring Attention over ICI)
-- [**Phase 7: Full Architecture Assembly & Pilot Pretraining**](phases/phase7.md) (15M LM on WikiText-103 across $10^5$ Steps on 16 TPU v4 Pod, Head-to-Head Comparison)
+- [**Phase 7: Full Architecture Assembly & Pilot Pretraining**](phases/phase7.md) — **VERIFIED PASS** ([PASS.md](results/phase7/PASS.md)) (15.9M LM on WikiText-103 across 16 TPU v4 chips / v4-32 Pod slice, $\text{PPL}_{\text{ratio}} = 0.8539$ [14.6% PPL reduction], $90.22\%$ throughput parity, 0 NaNs/spikes, 0 transcendentals)
 - [**Phase 8: Systematic Hyperparameter Sweeping & Architecture Tuning**](phases/phase8.md) (Equal-Budget 48-Trial Sweep on 100M FineWeb-Edu Tokens on 16 TPU v4 Pod for Apples-to-Apples Parity)
 - [**Phase 9: Frontier Pretraining: 125M Parameters on 2.5B Tokens**](phases/phase9.md) (6 Runs across Seeds 42, 43, 44 on 2.5B FineWeb-Edu Tokens on 16 TPU v4 Pod, Downstream Zero-Shot Reasoning)
 - [**Phase 10: Comprehensive Research Paper, Clean-Room Replication, & Release**](phases/phase10.md) (Fresh-Clone Reproduction on 16 TPU v4 Pod, Standalone Manuscript, Full Completion Matrix)
@@ -118,6 +120,7 @@ Key formally verified theorems:
 6. `pearson_divergence_expansion`: $(y - p)^2 / p = y^2/p - 2y + p$, proving the Pearson $\chi^2$ expansion.
 7. `adamw_debiasing_identity` & `adamw_decoupled_weight_decay`: Mathematical algebraic structure of AdamW bias correction and decoupled weight updates without transcendental functions.
 8. `avn_bounded_norm` & `avn_coupling_identity`: Bounded variance normalization and coupling with downstream algebraic gates.
+9. `avn_coord_bound_with_tau` & `residual_l_layer_growth`: AVN coordinate bounds under inverse variance scaling and bounded linear signal growth under iterated residual layers (`Composition.lean`).
 
 ---
 
@@ -133,6 +136,9 @@ python3 scripts/run_benchmark_pallas.py
 
 # 3. Launch unit and integration tests:
 pytest tests/
+
+# 4. Verify Phase 7 pilot pretraining & TPU acceptance gates:
+python3 scripts/run_verify_phase7.py
 ```
 
 ### Empirical Results Summary
@@ -155,6 +161,13 @@ pytest tests/
    - Distributed tile simulation across $P = 8$ nodes.
    - Relative error between lock-free additive AFA and exact un-tiled attention: **$3.24 \times 10^{-7}$**.
    - Zero inter-tile synchronization barriers; single global AllReduce.
+
+5. **Head-to-Head Pilot Pretraining on WikiText-103 (Phase 7):**
+   - **Hardware & Scale:** 15.9M parameter matched budget trained on physical Google Cloud TPU v4-32 Pod slice (4 hosts, 16 physical chips, 32 TensorCores) across 2D/3D mesh `(data=2, fsdp=2, model=4)` with batch size $32,768$ tokens/step.
+   - **Perplexity Advantage:** Pure algebraic stack achieved validation perplexity $\mathbf{400.77}$ vs standard transcendental baseline $\mathbf{469.35}$ (ratio $\mathbf{0.8539}$, a **$14.6\%$ perplexity reduction**), comfortably beating the acceptance contract threshold ($\le 1.08\times$).
+   - **Hardware Throughput Parity:** Measured steady-state throughput of $\mathbf{2,915,698\text{ tok/s}}$ ($90.22\%$ of standard baseline's $3,231,782\text{ tok/s}$), exceeding the $\ge 90\%$ hardware throughput parity gate via native TPU reciprocal instructions (`lax.reciprocal`) and the factored OACE closed-simplex identity ($164.1\text{ ms} \to 29.1\text{ ms}$ loss evaluation).
+   - **Numerical Stability:** Exact zero NaNs, zero Infs, zero loss spikes ($\Delta \mathcal{L} > 1.5$), and peak gradient norm bounded at $\mathbf{1.000}$ under BF16 mixed-precision training.
+   - **Strict Zero-Transcendental Stack:** Exact AST verification of zero calls to `exp`, `log`, `sin`, `cos` throughout all model definitions, attention layers, activations, loss functions, and optimizer routines.
 
 ---
 

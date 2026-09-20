@@ -9,7 +9,7 @@
     "jaxlib": "0.6.2",
     "numpy": "2.2.6",
     "scipy": "1.15.3",
-    "git_commit": "28ea68468d49248f929e4de7490e7fd6b640a7f4",
+    "git_commit": "9c5b1ac316ed6a9ddb668b44d9a694ff3329999d",
     "git_dirty": true,
     "source_sha256": {
       "formal/AlgebraicTheory/Gate.lean": "1372e78d076a59a436da23b48bc81f2e7540f2448aaa98e9b73db8eeb95f61e9",
@@ -137,5 +137,5 @@
   },
   "passed": true,
   "status": "PASS",
-  "elapsed_seconds": 75.90475273132324
+  "elapsed_seconds": 75.51248240470886
 }
