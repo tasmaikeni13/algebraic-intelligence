@@ -26,10 +26,15 @@ from src.kernels.pallas_afa import (
     afa_kernel,
     pallas_afa_forward,
     tiled_afa_forward,
+    tiled_afa_backward,
     exact_afa_reference,
+    exact_afa_with_denominator,
+    pallas_afa,
     distributed_ring_afa,
+    sharded_pallas_afa,
     algebraic_flash_attention,
 )
+from src.mesh import create_tpu_mesh
 from src.attention import octic_kernel
 from tests.reference_attention import reference_afa
 
@@ -270,3 +275,69 @@ def test_xla_hlo_static_opcode_audit():
 
     # Also verify absence of running-max exponential rescaling
     assert "exp(" not in hlo_text
+
+
+def test_analytical_backward_gradient_accuracy():
+    """Verify tiled_afa_backward achieves exact gradient agreement with AD reference."""
+    key = jax.random.PRNGKey(301)
+    B, H, L, D = 1, 2, 256, 64
+    scale = float(1.0 / (D ** 0.5))
+    q = jax.random.normal(key, (B, H, L, D), dtype=jnp.float64)
+    k = jax.random.normal(jax.random.fold_in(key, 1), (B, H, L, D), dtype=jnp.float64)
+    v = jax.random.normal(jax.random.fold_in(key, 2), (B, H, L, D), dtype=jnp.float64)
+    g_out = jax.random.normal(jax.random.fold_in(key, 3), (B, H, L, D), dtype=jnp.float64)
+
+    # Ground truth AD on exact float64 reference
+    def ref_loss(q_arr, k_arr, v_arr):
+        out = exact_afa_reference(q_arr, k_arr, v_arr, sink_omega=0.5, causal=True)
+        return jnp.sum(out * g_out)
+
+    dq_ad, dk_ad, dv_ad = jax.grad(ref_loss, argnums=(0, 1, 2))(q, k, v)
+
+    # Tiled forward and analytical backward
+    out, d_total = tiled_afa_forward(q, k, v, sink_omega=0.5, causal=True, block_q=128, block_k=128, return_denominator=True)
+    dq_ana, dk_ana, dv_ana = tiled_afa_backward(
+        q, k, v, out, d_total, g_out, sink_omega=0.5, causal=True, block_q=128, block_k=128
+    )
+
+    err_dq = np.max(np.abs(np.array(dq_ana - dq_ad))) / np.max(np.abs(np.array(dq_ad)))
+    err_dk = np.max(np.abs(np.array(dk_ana - dk_ad))) / np.max(np.abs(np.array(dk_ad)))
+    err_dv = np.max(np.abs(np.array(dv_ana - dv_ad))) / np.max(np.abs(np.array(dv_ad)))
+
+    assert err_dq <= 1.0e-5, f"dq gradient error too high: {err_dq}"
+    assert err_dk <= 1.0e-5, f"dk gradient error too high: {err_dk}"
+    assert err_dv <= 1.0e-5, f"dv gradient error too high: {err_dv}"
+
+
+def test_pallas_afa_custom_vjp():
+    """Verify custom VJP pallas_afa runs through jax.value_and_grad cleanly."""
+    key = jax.random.PRNGKey(302)
+    B, H, L, D = 1, 1, 128, 32
+    q = jax.random.normal(key, (B, H, L, D), dtype=jnp.float32)
+    k = jax.random.normal(jax.random.fold_in(key, 1), (B, H, L, D), dtype=jnp.float32)
+    v = jax.random.normal(jax.random.fold_in(key, 2), (B, H, L, D), dtype=jnp.float32)
+
+    def scalar_loss(q_arr, k_arr, v_arr):
+        out = pallas_afa(q_arr, k_arr, v_arr, sink_omega=0.5, causal=True, block_q=64, block_k=64)
+        return jnp.sum(out)
+
+    loss, (dq, dk, dv) = jax.value_and_grad(scalar_loss, argnums=(0, 1, 2))(q, k, v)
+    assert jnp.isfinite(loss)
+    assert jnp.all(jnp.isfinite(dq))
+    assert jnp.all(jnp.isfinite(dk))
+    assert jnp.all(jnp.isfinite(dv))
+
+
+def test_spmd_megacore_sharding_mesh():
+    """Verify distributed Megacore SPMD sharded entrypoint executes cleanly on Mesh."""
+    mesh = create_tpu_mesh(mesh_shape=(1, 1, 1), axis_names=("data", "fsdp", "model"))
+    key = jax.random.PRNGKey(303)
+    B, H, L, D = 1, 2, 256, 64
+    q = jax.random.normal(key, (B, H, L, D), dtype=jnp.float32)
+    k = jax.random.normal(jax.random.fold_in(key, 1), (B, H, L, D), dtype=jnp.float32)
+    v = jax.random.normal(jax.random.fold_in(key, 2), (B, H, L, D), dtype=jnp.float32)
+
+    out = sharded_pallas_afa(q, k, v, mesh=mesh, sink_omega=0.5, causal=True, block_q=128, block_k=128)
+    assert out.shape == (B, H, L, D)
+    assert jnp.all(jnp.isfinite(out))
+

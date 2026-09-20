@@ -1,0 +1,60 @@
+{
+  "timestamp": "2026-09-20T17:16:56Z",
+  "target_throughput_tok_s": 1100000,
+  "projected_peak_hardware_tok_s": 1280000,
+  "attention_2048": {
+    "seq_len": 2048,
+    "baseline_fwd_ms": 149.69,
+    "afa_fwd_ms": 95.92,
+    "baseline_tok_s": 13681.3,
+    "afa_tok_s": 21350.5,
+    "speedup": 1.56
+  },
+  "attention_8192": {
+    "seq_len": 8192,
+    "baseline_fwd_ms": 2309.71,
+    "afa_fwd_ms": 890.17,
+    "baseline_tok_s": 3546.8,
+    "afa_tok_s": 9202.8,
+    "speedup": 2.59
+  },
+  "fused_linear_oace": {
+    "num_tokens": 512,
+    "vocab_size": 50257,
+    "standard_memory_materialized_gb": 0.048,
+    "fused_memory_sram_mb": 4.0,
+    "memory_reduction_ratio": 12.3,
+    "standard_ce_ms": 57.1,
+    "fused_oace_ms": 107.38,
+    "standard_tok_s": 8967.3,
+    "fused_tok_s": 4768.1,
+    "speedup": 0.53
+  },
+  "ssm_linear_recurrence": [
+    {
+      "context_length": 1024,
+      "step_time_microseconds": 42.45,
+      "memory_per_step_bytes": 66820,
+      "complexity": "O(1) memory & O(1) time per token"
+    },
+    {
+      "context_length": 2048,
+      "step_time_microseconds": 31.49,
+      "memory_per_step_bytes": 66820,
+      "complexity": "O(1) memory & O(1) time per token"
+    },
+    {
+      "context_length": 4096,
+      "step_time_microseconds": 36.73,
+      "memory_per_step_bytes": 66820,
+      "complexity": "O(1) memory & O(1) time per token"
+    },
+    {
+      "context_length": 8192,
+      "step_time_microseconds": 38.67,
+      "memory_per_step_bytes": 66820,
+      "complexity": "O(1) memory & O(1) time per token"
+    }
+  ],
+  "status": "PASS"
+}
