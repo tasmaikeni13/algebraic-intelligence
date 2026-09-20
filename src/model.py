@@ -74,7 +74,7 @@ def _fast_alu_fwd(x):
     r = jax.lax.rsqrt(rad)
     u = x * r
     denom = jnp.where(x < 0, one - u, one)
-    neg = (0.5 * u * r) / denom
+    neg = 0.5 * (u * r) * jax.lax.reciprocal(denom)
     pos = 0.5 * x * (one + u)
     y = jnp.where(x < 0, neg, pos)
     return y, u
@@ -208,8 +208,9 @@ def _fused_oace_softmax_bwd(eps, gamma, cache, g):
     normed, tau, p, p_78, p_c_inv8, r, sum_p78, targets = cache
     V = normed.shape[-1]
     scalar_diff = sum_p78 - p_c_inv8
-    one_hot = jax.nn.one_hot(targets, V, dtype=normed.dtype)
-    bracket = p_78 - one_hot * p_c_inv8 - p * scalar_diff
+    sub = p_78 - p * scalar_diff
+    target_vals = jnp.take_along_axis(sub, targets[..., None], axis=-1) - p_c_inv8
+    bracket = jnp.put_along_axis(sub, targets[..., None], target_vals, axis=-1, inplace=False)
     g_y = (8.0 * gamma / float(targets.size)) * r * bracket * g
     inv_w = 1.0 / V
     radial = jnp.sum(g_y * normed, axis=-1, keepdims=True) * inv_w
