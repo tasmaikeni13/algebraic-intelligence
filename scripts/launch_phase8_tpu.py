@@ -62,13 +62,13 @@ def main():
     print(f"Creating Git bundle for snapshot: {label}...", flush=True)
     with tempfile.TemporaryDirectory(prefix="algebraic-phase8-") as temporary:
         bundle = Path(temporary) / "source.bundle"
-        subprocess.run(["git", "bundle", "create", str(bundle), "HEAD"], cwd=ROOT, check=True)
+        subprocess.run(["git", "bundle", "create", str(bundle), branch], cwd=ROOT, check=True)
         run(["gcloud", "compute", "tpus", "tpu-vm", "scp", str(bundle), f"{args.name}:{remote}.bundle",
              "--zone", args.zone, "--worker", "all", "--quiet"], "copy.log")
 
     print("Cloning snapshot and installing dependencies across all TPU workers...", flush=True)
     setup = (
-        f"git clone --quiet {quote(remote+'.bundle')} {quote(remote)} && "
+        f"git clone --quiet --branch {quote(branch)} {quote(remote+'.bundle')} {quote(remote)} && "
         f"python3 -m venv {quote(remote+'/venv')} && "
         f"{quote(remote+'/venv/bin/pip')} install -r {quote(remote+'/requirements-tpu.txt')} pyarrow"
     )
