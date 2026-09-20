@@ -22,7 +22,7 @@ From a clean shell environment on the Google Cloud TPU v4 Pod slice:
 
 ```mermaid
 graph TD
-    A["Clean Shell on 16 TPU v4 Pod"] --> B["1. Environment Bootstrap Audit<br/>(JAX, TPU v4-16, 512GB Aggregate HBM)"]
+    A["Clean Shell on 16 TPU v4 Pod"] --> B["1. Environment Bootstrap Audit<br/>(JAX, TPU v4-32, 512GB Aggregate HBM)"]
     B --> C["2. AST & XLA Zero-Transcendental Audit<br/>(Zero exp, ln, sin, cos in src/ & HLO)"]
     C --> D["3. Lean 4 Formal Verification<br/>(lake build: 0 sorry, 0 admit)"]
     D --> E["4. Primitive Verification Suite<br/>(python3 scripts/run_verify_primitives.py)"]

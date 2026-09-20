@@ -4,6 +4,7 @@ import AlgebraicTheory.Cayley
 import AlgebraicTheory.Loss
 import AlgebraicTheory.Curvature
 import AlgebraicTheory.Variance
+import AlgebraicTheory.Composition
 
 /-!
 # The Algebraic Stack: Formal Verification in Lean 4

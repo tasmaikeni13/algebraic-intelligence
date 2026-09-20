@@ -17,6 +17,9 @@ formal/.lake/
 venv/
 ENV/
 
+# Datasets and large caches
+data/
+
 # System files
 .DS_Store
 *.swp

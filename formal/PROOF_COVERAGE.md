@@ -86,8 +86,10 @@ Algebraic Geometric Oscillators (AGO) in $\mathrm{SO}(2)$:
 
 `Kernel.lean` formally certifies the foundational algebraic theorems for Hardware-Fused Algebraic FlashAttention (AFA):
 - `afa_additive_associativity`: single-pass additive tile accumulation associativity $(P_1 V_1 + P_2 V_2) = (P_1 V_1) + (P_2 V_2)$, proving partial attention blocks can be accumulated additively across tiles and mesh chips without online rescaling or inter-tile normalization barriers.
-- `afa_scaling_invariance`, `afa_scaling_invariance_pos`: exact numerator-denominator scale invariance $(\alpha O) / (\alpha D) = O / D$ for $\alpha > 0$, certifying that distributed additive sums yield mathematically identical attention representations regardless of global or local normalization factorings.
+## Phase 7 additions
 
-
-
-
+`Composition.lean` formally certifies the foundational algebraic theorems for full architecture composition, bounded signal propagation, and residual invariants:
+- `avn_coord_sq_bound`: exact coordinate bound $x_k^2 \le d(S/d + \epsilon)$ for any coordinate under AVN second-moment normalization with $\epsilon \ge 0$.
+- `avn_coord_bound_with_tau`: $(\hat{x}_k)^2 \le d$ when $\tau^2(S/d + \epsilon) = 1$, proving that the parameter-free AVN projection satisfies $\|\operatorname{AVN}(\mathbf{x})\|_\infty \le \sqrt{d}$ across all dimensions.
+- `residual_triangle_bound`: $\|x_{\ell+1}\| \le \|x_\ell\| + C$ for additive residual connection with Lipschitz sublayer bounded by $C$.
+- `residual_l_layer_growth`: $\|x_L\| \le \|x_0\| + L \cdot C$, proving bounded signal growth across $L$ stacked transformer layers.
