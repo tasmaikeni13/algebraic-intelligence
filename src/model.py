@@ -30,6 +30,7 @@ from src.attention import (
     apply_ago_rotations,
     build_cayley_rotary_matrix,
     CayleyRotary,
+    _octic,
 )
 from src.kernels.pallas_afa import _vmu_octic_kernel
 from src.loss import oace_loss
@@ -92,20 +93,18 @@ def _causal_algebraic_attention(
     q_scaled = (q * scale.astype(q.dtype))
     scores = jnp.matmul(q_scaled, jnp.swapaxes(k, -1, -2))
 
-    # VMU octic kernel rho^8
-    p = _vmu_octic_kernel(scores)
+    # VMU octic kernel rho^8 with single-multiply custom VJP
+    p = _octic(scores)
 
     # Causal lower-triangular mask
-    mask = jnp.tril(jnp.ones((seq_len, seq_len), dtype=bool))
-    p_masked = jnp.where(mask[None, None, :, :], p, 0.0)
+    mask = jnp.tril(jnp.ones((seq_len, seq_len), dtype=bool))[None, None, :, :]
+    p_masked = jnp.where(mask, p, 0.0)
 
-    # Additive output numerator and denominator
+    # Additive output with pre-normalized weights (eliminates dual-path backward bottleneck)
     p_v = p_masked.astype(v.dtype)
-    o = jnp.matmul(p_v, v)
-    d = jnp.sum(p_v, axis=-1, keepdims=True)
-
-    inv_denom = lax.reciprocal(d + jnp.array(sink_omega, dtype=d.dtype))
-    return (o * inv_denom.astype(o.dtype)).astype(q.dtype)
+    d = jnp.sum(p_v, axis=-1, keepdims=True) + jnp.array(sink_omega, dtype=v.dtype)
+    w = p_v * lax.reciprocal(d)
+    return jnp.matmul(w, v).astype(q.dtype)
 
 
 class AlgebraicTransformerLM:
@@ -213,9 +212,9 @@ class AlgebraicTransformerLM:
         cfg = self.config
         logits = self.forward(params, tokens, rotary_params=rotary_params)
 
-        # Bounded A-Softmax probability projection
-        probs = algebraic_softmax(logits, sink_omega=cfg.sink_omega, eps=cfg.eps_vocab)
+        # Bounded A-Softmax probability projection on closed vocabulary simplex (zero sink)
+        probs = algebraic_softmax(logits, sink_omega=0.0, eps=cfg.eps_vocab)
 
         # Strictly proper OACE power score
         loss = oace_loss(probs, targets, gamma=cfg.gamma, reduction="mean")
-        return loss, {"logits": logits, "loss": loss, "probs": probs}
+        return loss, {"logits": logits, "loss": loss}

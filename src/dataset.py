@@ -153,11 +153,10 @@ def evaluate_perplexity(
 
         logits = model.forward(params, x)
         if is_algebraic:
-            # Octic A-Softmax probability evaluation
+            # Octic A-Softmax probability evaluation on closed vocabulary simplex (zero sink)
             from src.attention import algebraic_softmax
             eps_v = float(getattr(model.config, "eps_vocab", 100.0))
-            sink_w = float(getattr(model.config, "sink_omega", 0.5))
-            probs = np.asarray(algebraic_softmax(logits, sink_omega=sink_w, eps=eps_v))
+            probs = np.asarray(algebraic_softmax(logits, sink_omega=0.0, eps=eps_v))
             # Clamp to prevent log(0)
             probs = np.maximum(probs, 1e-12)
             # Pick target probabilities
