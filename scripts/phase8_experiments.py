@@ -193,28 +193,31 @@ def evaluate_perplexity_fast(
         x = np.stack([valid_tokens[s : s + seq_len].astype(np.int32) for s in starts])
         y = np.stack([valid_tokens[s + 1 : s + span].astype(np.int32) for s in starts])
 
+        x_j = jnp.asarray(x)
+        y_j = jnp.asarray(y)
+
         if is_algebraic:
             rotary = rotary_or_angles
             if rotary is None:
                 rotary = build_cayley_rotary_matrix(model.head_dim, seq_len)
-            logits = model.forward(params, x, rotary_params=rotary)
+            logits = model.forward(params, x_j, rotary_params=rotary)
             from src.attention import algebraic_softmax
             eps_v = float(getattr(model.config, "eps_vocab", 100.0))
-            probs = np.asarray(algebraic_softmax(logits, sink_omega=0.0, eps=eps_v))
-            probs = np.maximum(probs, 1e-12)
-            target_probs = np.take_along_axis(probs, y[..., None], axis=-1).squeeze(-1)
-            batch_nll = -np.sum(np.log(target_probs))
+            probs = algebraic_softmax(logits, sink_omega=0.0, eps=eps_v)
+            probs = jnp.maximum(probs, 1e-12)
+            target_probs = jnp.take_along_axis(probs, y_j[..., None], axis=-1).squeeze(-1)
+            batch_nll = float(jax.device_get(-jnp.sum(jnp.log(target_probs))))
         else:
             if rotary_or_angles is None:
                 cos_angles, sin_angles = _build_standard_rope(model.head_dim, seq_len)
             else:
                 cos_angles, sin_angles = rotary_or_angles
-            logits = model.forward(params, x, cos_angles=cos_angles, sin_angles=sin_angles)
-            log_probs = np.asarray(jax.nn.log_softmax(logits, axis=-1))
-            target_log_probs = np.take_along_axis(log_probs, y[..., None], axis=-1).squeeze(-1)
-            batch_nll = -np.sum(target_log_probs)
+            logits = model.forward(params, x_j, cos_angles=cos_angles, sin_angles=sin_angles)
+            log_probs = jax.nn.log_softmax(logits, axis=-1)
+            target_log_probs = jnp.take_along_axis(log_probs, y_j[..., None], axis=-1).squeeze(-1)
+            batch_nll = float(jax.device_get(-jnp.sum(target_log_probs)))
 
-        total_nll += float(batch_nll)
+        total_nll += batch_nll
         total_count += x.size
 
     avg_nll = total_nll / total_count

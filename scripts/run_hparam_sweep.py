@@ -91,6 +91,7 @@ def run_sweep_arm(
     seq_len: int,
     mesh: Any,
     log_every: int = 50,
+    is_multi_host: bool = False,
 ) -> Dict[str, Any]:
     """Runs a single 600M token pretraining sweep arm."""
     proc_idx = jax.process_index()
@@ -244,23 +245,29 @@ def run_sweep_arm(
     total_duration = time.perf_counter() - t_start
     overall_throughput = (total_steps * tokens_per_step) / total_duration
 
-    if proc_idx == 0:
-        print(f"[{architecture.capitalize()}|Seed {seed}] Evaluating validation perplexity on held-out FineWeb-Edu...", flush=True)
-
-    # Evaluate validation perplexity
-    ppl, val_loss = evaluate_perplexity_fast(
-        model=model,
-        params=params,
-        valid_tokens=valid_tokens,
-        seq_len=seq_len,
-        batch_size=4,
-        num_eval_batches=10,
-        is_algebraic=is_alg,
-        rotary_or_angles=rotary_dev if is_alg else (cos_dev, sin_dev),
+    params_eval = jax.tree_util.tree_map(
+        lambda p: jnp.asarray(p.addressable_data(0)) if hasattr(p, "addressable_data") else p,
+        params,
     )
 
     if proc_idx == 0:
+        print(f"[{architecture.capitalize()}|Seed {seed}] Evaluating validation perplexity on held-out FineWeb-Edu...", flush=True)
+        ppl, val_loss = evaluate_perplexity_fast(
+            model=model,
+            params=params_eval,
+            valid_tokens=valid_tokens,
+            seq_len=seq_len,
+            batch_size=4,
+            num_eval_batches=10,
+            is_algebraic=is_alg,
+            rotary_or_angles=None,
+        )
         print(f"[{architecture.capitalize()}|Seed {seed}] Result: Val Loss = {val_loss:.4f}, Perplexity = {ppl:.2f}", flush=True)
+    else:
+        ppl, val_loss = 0.0, 0.0
+
+    if is_multi_host:
+        multihost_utils.sync_global_devices(f"{architecture}-{seed}-done")
 
     run_record = {
         "architecture": architecture,
@@ -294,14 +301,22 @@ def main():
     parser.add_argument("--log-every", type=int, default=50)
     args = parser.parse_args()
 
-    proc_idx = jax.process_index()
-    num_procs = jax.process_count()
     out = args.output_dir.resolve()
     out.mkdir(parents=True, exist_ok=True)
 
     # Initialize distributed TPU if running in multi-host mode
+    is_multi_host = False
+    if os.environ.get("JAX_PLATFORMS") != "cpu":
+        try:
+            jax.distributed.initialize(initialization_timeout=120)
+            is_multi_host = True
+        except Exception as e:
+            print(f"Warning: jax.distributed.initialize failed or already initialized: {e}", flush=True)
+
     devices = jax.devices()
     platform = devices[0].platform
+    proc_idx = jax.process_index()
+    num_procs = jax.process_count()
     if proc_idx == 0:
         print(f"Hardware Platform: {platform}, Total Devices: {len(devices)}, Processes: {num_procs}", flush=True)
 
@@ -371,9 +386,11 @@ def main():
                 seq_len=args.seq_len,
                 mesh=mesh,
                 log_every=args.log_every,
+                is_multi_host=is_multi_host,
             )
             all_run_records.append(record)
 
+    metrics_record = None
     if proc_idx == 0:
         # Save structured artifacts
         sweep_ledger = {
@@ -428,18 +445,22 @@ def main():
             "loss_spike_count": total_spikes,
         }
 
+        is_pass = (
+            len(all_run_records) == 6
+            and ppl_ratio <= 1.08
+            and total_nans == 0
+            and total_spikes == 0
+            and max_grad <= 5.0
+            and alg_std_pct < 2.0
+            and base_std_pct < 2.0
+            and ast_res["passed"]
+        )
+
         metrics_record = {
             "phase": "phase8",
-            "passed": (
-                len(all_run_records) == 6
-                and ppl_ratio <= 1.08
-                and total_nans == 0
-                and total_spikes == 0
-                and max_grad <= 5.0
-                and alg_std_pct < 2.0
-                and base_std_pct < 2.0
-                and ast_res["passed"]
-            ),
+            "gate_version": 1,
+            "status": "PASS" if is_pass else "FAIL",
+            "passed": is_pass,
             "environment": environment(),
             "sweep_summary": summary,
             "ast_audit": ast_res,
@@ -455,6 +476,12 @@ def main():
         print(f"NaN / Inf:      {total_nans}")
         print(f"Loss Spikes:    {total_spikes}")
         print(f"Overall Result: {'PASS' if metrics_record['passed'] else 'FAIL'}")
+
+    if is_multi_host:
+        multihost_utils.sync_global_devices("phase8-complete")
+        jax.distributed.shutdown()
+
+    return 0 if (metrics_record is None or metrics_record.get("passed", False)) else 1
 
 
 if __name__ == "__main__":
