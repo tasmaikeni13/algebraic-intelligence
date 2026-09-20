@@ -1,0 +1,2 @@
+commit=28ea68468d49248f929e4de7490e7fd6b640a7f4
+remote_directory=/tmp/algebraic-phase7-28ea68468d49-20260920T094445Z

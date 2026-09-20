@@ -21,7 +21,7 @@
       "phases/phase1.md": "40bd77d6f140be1f6572294bbf64decde1c97a03b649652e48cfcdaca692388a",
       "pytest.ini": "6a96ba0e2d5a8296fb90f474da9d2f0173d3e41eba18965513f711104155f913",
       "requirements-tpu.txt": "f18692d6a965b40a88c992986517edd25020ff568192045b8fbb7279a29e9e15",
-      "requirements.txt": "509b55f548b3934bb2b8e1dde76964c4a0b2f187eb0654f18458f70cc8198848",
+      "requirements.txt": "d63a664305f69790dd4e6c020a5b0ea18c3eb51bb840d90d79038a0c25de682c",
       "scripts/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "scripts/audit_primitives.py": "6576a6fb39e461a6339d5c27e03c33a0cf7e238a83384cbf66d97c5411d142c2",
       "scripts/launch_phase1_tpu.py": "45b6b39979f385acd723e1c1d9b625ee0418d8ea692698cb1acfc44cc8f273e8",

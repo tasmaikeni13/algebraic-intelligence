@@ -1,0 +1,48 @@
+SSH key found in project metadata; not updating instance.
+SSH: Attempting to connect to worker 0...
+SSH: Attempting to connect to worker 1...
+SSH: Attempting to connect to worker 2...
+SSH: Attempting to connect to worker 3...
+Hardware: 16 devices across 4 processes. Platform: tpu
+AST Zero-Transcendental Audit: PASS
+Distributed Mesh Topology: OrderedDict([('data', 2), ('fsdp', 2), ('model', 4)])
+
+==================== Starting Pretraining: StandardTransformerLM (200 steps) ====================
+[StandardTransformerLM] Step     20/200 | Loss: 8.2242 | Grad Norm: 1.000 | Throughput: 3,159,559 tok/s | Step time: 10.4ms
+[StandardTransformerLM] Step     40/200 | Loss: 7.1833 | Grad Norm: 0.360 | Throughput: 3,225,099 tok/s | Step time: 10.2ms
+[StandardTransformerLM] Step     60/200 | Loss: 6.8053 | Grad Norm: 0.463 | Throughput: 3,241,691 tok/s | Step time: 10.1ms
+[StandardTransformerLM] Step     80/200 | Loss: 6.4772 | Grad Norm: 0.252 | Throughput: 3,239,438 tok/s | Step time: 10.1ms
+[StandardTransformerLM] Step    100/200 | Loss: 6.3479 | Grad Norm: 0.309 | Throughput: 3,243,632 tok/s | Step time: 10.1ms
+[StandardTransformerLM] Step    120/200 | Loss: 6.2996 | Grad Norm: 0.250 | Throughput: 3,241,272 tok/s | Step time: 10.1ms
+[StandardTransformerLM] Step    140/200 | Loss: 6.3225 | Grad Norm: 0.214 | Throughput: 3,243,289 tok/s | Step time: 10.1ms
+[StandardTransformerLM] Step    160/200 | Loss: 6.1941 | Grad Norm: 0.242 | Throughput: 3,253,448 tok/s | Step time: 10.1ms
+[StandardTransformerLM] Step    180/200 | Loss: 6.1362 | Grad Norm: 0.195 | Throughput: 3,253,011 tok/s | Step time: 10.1ms
+[StandardTransformerLM] Step    200/200 | Loss: 6.2072 | Grad Norm: 0.206 | Throughput: 3,156,638 tok/s | Step time: 10.4ms
+[StandardTransformerLM] Training Complete in 2.0s. Evaluating held-out perplexity...
+[StandardTransformerLM] Validation Perplexity: 469.35
+[StandardTransformerLM] Validation Perplexity: 469.35
+
+==================== Starting Pretraining: AlgebraicTransformerLM (200 steps) ====================
+[AlgebraicTransformerLM] Step     20/200 | Loss: 38.2500 | Grad Norm: 1.000 | Throughput: 2,870,256 tok/s | Step time: 11.4ms
+[AlgebraicTransformerLM] Step     40/200 | Loss: 32.2500 | Grad Norm: 1.000 | Throughput: 2,923,756 tok/s | Step time: 11.2ms
+[AlgebraicTransformerLM] Step     60/200 | Loss: 30.2500 | Grad Norm: 1.000 | Throughput: 2,926,869 tok/s | Step time: 11.2ms
+[AlgebraicTransformerLM] Step     80/200 | Loss: 28.5000 | Grad Norm: 1.000 | Throughput: 2,915,814 tok/s | Step time: 11.2ms
+[AlgebraicTransformerLM] Step    100/200 | Loss: 27.2500 | Grad Norm: 1.000 | Throughput: 2,927,273 tok/s | Step time: 11.2ms
+[AlgebraicTransformerLM] Step    120/200 | Loss: 26.7500 | Grad Norm: 0.909 | Throughput: 2,872,244 tok/s | Step time: 11.4ms
+[AlgebraicTransformerLM] Step    140/200 | Loss: 26.6250 | Grad Norm: 1.000 | Throughput: 2,914,298 tok/s | Step time: 11.2ms
+[AlgebraicTransformerLM] Step    160/200 | Loss: 25.5000 | Grad Norm: 0.931 | Throughput: 2,927,837 tok/s | Step time: 11.2ms
+[AlgebraicTransformerLM] Step    180/200 | Loss: 25.0000 | Grad Norm: 1.000 | Throughput: 2,927,967 tok/s | Step time: 11.2ms
+[AlgebraicTransformerLM] Step    200/200 | Loss: 24.8750 | Grad Norm: 1.000 | Throughput: 2,906,684 tok/s | Step time: 11.3ms
+[AlgebraicTransformerLM] Training Complete in 2.3s. Evaluating held-out perplexity...
+[AlgebraicTransformerLM] Validation Perplexity: 400.77
+[AlgebraicTransformerLM] Validation Perplexity: 400.77
+
+==================== Phase 7 Summary ====================
+Gate perplexity_parity        : PASS | {'algebraic_ppl': 400.76666308331045, 'baseline_ppl': 469.35356173181214, 'ratio': 0.8538694403523199, 'threshold': 1.08, 'passed': True}
+Gate numerical_stability      : PASS | {'nan_or_inf_count': 0, 'threshold': 0, 'passed': True}
+Gate loss_spike_anomaly       : PASS | {'spike_count': 0, 'threshold': 0, 'passed': True}
+Gate peak_gradient_norm       : PASS | {'peak_norm': 1.000000238418579, 'threshold': 5.0, 'passed': True}
+Gate steady_state_throughput  : PASS | {'algebraic_tok_sec': 2915698.309850659, 'baseline_tok_sec': 3231781.6775357793, 'ratio': 0.9021953215830679, 'threshold': 0.9, 'passed': True}
+Gate ast_audit                : PASS | {'passed': True}
+
+Overall Phase 7 Result: TPU PASS
