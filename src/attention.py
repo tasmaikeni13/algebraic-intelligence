@@ -145,9 +145,9 @@ def _rotate_tensor(x, c, s):
     x_pairs = x.reshape(x.shape[:-1] + (num_pairs, 2))
     x0 = x_pairs[..., 0]
     x1 = x_pairs[..., 1]
-    x0_rot = (c * x0 - s * x1)[..., None]
-    x1_rot = (s * x0 + c * x1)[..., None]
-    return jnp.concatenate([x0_rot, x1_rot], axis=-1).reshape(x.shape)
+    x0_rot = c * x0 - s * x1
+    x1_rot = s * x0 + c * x1
+    return jnp.stack([x0_rot, x1_rot], axis=-1).reshape(x.shape)
 
 
 @partial(jax.jit, static_argnames=("dim", "max_seq_len", "dtype"))

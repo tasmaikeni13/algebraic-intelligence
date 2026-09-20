@@ -116,7 +116,7 @@ def _causal_algebraic_attention_fwd(q, k, v, sink_omega):
     r = lax.rsqrt(rad)
     u = scores * r
     denom = jnp.where(scores < 0, one - u, one)
-    rho = jnp.where(scores < 0, r / denom, scores + rad * r)
+    rho = jnp.where(scores < 0, r * lax.reciprocal(denom), scores + rad * r)
     k2 = rho * rho
     k4 = k2 * k2
     k8 = k4 * k4
@@ -137,7 +137,8 @@ def _causal_algebraic_attention_bwd(sink_omega, cache, g_out):
     # FlashAttention-style analytical scalar row reduction along feature dim D
     D_i = jnp.sum(g_out * out, axis=-1, keepdims=True)
     g_w = jnp.matmul(g_out, jnp.swapaxes(v, -1, -2))
-    ds = (8.0 * scale) * r * w * (g_w - D_i)
+    factor = (8.0 * scale) * r * w
+    ds = factor * (g_w - D_i)
 
     dq = jnp.matmul(ds, k)
     dk = jnp.matmul(jnp.swapaxes(ds, -1, -2), q_scaled)
@@ -181,7 +182,7 @@ def _fused_oace_softmax_fwd(logits, targets, eps, gamma):
     r = jax.lax.rsqrt(rad)
     u = normed * r
     denom = jnp.where(normed < 0, one - u, one)
-    rho = jnp.where(normed < 0, r / denom, normed + rad * r)
+    rho = jnp.where(normed < 0, r * jax.lax.reciprocal(denom), normed + rad * r)
 
     k2 = rho * rho
     k4 = k2 * k2
@@ -208,13 +209,13 @@ def _fused_oace_softmax_bwd(eps, gamma, cache, g):
     normed, tau, p, p_78, p_c_inv8, r, sum_p78, targets = cache
     V = normed.shape[-1]
     scalar_diff = sum_p78 - p_c_inv8
-    sub = p_78 - p * scalar_diff
-    target_vals = jnp.take_along_axis(sub, targets[..., None], axis=-1) - p_c_inv8
-    bracket = jnp.put_along_axis(sub, targets[..., None], target_vals, axis=-1, inplace=False)
-    g_y = (8.0 * gamma / float(targets.size)) * r * bracket * g
+    one_hot = jax.nn.one_hot(targets, V, dtype=normed.dtype)
+    bracket = p_78 - one_hot * p_c_inv8 - p * scalar_diff
+    c = (8.0 * gamma / float(targets.size)) * g
+    r_bracket = r * bracket
     inv_w = 1.0 / V
-    radial = jnp.sum(g_y * normed, axis=-1, keepdims=True) * inv_w
-    dx = tau * (g_y - radial * normed)
+    radial = jnp.sum(r_bracket * normed, axis=-1, keepdims=True) * inv_w
+    dx = (tau * c) * (r_bracket - radial * normed)
     return (dx.astype(normed.dtype), None)
 
 
