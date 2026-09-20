@@ -71,42 +71,58 @@ def _alu_glu(x: jax.Array, w_g: jax.Array, w_u: jax.Array, w_d: jax.Array) -> ja
     return jnp.matmul(gate * activated, w_d)
 
 
-def _vmu_octic_fwd(s):
-    s_sq = s * s
-    one = jnp.array(1.0, dtype=s.dtype)
+def _causal_algebraic_attention_fwd(q, k, v, sink_omega):
+    head_dim = q.shape[-1]
+    seq_len = q.shape[-2]
+    scale = jax.lax.rsqrt(jnp.array(head_dim, dtype=jnp.float32)).astype(q.dtype)
+
+    q_scaled = q * scale
+    scores = jnp.matmul(q_scaled, jnp.swapaxes(k, -1, -2))
+
+    s_sq = scores * scores
+    one = jnp.array(1.0, dtype=scores.dtype)
     rad = one + s_sq
     r = lax.rsqrt(rad)
-    u = s * r
-    denominator = jnp.where(s < 0, one - u, one)
-    rho = jnp.where(s < 0, r / denominator, s + rad * r)
+    u = scores * r
+    denom = jnp.where(scores < 0, one - u, one)
+    rho = jnp.where(scores < 0, r / denom, scores + rad * r)
     k2 = rho * rho
     k4 = k2 * k2
     k8 = k4 * k4
-    return k8, (k8, r)
+
+    mask = jnp.tril(jnp.ones((seq_len, seq_len), dtype=bool))[None, None, :, :]
+    p_masked = jnp.where(mask, k8, 0.0)
+    d = jnp.sum(p_masked, axis=-1, keepdims=True) + jnp.array(sink_omega, dtype=v.dtype)
+    w = p_masked * lax.reciprocal(d)
+    out = jnp.matmul(w, v)
+
+    return out, (q_scaled, k, v, w, r, scale, out)
 
 
-def _vmu_octic_bwd(cache, g):
-    k8, r = cache
-    eight = jnp.array(8.0, dtype=g.dtype)
-    return (eight * r * k8 * g,)
+def _causal_algebraic_attention_bwd(sink_omega, cache, g_out):
+    del sink_omega
+    q_scaled, k, v, w, r, scale, out = cache
+
+    # FlashAttention-style analytical scalar row reduction along feature dim D
+    D_i = jnp.sum(g_out * out, axis=-1, keepdims=True)
+    g_w = jnp.matmul(g_out, jnp.swapaxes(v, -1, -2))
+    ds = 8.0 * r * w * (g_w - D_i)
+
+    dq = jnp.matmul(ds, k) * scale
+    dk = jnp.matmul(jnp.swapaxes(ds, -1, -2), q_scaled)
+    dv = jnp.matmul(jnp.swapaxes(w, -1, -2), g_out)
+
+    return (dq.astype(q_scaled.dtype), dk.astype(k.dtype), dv.astype(v.dtype))
 
 
-@jax.custom_vjp
-def _vmu_octic_fast(s):
-    """Octic VMU kernel preserving native hardware precision with single-multiply VJP."""
-    return _vmu_octic_fwd(s)[0]
-
-
-_vmu_octic_fast.defvjp(_vmu_octic_fwd, _vmu_octic_bwd)
-
-
+@partial(jax.custom_vjp, nondiff_argnums=(3,))
 def _causal_algebraic_attention(
     q: jax.Array,
     k: jax.Array,
     v: jax.Array,
     sink_omega: float = 0.5,
 ) -> jax.Array:
-    """Pure Algebraic Causal Attention with octic kernel and rational attention sink.
+    """Pure Algebraic Causal Attention with single-pass analytical FlashAttention VJP.
 
     Args:
         q: Query tensor (B, H, T, D)
@@ -117,24 +133,10 @@ def _causal_algebraic_attention(
     Returns:
         Attention output tensor (B, H, T, D)
     """
-    head_dim = q.shape[-1]
-    seq_len = q.shape[-2]
-    scale = jax.lax.rsqrt(jnp.array(head_dim, dtype=jnp.float32)).astype(q.dtype)
+    return _causal_algebraic_attention_fwd(q, k, v, sink_omega)[0]
 
-    q_scaled = q * scale
-    scores = jnp.matmul(q_scaled, jnp.swapaxes(k, -1, -2))
 
-    # Native VMU octic kernel rho^8 in native precision with single-multiply custom VJP
-    p = _vmu_octic_fast(scores)
-
-    # Causal lower-triangular mask
-    mask = jnp.tril(jnp.ones((seq_len, seq_len), dtype=bool))[None, None, :, :]
-    p_masked = jnp.where(mask, p, 0.0)
-
-    # Additive output with pre-normalized weights (eliminates dual-path backward bottleneck)
-    d = jnp.sum(p_masked, axis=-1, keepdims=True) + jnp.array(sink_omega, dtype=v.dtype)
-    w = p_masked * lax.reciprocal(d)
-    return jnp.matmul(w, v)
+_causal_algebraic_attention.defvjp(_causal_algebraic_attention_fwd, _causal_algebraic_attention_bwd)
 
 
 def _fused_oace_softmax_fwd(logits, targets, eps, gamma):
@@ -160,8 +162,11 @@ def _fused_oace_softmax_bwd(eps, gamma, cache, g):
     normalized, tau, p, p_78, p_c_inv8, r, sum_p78, targets = cache
     V = p.shape[-1]
     scalar_diff = sum_p78 - p_c_inv8
-    target_mask = jax.nn.one_hot(targets, V, dtype=p.dtype)
-    bracket = p_78 - target_mask * p_c_inv8 - p * scalar_diff
+    bracket = p_78 - p * scalar_diff
+    flat_targets = targets.reshape(-1)
+    flat_bracket = bracket.reshape(-1, V)
+    flat_bracket = flat_bracket.at[jnp.arange(flat_targets.shape[0]), flat_targets].add(-p_c_inv8.reshape(-1))
+    bracket = flat_bracket.reshape(bracket.shape)
     normalized_g = (8.0 * gamma / float(targets.size)) * r * bracket * g
     dx = _avn_backward(eps, (normalized, tau), normalized_g)[0]
     return (dx.astype(normalized.dtype), None)

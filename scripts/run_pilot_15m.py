@@ -149,7 +149,11 @@ def run_training_arm(
             )
 
     total_duration = time.perf_counter() - start_time
-    steady_state_tok_per_sec = (total_steps * tokens_per_step) / total_duration
+    # Steady-state throughput excludes transient startup steps
+    warmup_cutoff = min(10, max(1, len(step_times) // 10))
+    steady_steps = step_times[warmup_cutoff:] if len(step_times) > warmup_cutoff else step_times
+    steady_step_time = float(np.mean(steady_steps)) if steady_steps else (total_duration / max(1, total_steps))
+    steady_state_tok_per_sec = tokens_per_step / max(1e-6, steady_step_time)
     peak_grad_norm = float(max(grad_norms)) if grad_norms else 0.0
 
     if proc_idx == 0:
