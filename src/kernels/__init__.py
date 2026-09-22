@@ -34,6 +34,20 @@ from src.kernels.triton_oace import (
     _triton_linear_oace_fwd_kernel,
     triton_fused_linear_oace,
 )
+from src.kernels.pallas_flash_attention import (
+    tiled_flash_attention_forward,
+    tiled_flash_attention_backward,
+    standard_flash_attention,
+)
+from src.kernels.fused_cross_entropy import (
+    standard_fused_linear_ce_forward,
+    standard_fused_linear_ce_backward,
+    standard_fused_cross_entropy,
+)
+from src.kernels.triton_flash_attention import (
+    _triton_std_flash_attn_fwd_kernel,
+    triton_standard_flash_attention,
+)
 
 __all__ = [
     "afa_kernel",
@@ -60,4 +74,13 @@ __all__ = [
     "triton_algebraic_flash_attention",
     "_triton_linear_oace_fwd_kernel",
     "triton_fused_linear_oace",
+    "tiled_flash_attention_forward",
+    "tiled_flash_attention_backward",
+    "standard_flash_attention",
+    "standard_fused_linear_ce_forward",
+    "standard_fused_linear_ce_backward",
+    "standard_fused_cross_entropy",
+    "_triton_std_flash_attn_fwd_kernel",
+    "triton_standard_flash_attention",
 ]
+

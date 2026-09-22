@@ -350,10 +350,10 @@ def tiled_afa_forward(
                 p_bc = jnp.where(col_ids < valid_seq_len, p_bc, 0.0)
 
             if causal:
+                is_diag = kj_idx == qi_idx
                 row_ids = lax.broadcasted_iota(jnp.int32, (block_q, block_k), 0) + qi_idx * block_q
                 mask = col_ids <= row_ids
-                tile_active = kj_idx <= qi_idx
-                p_bc = jnp.where(tile_active & mask[None, None, :, :], p_bc, 0.0)
+                p_bc = jnp.where(is_diag, jnp.where(mask[None, None, :, :], p_bc, 0.0), p_bc)
 
             o_step = jnp.matmul(p_bc.astype(v_block.dtype), v_block).astype(accum_dtype)
             d_step = jnp.sum(p_bc, axis=-1, keepdims=True).astype(accum_dtype)
@@ -363,7 +363,8 @@ def tiled_afa_forward(
         init_o = (q_block * 0.0).astype(accum_dtype)
         init_d = (q_block[..., :1] * 0.0).astype(accum_dtype)
 
-        final_o, final_d = lax.fori_loop(0, num_k_blocks, _key_block_step, (init_o, init_d))
+        upper_k = (qi_idx + 1) if causal else num_k_blocks
+        final_o, final_d = lax.fori_loop(0, upper_k, _key_block_step, (init_o, init_d))
         d_total = final_d + sink_omega
         out_block = (final_o / d_total.astype(final_o.dtype)).astype(q.dtype)
         return out_block, d_total.astype(accum_dtype)
