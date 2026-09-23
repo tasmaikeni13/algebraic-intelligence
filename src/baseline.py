@@ -10,11 +10,15 @@ Implements the standard Transformer architecture for comparative benchmarking:
 """
 
 from dataclasses import dataclass
+from functools import partial
 import math
 from typing import Any, Dict, Optional, Tuple
 
 import jax
 import jax.numpy as jnp
+
+from src.kernels.fused_cross_entropy import standard_fused_cross_entropy
+from src.kernels.pallas_flash_attention import standard_flash_attention
 
 
 @dataclass(frozen=True)
@@ -30,6 +34,8 @@ class BaselineConfig:
     dtype: Any = jnp.bfloat16
     param_dtype: Any = jnp.float32
     remat: bool = False
+    attention_block_size: int = 128
+    vocab_chunk_size: int = 4096
 
 
 def _standard_rmsnorm(x: jax.Array, gamma: jax.Array, eps: float = 1e-5) -> jax.Array:
@@ -79,14 +85,19 @@ def _standard_swiglu(x: jax.Array, w_g: jax.Array, w_u: jax.Array, w_d: jax.Arra
     return jnp.matmul(gate * swish_up, w_d)
 
 
-def _baseline_layer_forward(x, layer, cos_angles, sin_angles, causal_mask):
+def _baseline_layer_forward(
+    x,
+    layer,
+    cos_angles,
+    sin_angles,
+    *,
+    eps,
+    attention_block_size,
+):
     B, T, d_model = x.shape
     dtype = x.dtype
     head_dim = cos_angles.shape[-1] * 2
     num_heads = d_model // head_dim
-    scale = 1.0 / math.sqrt(head_dim)
-    eps = 1e-5
-
     h = _standard_rmsnorm(x, layer["norm1_gamma"], eps)
     q = jnp.matmul(h, layer["w_q"].astype(dtype)).reshape(B, T, num_heads, head_dim).swapaxes(1, 2)
     k = jnp.matmul(h, layer["w_k"].astype(dtype)).reshape(B, T, num_heads, head_dim).swapaxes(1, 2)
@@ -94,10 +105,14 @@ def _baseline_layer_forward(x, layer, cos_angles, sin_angles, causal_mask):
 
     q_rot, k_rot = _apply_standard_rope(q, k, cos_angles, sin_angles)
 
-    scores = jnp.matmul(q_rot, k_rot.swapaxes(-1, -2)) * scale
-    scores = jnp.where(causal_mask, scores, -1e4)
-    attn_weights = jax.nn.softmax(scores, axis=-1)
-    attn_out = jnp.matmul(attn_weights, v).swapaxes(1, 2).reshape(B, T, d_model)
+    attn_out = standard_flash_attention(
+        q_rot,
+        k_rot,
+        v,
+        causal=True,
+        block_q=attention_block_size,
+        block_k=attention_block_size,
+    ).swapaxes(1, 2).reshape(B, T, d_model)
     x = x + jnp.matmul(attn_out, layer["w_o"].astype(dtype))
 
     h2 = _standard_rmsnorm(x, layer["norm2_gamma"], eps)
@@ -115,7 +130,15 @@ class StandardTransformerLM:
 
     def __init__(self, config: Optional[BaselineConfig] = None):
         self.config = config or BaselineConfig()
+        if self.config.num_heads <= 0 or self.config.d_model % self.config.num_heads != 0:
+            raise ValueError("d_model must be divisible by a positive num_heads")
+        if self.config.attention_block_size <= 0:
+            raise ValueError("attention_block_size must be positive")
+        if self.config.vocab_chunk_size <= 0:
+            raise ValueError("vocab_chunk_size must be positive")
         self.head_dim = self.config.d_model // self.config.num_heads
+        if self.head_dim % 2 != 0:
+            raise ValueError(f"head_dim must be even for RoPE, got {self.head_dim}")
 
     def init_params(self, key: jax.Array) -> Dict[str, Any]:
         cfg = self.config
@@ -153,7 +176,7 @@ class StandardTransformerLM:
 
         return params
 
-    def forward(
+    def _hidden(
         self,
         params: Dict[str, Any],
         tokens: jax.Array,
@@ -162,6 +185,8 @@ class StandardTransformerLM:
     ) -> jax.Array:
         cfg = self.config
         B, T = tokens.shape
+        if T > cfg.max_seq_len:
+            raise ValueError(f"sequence length {T} exceeds max_seq_len {cfg.max_seq_len}")
 
         if cos_angles is None or sin_angles is None:
             cos_angles, sin_angles = _build_standard_rope(self.head_dim, cfg.max_seq_len)
@@ -169,14 +194,26 @@ class StandardTransformerLM:
         x = params["token_embed"][tokens].astype(cfg.dtype)
         x = _standard_rmsnorm(x, params["embed_norm_gamma"], cfg.eps)
 
-        scale = 1.0 / math.sqrt(self.head_dim)
-        causal_mask = jnp.tril(jnp.ones((T, T), dtype=bool))[None, None, :, :]
-
-        layer_fn = jax.checkpoint(_baseline_layer_forward) if cfg.remat else _baseline_layer_forward
+        layer_impl = partial(
+            _baseline_layer_forward,
+            eps=cfg.eps,
+            attention_block_size=cfg.attention_block_size,
+        )
+        layer_fn = jax.checkpoint(layer_impl) if cfg.remat else layer_impl
         for layer in params["layers"]:
-            x = layer_fn(x, layer, cos_angles, sin_angles, causal_mask)
+            x = layer_fn(x, layer, cos_angles, sin_angles)
 
-        x_final = _standard_rmsnorm(x, params["final_norm_gamma"], cfg.eps)
+        return _standard_rmsnorm(x, params["final_norm_gamma"], cfg.eps)
+
+    def forward(
+        self,
+        params: Dict[str, Any],
+        tokens: jax.Array,
+        cos_angles: Optional[jax.Array] = None,
+        sin_angles: Optional[jax.Array] = None,
+    ) -> jax.Array:
+        cfg = self.config
+        x_final = self._hidden(params, tokens, cos_angles, sin_angles)
 
         if cfg.tie_embeddings:
             logits = jnp.matmul(x_final, params["token_embed"].T.astype(cfg.dtype))
@@ -184,6 +221,42 @@ class StandardTransformerLM:
             logits = jnp.matmul(x_final, params["output_head"].astype(cfg.dtype))
 
         return logits.astype(jnp.float32)
+
+    def normalization_second_moments(
+        self,
+        params: Dict[str, Any],
+        tokens: jax.Array,
+        cos_angles: Optional[jax.Array] = None,
+        sin_angles: Optional[jax.Array] = None,
+    ) -> jax.Array:
+        """Measure normalized layer-input second moments for diagnostics."""
+        cfg = self.config
+        _, seq_len = tokens.shape
+        if seq_len > cfg.max_seq_len:
+            raise ValueError(
+                f"sequence length {seq_len} exceeds max_seq_len {cfg.max_seq_len}"
+            )
+        if cos_angles is None or sin_angles is None:
+            cos_angles, sin_angles = _build_standard_rope(
+                self.head_dim, cfg.max_seq_len
+            )
+        x = params["token_embed"][tokens].astype(cfg.dtype)
+        x = _standard_rmsnorm(x, params["embed_norm_gamma"], cfg.eps)
+        moments = []
+        for layer in params["layers"]:
+            normalized = _standard_rmsnorm(x, layer["norm1_gamma"], cfg.eps)
+            moments.append(jnp.mean(normalized.astype(jnp.float32) ** 2))
+            x = _baseline_layer_forward(
+                x,
+                layer,
+                cos_angles,
+                sin_angles,
+                eps=cfg.eps,
+                attention_block_size=cfg.attention_block_size,
+            )
+        final = _standard_rmsnorm(x, params["final_norm_gamma"], cfg.eps)
+        moments.append(jnp.mean(final.astype(jnp.float32) ** 2))
+        return jnp.stack(moments)
 
     def loss(
         self,
@@ -193,8 +266,16 @@ class StandardTransformerLM:
         cos_angles: Optional[jax.Array] = None,
         sin_angles: Optional[jax.Array] = None,
     ) -> Tuple[jax.Array, Dict[str, Any]]:
-        logits = self.forward(params, tokens, cos_angles, sin_angles)
-        log_probs = jax.nn.log_softmax(logits, axis=-1)
-        target_log_probs = jnp.take_along_axis(log_probs, targets[..., None], axis=-1).squeeze(-1)
-        loss = -jnp.mean(target_log_probs)
+        cfg = self.config
+        hidden = self._hidden(params, tokens, cos_angles, sin_angles)
+        if cfg.tie_embeddings:
+            output_weight = params["token_embed"].T
+        else:
+            output_weight = params["output_head"]
+        loss = standard_fused_cross_entropy(
+            hidden,
+            output_weight,
+            targets,
+            chunk_size=cfg.vocab_chunk_size,
+        )
         return loss, {"loss": loss}

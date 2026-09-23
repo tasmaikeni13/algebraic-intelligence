@@ -61,10 +61,6 @@
       "complexity": "O(1) memory & O(1) time per token"
     }
   ],
-  "hardware_pretraining_throughput": {
-    "baseline_tokens_sec": 840000,
-    "algebraic_tokens_sec": 1280000,
-    "advantage_percent": "+52.4%"
-  },
-  "status": "PASS"
+  "scope": "historical_microbenchmark_superseded",
+  "valid_for_pretraining_claims": false
 }

@@ -7,6 +7,12 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 from scripts.audit_primitives import source_audit
 from scripts.phase8_records import source_hashes, hardware_evidence
+from scripts.phase8_experiments import (
+    HparamConfig,
+    load_hparam_candidates,
+    select_best_candidate,
+    training_steps_for_budget,
+)
 
 
 def test_ast_zero_transcendental_audit():
@@ -19,6 +25,7 @@ def test_ast_zero_transcendental_audit():
         "src/optimizer.py",
         "src/mesh.py",
         "src/kernels/pallas_afa.py",
+        "src/kernels/pallas_oace.py",
     ]
     for rel_path in files_to_audit:
         full_path = ROOT / rel_path
@@ -40,6 +47,8 @@ def test_optimal_hparam_files_structure():
     alg_cfg = json.loads(alg_path.read_text())
     base_cfg = json.loads(base_path.read_text())
     ledger = json.loads(ledger_path.read_text())
+    if ledger.get("protocol_version", 0) < 2:
+        pytest.skip("Committed Phase 8 artifacts predate the corrected multi-candidate protocol")
 
     # Check required keys for algebraic configuration
     for key in ["learning_rate", "warmup_steps", "weight_decay", "beta1", "beta2", "sink_omega", "gamma", "schedule"]:
@@ -50,7 +59,73 @@ def test_optimal_hparam_files_structure():
     for key in ["learning_rate", "warmup_steps", "weight_decay", "beta1", "beta2", "schedule"]:
         assert key in base_cfg, f"Missing key '{key}' in baseline_optimal.json"
 
-    assert len(ledger.get("runs", [])) == 6, f"Expected 6 runs in sweep ledger, got {len(ledger.get('runs', []))}"
+    assert len(ledger.get("runs", [])) == ledger["expected_runs"]
+    assert ledger["candidate_count"] >= 4
+
+
+def test_preregistered_candidate_matrix_is_a_real_sweep():
+    candidates = load_hparam_candidates(ROOT / "phases/phase8_candidates.json")
+    assert len(candidates["algebraic"]) >= 2
+    assert len(candidates["baseline"]) >= 2
+    for architecture, rows in candidates.items():
+        assert len({name for name, _ in rows}) == len(rows), architecture
+
+
+def test_training_budget_rounds_up_without_claiming_unprocessed_tokens():
+    steps, actual_tokens = training_steps_for_budget(600_000_000, 512 * 2048)
+    assert steps == 573
+    assert actual_tokens == 600_834_048
+    assert actual_tokens >= 600_000_000
+    assert actual_tokens - 600_000_000 < 512 * 2048
+
+
+def test_candidate_selection_rejects_incomplete_or_unsafe_candidate():
+    config = HparamConfig(6e-4, 28, 0.01, 0.9, 0.99)
+    safe = []
+    for seed, loss in zip((42, 43, 44), (4.0, 4.01, 3.99)):
+        safe.append({
+            "architecture": "algebraic", "candidate": "safe", "seed": seed,
+            "hparams": vars(config), "validation_loss": loss,
+            "nan_or_inf_count": 0, "loss_spike_count": 0,
+            "peak_gradient_norm": 1.0, "token_budget_satisfied": True,
+            "normalization_second_moment_min": 0.99,
+            "normalization_second_moment_max": 1.0,
+        })
+    unsafe = [dict(row, candidate="unsafe", validation_loss=3.0, loss_spike_count=1) for row in safe]
+    _, winning, _ = select_best_candidate(safe + unsafe, "algebraic", [42, 43, 44])
+    assert {row["candidate"] for row in winning} == {"safe"}
+
+
+def test_phase8_evidence_rejects_legacy_six_run_record(tmp_path):
+    hashes = {"src/model.py": "abc"}
+    path = tmp_path / "metrics.json"
+    path.write_text(json.dumps({
+        "status": "PASS",
+        "passed": True,
+        "environment": {"source_sha256": hashes},
+        "hardware": {"platform": "tpu", "device_count": 16},
+        "sweep_summary": {
+            "completed_runs": 6,
+            "expected_runs": 6,
+            "candidates_evaluated": 2,
+            "algebraic_candidates_evaluated": 1,
+            "baseline_candidates_evaluated": 1,
+            "seed_count": 3,
+            "requested_tokens_per_run": 600_000_000,
+            "minimum_actual_tokens_per_run": 600_000_000,
+            "maximum_token_overrun": 0,
+            "tokens_per_step": 1_048_576,
+            "token_budget_satisfied": True,
+            "mean_perplexity_ratio": 1.0,
+            "nan_or_inf_count": 0,
+            "loss_spike_count": 0,
+            "peak_gradient_norm": 1.0,
+            "algebraic_seed_std_pct": 0.1,
+            "baseline_seed_std_pct": 0.1,
+        },
+        "ast_audit": {"passed": True},
+    }))
+    assert hardware_evidence(path, hashes)["passed"] is False
 
 
 def test_curvature_convergence_bounds():
@@ -116,11 +191,25 @@ def test_multi_seed_stability_contract():
         pytest.skip("Phase 8 sweep ledger not yet produced")
 
     ledger = json.loads(ledger_path.read_text())
+    if ledger.get("protocol_version", 0) < 2:
+        pytest.skip("Committed Phase 8 artifacts predate the corrected multi-candidate protocol")
     runs = ledger.get("runs", [])
-    assert len(runs) == 6, f"Expected 6 runs, found {len(runs)}"
+    assert len(runs) == ledger["expected_runs"]
 
-    alg_losses = [r["validation_loss"] for r in runs if r["architecture"] == "algebraic"]
-    base_losses = [r["validation_loss"] for r in runs if r["architecture"] == "baseline"]
+    winners = {
+        "algebraic": json.loads((ROOT / "results/phase8/algebraic_optimal.json").read_text()),
+        "baseline": json.loads((ROOT / "results/phase8/baseline_optimal.json").read_text()),
+    }
+    selected = {
+        architecture: [
+            r for r in runs
+            if r["architecture"] == architecture and r["hparams"] == config
+        ]
+        for architecture, config in winners.items()
+    }
+    assert all(len(rows) == 3 for rows in selected.values())
+    alg_losses = [r["validation_loss"] for r in selected["algebraic"]]
+    base_losses = [r["validation_loss"] for r in selected["baseline"]]
 
     import numpy as np
     alg_mean = np.mean(alg_losses)

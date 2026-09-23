@@ -133,7 +133,9 @@ def fused_linear_oace_forward(
         + (8.0 / 7.0) * sum_p78.squeeze(-1)
         - (64.0 / 7.0)
     )
-    mean_loss = jnp.mean(loss_per_token).astype(h.dtype)
+    # Scalar loss reductions stay in the accumulator dtype.  In particular,
+    # BF16 activations must not quantize the OACE objective before backprop.
+    mean_loss = jnp.mean(loss_per_token, dtype=calc_dtype)
 
     cache = (
         h_flat,

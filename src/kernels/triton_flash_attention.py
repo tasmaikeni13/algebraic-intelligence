@@ -29,6 +29,7 @@ def _triton_std_flash_attn_fwd_kernel(
     stride_lb, stride_lh, stride_lm,
     scale: tl.constexpr,
     seq_len: tl.constexpr,
+    num_heads: tl.constexpr,
     head_dim: tl.constexpr,
     BLOCK_M: tl.constexpr,
     BLOCK_N: tl.constexpr,
@@ -37,8 +38,8 @@ def _triton_std_flash_attn_fwd_kernel(
     """Triton Forward Kernel for Standard FlashAttention-2."""
     start_m = tl.program_id(0)
     off_hz = tl.program_id(1)
-    off_b = off_hz // stride_qh
-    off_h = off_hz % stride_qh
+    off_b = off_hz // num_heads
+    off_h = off_hz % num_heads
 
     offs_m = start_m * BLOCK_M + tl.arange(0, BLOCK_M)
     offs_n = tl.arange(0, BLOCK_N)
@@ -73,6 +74,7 @@ def _triton_std_flash_attn_fwd_kernel(
 
         # Raw scores
         scores = tl.dot(q, k) * scale
+        scores = tl.where(curr_offs_n[None, :] < seq_len, scores, -1.0e9)
 
         if IS_CAUSAL:
             causal_mask = offs_m[:, None] >= curr_offs_n[None, :]
@@ -107,6 +109,12 @@ def triton_standard_flash_attention(q, k, v, causal: bool = True, block_m: int =
         raise RuntimeError("PyTorch required for Triton GPU kernels.")
     if not q.is_cuda:
         raise ValueError("Inputs must reside on CUDA GPU.")
+    if q.ndim != 4 or q.shape != k.shape or q.shape != v.shape:
+        raise ValueError("q, k, and v must have identical (B, H, T, D) shapes")
+    if q.dtype != k.dtype or q.dtype != v.dtype:
+        raise ValueError("q, k, and v must have identical dtypes")
+    if block_m <= 0 or block_n <= 0:
+        raise ValueError("block_m and block_n must be positive")
 
     batch_size, num_heads, seq_len, head_dim = q.shape
     scale = float(1.0 / math.sqrt(head_dim))
@@ -127,6 +135,7 @@ def triton_standard_flash_attention(q, k, v, causal: bool = True, block_m: int =
         l.stride(0), l.stride(1), l.stride(2),
         scale=scale,
         seq_len=seq_len,
+        num_heads=num_heads,
         head_dim=head_dim,
         BLOCK_M=block_m,
         BLOCK_N=block_n,

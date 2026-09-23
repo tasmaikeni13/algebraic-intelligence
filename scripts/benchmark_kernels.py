@@ -3,11 +3,11 @@
 
 Compares fully optimized candidate architectures across both unfused and fused regimes:
 1. Unfused Attention: Standard Softmax vs Algebraic Octic Attention.
-2. Fused Attention: Vendor-Grade FlashAttention-2 (Dao et al. with online rescaling)
-   vs Fused Octic Algebraic FlashAttention (pure additive accumulation, zero rescaling).
+2. Tiled Attention: standard online-softmax FlashAttention vs fused octic
+   Algebraic FlashAttention.
 3. Fused Projection Head: Standard Fused Linear + Cross-Entropy vs Fused Linear + OACE
    (both with zero (B, T, V) logit tensor allocation in HBM).
-4. Exact O(N) Linear SSM Recurrence vs Quadratic Attention inference scaling.
+4. Experimental O(N) diagonal-feature recurrence scaling.
 """
 
 import os
@@ -23,7 +23,6 @@ import time
 from typing import Any, Dict
 
 import jax
-from jax import lax
 import jax.numpy as jnp
 import numpy as np
 
@@ -34,7 +33,6 @@ from src.kernels.pallas_afa import exact_afa_reference, tiled_afa_forward
 from src.kernels.pallas_flash_attention import tiled_flash_attention_forward
 from src.kernels.fused_cross_entropy import standard_fused_cross_entropy
 from src.kernels.pallas_oace import fused_linear_oace
-from src.model import fused_oace_softmax_loss
 from src.kernels.linear_afa import linear_afa_step, linear_afa_init_state, compute_algebraic_feature_map
 
 
@@ -62,7 +60,7 @@ def benchmark_attention_head_to_head(seq_len: int, num_heads: int = 12, head_dim
     def unfused_alg_attn(q_arr, k_arr, v_arr):
         return exact_afa_reference(q_arr, k_arr, v_arr, sink_omega=0.5, causal=True)
 
-    # 3. Fused Standard FlashAttention-2 (Dao et al. with online rescaling)
+    # 3. Tiled standard FlashAttention algorithm with online rescaling
     @jax.jit
     def fused_flash_attn(q_arr, k_arr, v_arr):
         return tiled_flash_attention_forward(q_arr, k_arr, v_arr, causal=True, block_q=128, block_k=128)
@@ -136,18 +134,10 @@ def benchmark_loss_head_to_head(N: int = 512, d_model: int = 768, vocab_size: in
     def fused_standard_ce(h_arr, w_arr, targets_arr):
         return standard_fused_cross_entropy(h_arr, w_arr, targets_arr, chunk_size=4096)
 
-    # 3. Fused Algebraic Linear + OACE (tiled across tokens and vocabulary, zero (N, V) allocation)
+    # 3. Fused Algebraic Linear + OACE (vocabulary-chunked, zero (N, V) allocation)
     @jax.jit
-    def fused_algebraic_oace(h_arr, w_arr, targets_arr, block_size=128):
-        num_blocks = h_arr.shape[0] // block_size
-        def block_step(carry, i):
-            h_i = lax.dynamic_slice_in_dim(h_arr, i * block_size, block_size, axis=0)
-            y_i = lax.dynamic_slice_in_dim(targets_arr, i * block_size, block_size, axis=0)
-            z_i = jnp.matmul(h_i, w_arr)
-            loss_i = fused_oace_softmax_loss(z_i, y_i, eps=100.0, gamma=2.0)
-            return carry + loss_i * block_size, None
-        total_loss, _ = lax.scan(block_step, 0.0, jnp.arange(num_blocks))
-        return total_loss / h_arr.shape[0]
+    def fused_algebraic_oace(h_arr, w_arr, targets_arr):
+        return fused_linear_oace(h_arr, w_arr, targets_arr, chunk_size=4096)
 
     # Warmup
     for _ in range(warmup):
@@ -234,7 +224,7 @@ def benchmark_linear_ssm_recurrence(seq_lens=(1024, 2048, 4096, 8192), d_k=64, d
 def main():
     print("=" * 80)
     print("RIGOROUS HEAD-TO-HEAD BENCHMARK: ALGEBRAIC VS STANDARD TRANSFORMERS")
-    print("Zero Strawman Baseline Protocol: Comparing State-of-the-Art Kernels")
+    print("Repository Kernel Microbenchmark")
     print("=" * 80)
 
     # 1. Attention Benchmarks at T=2048 and T=8192
@@ -242,12 +232,12 @@ def main():
     attn_2048 = benchmark_attention_head_to_head(seq_len=2048, runs=3)
     print(f"T=2048:")
     print(f"  Unfused: Standard={attn_2048['unfused_standard_ms']}ms | Algebraic={attn_2048['unfused_algebraic_ms']}ms -> Speedup: {attn_2048['unfused_speedup']}x")
-    print(f"  Fused:   FlashAttention-2={attn_2048['fused_flash_attn_ms']}ms | Octic AFA={attn_2048['fused_octic_afa_ms']}ms -> Speedup: {attn_2048['fused_speedup']}x")
+    print(f"  Tiled:   Standard FlashAttention={attn_2048['fused_flash_attn_ms']}ms | Octic AFA={attn_2048['fused_octic_afa_ms']}ms -> Speedup: {attn_2048['fused_speedup']}x")
 
     attn_8192 = benchmark_attention_head_to_head(seq_len=8192, runs=2)
     print(f"T=8192:")
     print(f"  Unfused: Standard={attn_8192['unfused_standard_ms']}ms | Algebraic={attn_8192['unfused_algebraic_ms']}ms -> Speedup: {attn_8192['unfused_speedup']}x")
-    print(f"  Fused:   FlashAttention-2={attn_8192['fused_flash_attn_ms']}ms | Octic AFA={attn_8192['fused_octic_afa_ms']}ms -> Speedup: {attn_8192['fused_speedup']}x")
+    print(f"  Tiled:   Standard FlashAttention={attn_8192['fused_flash_attn_ms']}ms | Octic AFA={attn_8192['fused_octic_afa_ms']}ms -> Speedup: {attn_8192['fused_speedup']}x")
 
     # 2. Projection Head & Loss Benchmarks
     print("\n--- 2. Projection Head & Loss: Fused CE vs Fused OACE ---")
@@ -259,8 +249,8 @@ def main():
     print(f"  Speedup vs Fused Std:   {loss_res['speedup_vs_fused_standard']}x | Throughput: {loss_res['fused_oace_tok_s']} tok/s")
     print(f"  Full Batch Memory:      {loss_res['training_batch_materialized_gb']} GB -> {loss_res['fused_working_memory_mb']} MB ({loss_res['memory_reduction_ratio']}x reduction)")
 
-    # 3. Exact O(N) Linear SSM Recurrence
-    print("\n--- 3. Exact O(N) Linear Attention / SSM Recurrence Scaling ---")
+    # 3. Experimental approximate O(N) recurrence
+    print("\n--- 3. Experimental O(N) Diagonal-Feature Recurrence Scaling ---")
     ssm_res = benchmark_linear_ssm_recurrence()
     for row in ssm_res:
         print(f"Context={row['context_length']}: Step Time={row['step_time_microseconds']}us | State Memory={row['memory_per_step_bytes']} bytes | {row['complexity']}")
@@ -274,12 +264,8 @@ def main():
         "attention_8192": attn_8192,
         "loss_projection": loss_res,
         "ssm_linear_recurrence": ssm_res,
-        "hardware_pretraining_throughput": {
-            "baseline_tokens_sec": 840_000,
-            "algebraic_tokens_sec": 1_280_000,
-            "advantage_percent": "+52.4%",
-        },
-        "status": "PASS",
+        "platform": jax.devices()[0].platform,
+        "scope": "microbenchmark_only",
     }
 
     json_path = results_dir / "benchmark_results.json"
@@ -292,7 +278,7 @@ def main():
     # Generate authoritative Markdown Summary
     md_content = f"""# Publication Benchmark Defense: Algebraic vs Standard Transformers
 
-This document presents a rigorous head-to-head empirical comparison between the **Pure Algebraic Transformer** and the **Standard Causal Transformer** under equal-optimization conditions, eliminating any strawman baseline criticism.
+This document reports repository-local kernel microbenchmarks. It does not substitute for end-to-end pretraining evidence.
 
 ---
 
@@ -302,14 +288,14 @@ This document presents a rigorous head-to-head empirical comparison between the 
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Unfused JIT** | $T = 2048$ | {attn_2048['unfused_standard_ms']} ms | **{attn_2048['unfused_algebraic_ms']} ms** | **{attn_2048['unfused_speedup']}$\\times$** | Zero transcendental $\\exp$ calls in silicon |
 | **Unfused JIT** | $T = 8192$ | {attn_8192['unfused_standard_ms']} ms | **{attn_8192['unfused_algebraic_ms']} ms** | **{attn_8192['unfused_speedup']}$\\times$** | Polynomial evaluation avoids SFU cycle penalty |
-| **Fused Micro-Kernel** | $T = 2048$ | {attn_2048['fused_flash_attn_ms']} ms (FlashAttention-2) | **{attn_2048['fused_octic_afa_ms']} ms (Octic AFA)** | **{attn_2048['fused_speedup']}$\\times$** | Zero online exponential rescaling barriers |
-| **Fused Micro-Kernel** | $T = 8192$ | {attn_8192['fused_flash_attn_ms']} ms (FlashAttention-2) | **{attn_8192['fused_octic_afa_ms']} ms (Octic AFA)** | **{attn_8192['fused_speedup']}$\\times$** | Pure additive accumulator updates in SRAM/VMEM |
+| **Tiled Micro-Kernel** | $T = 2048$ | {attn_2048['fused_flash_attn_ms']} ms (standard online-softmax) | **{attn_2048['fused_octic_afa_ms']} ms (Octic AFA)** | **{attn_2048['fused_speedup']}$\\times$** | Zero online exponential rescaling barriers |
+| **Tiled Micro-Kernel** | $T = 8192$ | {attn_8192['fused_flash_attn_ms']} ms (standard online-softmax) | **{attn_8192['fused_octic_afa_ms']} ms (Octic AFA)** | **{attn_8192['fused_speedup']}$\\times$** | Pure additive accumulator updates in SRAM/VMEM |
 
 ---
 
 ## 2. Projection Head & Loss Function Head-to-Head
 
-Both standard and algebraic architectures are evaluated using their respective **vendor-grade fused projection heads** with zero materialization of the full logit tensor in High Bandwidth Memory:
+Both architectures use the repository's vocabulary-chunked loss implementations without materializing the full logit tensor in High Bandwidth Memory:
 
 | Metric | Standard Fused Cross-Entropy (Liger / Megatron) | Fused Linear + OACE (Algebraic Stack) | Comparison / Architectural Tradeoff |
 | :--- | :--- | :--- | :--- |
@@ -320,9 +306,9 @@ Both standard and algebraic architectures are evaluated using their respective *
 
 ---
 
-## 3. Inference Scaling: Recurrent State Space Duality ($O(1)$ Memory)
+## 3. Experimental Diagonal-Feature Recurrence ($O(1)$ State in Context Length)
 
-Under the exact finite-order polynomial expansion $\\rho(s)^8 = \\sum_{{m=0}}^8 c_m s^m$, generation runs with constant $O(1)$ memory, eliminating the KV cache memory growth:
+This recurrence uses a degree-8 Taylor truncation and coordinate-wise features. Its state size is independent of context length, but it is not equivalent to production octic AFA:
 
 | Context Length ($T$) | Step Latency | Working Memory per Step | Complexity |
 | :--- | :--- | :--- | :--- |
@@ -331,14 +317,6 @@ Under the exact finite-order polynomial expansion $\\rho(s)^8 = \\sum_{{m=0}}^8 
 | **4,096** | {ssm_res[2]['step_time_microseconds']} $\\mu$s | **{ssm_res[2]['memory_per_step_bytes']} bytes** | $O(1)$ memory & $O(1)$ compute per token |
 | **8,192** | {ssm_res[3]['step_time_microseconds']} $\\mu$s | **{ssm_res[3]['memory_per_step_bytes']} bytes** | $O(1)$ memory & $O(1)$ compute per token |
 
----
-
-## 4. Empirical Pretraining Telemetry (16 TPU v4 Pod Slice)
-
-| Architecture | Peak Pretraining Throughput | Validation Perplexity (Phase 8) | Multi-Seed Stability ($\\sigma / \\mu$) |
-| :--- | :--- | :--- | :--- |
-| **Standard Causal Transformer** | $840\\text{{k tokens/sec}}$ | $77.51$ | $0.32\\%$ |
-| **Pure Algebraic Transformer** | **$1.28\\text{{M tokens/sec}}$ (+52.4%)** | **$66.31$ (-14.5% better)** | **$0.09\\%$ (3.5x more stable)** |
 """
     (results_dir / "BENCHMARK.md").write_text(md_content)
     print(f"\nArtifacts saved to:\n  - {json_path}\n  - {results_dir / 'BENCHMARK.md'}")

@@ -35,7 +35,7 @@ from src.attention import build_cayley_rotary_matrix
 from src.baseline import _build_standard_rope
 from src.dataset import ensure_wikitext103_ready, ShardedTokenLoader, evaluate_perplexity
 from src.mesh import create_tpu_mesh, ModelSharding
-from scripts.phase7_records import environment, source_hashes, write_json
+from scripts.phase7_records import REQUIRED_PILOT_STEPS, environment, source_hashes, write_json
 from scripts.phase7_experiments import (
     audit_phase7_ast,
     create_cosine_schedule,
@@ -53,7 +53,6 @@ def run_training_arm(
     mesh: Any,
     total_steps: int,
     log_every: int,
-    eval_every: int,
     valid_path: Path,
     is_algebraic: bool,
     seed: int = 42,
@@ -89,7 +88,8 @@ def run_training_arm(
     prev_loss = None
     step_times = []
 
-    # Warmup JIT compilation with step 0 data
+    # Compile with step 0 data, but discard the result so the recorded budget
+    # remains exactly ``total_steps`` optimizer updates.
     x_init_np, y_init_np = loader.get_batch(0)
     x_init = jax.make_array_from_process_local_data(
         data_sharding, x_init_np, (loader.batch_size, loader.seq_len)
@@ -97,8 +97,11 @@ def run_training_arm(
     y_init = jax.make_array_from_process_local_data(
         data_sharding, y_init_np, (loader.batch_size, loader.seq_len)
     )
-    params, opt_state, metrics = jitted_step(params, opt_state, x_init, y_init)
-    jax.block_until_ready(params)
+    warmup_params, warmup_opt_state, _ = jitted_step(
+        params, opt_state, x_init, y_init
+    )
+    jax.block_until_ready(warmup_params)
+    del warmup_params, warmup_opt_state
 
     start_time = time.perf_counter()
     tokens_per_step = loader.batch_size * loader.seq_len  # 64 * 512 = 32,768
@@ -153,6 +156,12 @@ def run_training_arm(
     warmup_cutoff = min(10, max(1, len(step_times) // 10))
     steady_steps = step_times[warmup_cutoff:] if len(step_times) > warmup_cutoff else step_times
     steady_step_time = float(np.mean(steady_steps)) if steady_steps else (total_duration / max(1, total_steps))
+    if jax.process_count() > 1:
+        # Throughput is bounded by the slowest host in synchronous training.
+        host_times = np.asarray(
+            multihost_utils.process_allgather(np.asarray(steady_step_time))
+        )
+        steady_step_time = float(host_times.max())
     steady_state_tok_per_sec = tokens_per_step / max(1e-6, steady_step_time)
     peak_grad_norm = float(max(grad_norms)) if grad_norms else 0.0
 
@@ -164,20 +173,17 @@ def run_training_arm(
         lambda p: jnp.asarray(p.addressable_data(0)) if hasattr(p, "addressable_data") else p,
         params,
     )
-    if proc_idx == 0:
-        valid_ppl = evaluate_perplexity(
-            model,
-            params_eval,
-            valid_path,
-            seq_len=loader.seq_len,
-            batch_size=32,
-            max_eval_batches=20,
-            is_algebraic=is_algebraic,
-        )
-        print(f"[{model_name}] Validation Perplexity: {valid_ppl:.2f}", flush=True)
-    else:
-        valid_ppl = 0.0
-
+    # Every controller executes the same local validation program before the
+    # next distributed arm.  This keeps multi-host program order consistent.
+    valid_ppl = evaluate_perplexity(
+        model,
+        params_eval,
+        valid_path,
+        seq_len=loader.seq_len,
+        batch_size=32,
+        max_eval_batches=20,
+        is_algebraic=is_algebraic,
+    )
     if proc_idx == 0:
         print(f"[{model_name}] Validation Perplexity: {valid_ppl:.2f}", flush=True)
 
@@ -200,7 +206,6 @@ def main():
     parser.add_argument("--output", type=Path, default=ROOT / "results/phase7/tpu")
     parser.add_argument("--steps", type=int, default=100_000, help="Total pretraining steps (default: 100,000)")
     parser.add_argument("--log-every", type=int, default=500, help="Logging frequency in steps")
-    parser.add_argument("--eval-every", type=int, default=10_000, help="Evaluation frequency in steps")
     parser.add_argument("--lr", type=float, default=6e-4, help="Peak learning rate")
     parser.add_argument("--warmup-steps", type=int, default=2000, help="Warmup steps")
     parser.add_argument("--data-dir", type=Path, default=ROOT / "data")
@@ -220,6 +225,12 @@ def main():
     num_devices = len(devices)
     proc_idx = jax.process_index()
     proc_count = jax.process_count()
+
+    if devices[0].platform != "tpu" or num_devices != 16 or proc_count != 4:
+        raise RuntimeError(
+            "Phase 7 requires four processes and 16 TPU devices; "
+            f"found {proc_count} processes and {num_devices} {devices[0].platform} devices"
+        )
 
     if proc_idx == 0:
         print(f"Hardware: {num_devices} devices across {proc_count} processes. Platform: {devices[0].platform}", flush=True)
@@ -313,7 +324,6 @@ def main():
         mesh=mesh,
         total_steps=args.steps,
         log_every=args.log_every,
-        eval_every=args.eval_every,
         valid_path=valid_npy,
         is_algebraic=False,
         seed=args.seed,
@@ -329,7 +339,6 @@ def main():
         mesh=mesh,
         total_steps=args.steps,
         log_every=args.log_every,
-        eval_every=args.eval_every,
         valid_path=valid_npy,
         is_algebraic=True,
         seed=args.seed,
@@ -343,6 +352,11 @@ def main():
     )
 
     gates = {
+        "execution_budget": {
+            "steps": args.steps,
+            "required_steps": REQUIRED_PILOT_STEPS,
+            "passed": bool(args.steps >= REQUIRED_PILOT_STEPS),
+        },
         "perplexity_parity": {
             "algebraic_ppl": alg_res["valid_perplexity"],
             "baseline_ppl": base_res["valid_perplexity"],

@@ -1,4 +1,8 @@
-# Phase 7 PASS — Full Architecture Assembly & Pilot Pretraining on 16 TPU v4 Chips (v4-32 Pod Slice)
+# Phase 7 Evidence Invalidated — Full Architecture Assembly & Pilot Pretraining
+
+**Current status: NOT PASSED.** The recorded TPU job executed 200 training steps per architecture, while `phases/phase7.md` requires 100,000. The former evidence validator did not check this budget and incorrectly certified the run. The measurements below are retained as historical short-run diagnostics only; they cannot satisfy Phase 7 or authorize Phase 8/9. A new run must use the corrected production kernel paths and pass the source-hash, 16-device, and 100,000-step gates.
+
+## Historical invalid record
 
 Verified 2026-09-20 on CPU and the four-host, 16-chip Cloud TPU v4 Pod slice (`my-tpu-v4`, 4 hosts, 16 physical TPU v4 chips, 32 TensorCore devices) in `us-central2-b`.
 Full architecture assembly integrates all Phase 1–6 verified primitives into a unified causal language model (`AlgebraicTransformerLM`) trained on WikiText-103 against a compute-matched baseline (`StandardTransformerLM`).

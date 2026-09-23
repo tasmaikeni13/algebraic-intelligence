@@ -6,7 +6,6 @@ Executes the equal-budget sweep study across 16 TPU v4 chips across 4 hosts in u
 
 import argparse
 from datetime import datetime, timezone
-import os
 from pathlib import Path
 import shlex
 import shutil
@@ -28,6 +27,13 @@ def main():
     parser.add_argument("--seeds", nargs="+", type=int, default=[42, 43, 44])
     parser.add_argument("--log-every", type=int, default=50)
     args = parser.parse_args()
+
+    dirty = subprocess.check_output(
+        ["git", "status", "--porcelain", "--untracked-files=all"], cwd=ROOT, text=True
+    ).strip()
+    if dirty:
+        raise RuntimeError("Refusing to launch Phase 8 from a dirty worktree; commit the exact source snapshot first")
+
     out = args.output.resolve()
     out.mkdir(parents=True, exist_ok=True)
 
@@ -52,7 +58,7 @@ def main():
     commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
     branch = subprocess.check_output(["git", "branch", "--show-current"], cwd=ROOT, text=True).strip()
     if not branch:
-        branch = "main"
+        raise RuntimeError("Refusing to launch Phase 8 from a detached HEAD")
 
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     label = f"algebraic-phase8-{commit[:12]}-{stamp}"
@@ -80,31 +86,19 @@ def main():
         sweep_file = ROOT / "data/fineweb_train_2_5B.npy"
     valid_file = ROOT / "data/fineweb_valid.npy"
 
-    if sweep_file.exists() and valid_file.exists():
-        print("Distributing FineWeb-Edu dataset cache to all TPU workers...", flush=True)
-        dest_0 = Path(remote) / "data"
-        dest_0.mkdir(parents=True, exist_ok=True)
-        # Worker 0 local symlink/copy
-        if not (dest_0 / sweep_file.name).exists():
-            try:
-                os.symlink(sweep_file, dest_0 / sweep_file.name)
-            except OSError:
-                shutil.copy2(sweep_file, dest_0 / sweep_file.name)
-        if not (dest_0 / valid_file.name).exists():
-            try:
-                os.symlink(valid_file, dest_0 / valid_file.name)
-            except OSError:
-                shutil.copy2(valid_file, dest_0 / valid_file.name)
-
-        for w in range(1, 4):
-            print(f"Syncing dataset cache to worker {w}...", flush=True)
-            ssh(f"mkdir -p {quote(remote+'/data')}", f"mkdir-data-{w}.log", worker=str(w))
-            run([
-                "gcloud", "compute", "tpus", "tpu-vm", "scp",
-                str(sweep_file), str(valid_file),
-                f"{args.name}:{remote}/data/",
-                "--zone", args.zone, "--worker", str(w), "--quiet"
-            ], f"scp-data-{w}.log")
+    if not (sweep_file.exists() and valid_file.exists()):
+        raise FileNotFoundError(
+            "Phase 8 requires data/fineweb_sweep_600M.npy (or fineweb_train_2_5B.npy) "
+            "and data/fineweb_valid.npy"
+        )
+    print("Distributing FineWeb-Edu dataset cache to all TPU workers...", flush=True)
+    ssh(f"mkdir -p {quote(remote+'/data')}", "mkdir-data.log")
+    run([
+        "gcloud", "compute", "tpus", "tpu-vm", "scp",
+        str(sweep_file), str(valid_file),
+        f"{args.name}:{remote}/data/",
+        "--zone", args.zone, "--worker", "all", "--quiet"
+    ], "copy-data.log")
 
     print("Running host unit tests across workers...", flush=True)
     ssh(f"cd {quote(remote)} && JAX_PLATFORMS=cpu JAX_ENABLE_X64=1 venv/bin/python -m pytest -q tests/test_hparam_contracts.py", "host-tests.log")
@@ -124,6 +118,13 @@ def main():
     try:
         print("Launching distributed hyperparameter sweep across all 16 TPU v4 chips...", flush=True)
         ssh(cmd, "run.log")
+        verify = (
+            f"cd {quote(remote)} && JAX_PLATFORMS=cpu JAX_ENABLE_X64=1 "
+            f"venv/bin/python scripts/run_verify_phase8.py "
+            f"--metrics {quote(remote+'/measurements/metrics.json')} "
+            f"--output-dir {quote(remote+'/measurements')}"
+        )
+        ssh(verify, "verify.log", worker="0")
     finally:
         print("Downloading sweep results from workers...", flush=True)
         download = out / "download" / label
@@ -139,6 +140,8 @@ def main():
                 print(f"Warning downloading from worker {worker}: {e}", flush=True)
 
         candidates = list(download.rglob("metrics.json"))
+        if len(candidates) != 1:
+            raise RuntimeError(f"Expected exactly one coordinator metrics.json, found {len(candidates)}")
         if candidates:
             coord_dir = candidates[0].parent
             for file in coord_dir.iterdir():

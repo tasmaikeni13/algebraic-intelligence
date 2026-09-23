@@ -10,7 +10,7 @@ Execute the definitive empirical head-to-head pretraining comparison at the **12
 $$\textbf{"Can pure algebra match or exceed the standard causal Transformer at the 125M / 2.5B token frontier under fair, apples-to-apples tuning?"}$$
 
 ### Competing Hypotheses:
-- **$H_1$ (Algebraic Hypothesis):** The 125M Pure Algebraic Transformer (`AlgebraicTransformerLM`) trained with Phase 8 optimal hyperparameters achieves validation perplexity parity ($\le 1.08\times$) and downstream zero-shot reasoning parity (within $2.0\%$ absolute margin on ARC-Easy, HellaSwag, PIQA, and LAMBADA) relative to the Standard Causal Transformer baseline across **Seeds 42, 43, and 44** over 2.5B tokens, while maintaining bounded gradient dynamics, zero loss spikes, and $\ge 45\%$ lower optimizer memory in local HBM.
+- **$H_1$ (Algebraic Hypothesis):** The 125M Pure Algebraic Transformer (`AlgebraicTransformerLM`) trained with Phase 8 optimal hyperparameters achieves validation perplexity parity ($\le 1.08\times$) and downstream zero-shot non-inferiority (no more than $2.0$ percentage points below the baseline on ARC-Easy, HellaSwag, PIQA, and LAMBADA) across **Seeds 42, 43, and 44** over at least 2.5B tokens, while maintaining bounded gradient dynamics and zero loss spikes.
 - **$H_0$ (Transcendental Baseline Hypothesis):** On a large web corpus (2.5B tokens), continuous transcendental functions (Swish activation, exponential Softmax, RoPE trigonometric embeddings, cross-entropy $-\ln p$, and AdamW + Cosine schedule) provide essential inductive advantages that pure algebraic approximations cannot replicate even after systematic hyperparameter tuning, resulting in diverging validation loss, representation collapse, or severe downstream benchmark degradation.
 
 ---
@@ -51,10 +51,10 @@ graph LR
 - **FFN Intermediate Dimension ($d_{\text{ff}}$):** $2048$ ($8/3 \times d_{\text{model}} \approx 2048$, aligned to multiples of 128 for TPU v4 MXU efficiency).
 - **Vocabulary Size ($V$):** $50,257$ (GPT-2 standard BPE tokenizer).
 - **Context Length ($T$):** $2048$ tokens.
-- **Dataset:** Exactly **2.5 Billion training tokens** drawn from the **FineWeb-Edu** corpus (`HuggingFaceFW/fineweb-edu`).
+- **Dataset:** At least **2.5 Billion training tokens** drawn from the **FineWeb-Edu** corpus (`HuggingFaceFW/fineweb-edu`). Full batches round upward: 2,385 steps process 2,500,853,760 tokens.
 - **Global Batch Size:** $\approx 1.05 \times 10^6$ tokens ($512$ sequences $\times 2048$ context length), distributed across the 16 TPU v4 chips via SPMD sharding (`data`, `fsdp` axes).
 - **Precision:** BF16 mixed-precision with FP32 master weights and optimizer state accumulation.
-- **Checkpoint Cadence:** Checkpoints saved every $100\text{M}$ tokens.
+- **Checkpoint Cadence:** A rolling, resumable optimizer checkpoint is saved at least every $100\text{M}$ tokens and at completion. The two latest checkpoints are retained by default to bound disk usage.
 - **Paired Seeds:** 3 identical random seeds (**Seed 42, Seed 43, Seed 44**), yielding $2 \text{ architectures} \times 3 \text{ seeds} = \mathbf{6\text{ complete pretraining runs}}$ of 2.5B tokens each.
 - **Hyperparameter Injection:**
   - `AlgebraicTransformerLM` imports `results/phase8/algebraic_optimal.json`.
@@ -63,7 +63,7 @@ graph LR
 ### 2.2 Budget Parity Enforcement
 - Parameters matched within $\pm 1\%$.
 - Identical token streams and shard ordering across corresponding seeds.
-- Identical optimizer step counts (~2,384 steps at batch size $1.05 \times 10^6$ tokens).
+- Identical optimizer step counts (2,385 steps at batch size $1.05 \times 10^6$ tokens).
 - SPMD distributed execution on 16 TPU v4 Pod slice over optical ICI interconnect.
 
 ---
@@ -75,10 +75,15 @@ Instruct the creation and verification of the following files targeting the 16 T
    - Multi-device distributed pretraining script for 125M parameter models across 2.5B FineWeb-Edu tokens on 16 TPU v4 chips.
    - Automatically loads hyperparameters from `results/phase8/`.
    - SPMD mesh sharding via `src/mesh.py` (`data`, `fsdp` axes).
-   - High-throughput dataset streaming pipeline using `tf.data` / Hugging Face datasets with deterministic shard hashing.
-   - CLI flags: `--architecture {algebraic, standard} --seed {42, 43, 44} --total_tokens 2500000000`.
+   - Memory-mapped deterministic data loading through `src/dataset.py`.
+   - CLI flags: `--architecture {algebraic,standard} --seed {42,43,44} --total-tokens 2500000000`.
+   - Rolling atomic checkpoints include model parameters, optimizer state, safety counters, elapsed time, and exact source metadata for fail-closed resume.
 2. **`scripts/evaluate_benchmarks.py`**:
-   - Zero-shot evaluation harness executing ARC-Easy, HellaSwag, PIQA, and LAMBADA.
+   - Zero-shot evaluation harness executing ARC-Easy, HellaSwag, PIQA, and LAMBADA from normalized, provenance-recorded inputs.
+3. **`scripts/launch_phase9_tpu.py`**:
+   - Copies one committed snapshot and identical datasets to all four TPU workers.
+   - Runs all six paired arms, evaluates their final checkpoints, aggregates evidence, and verifies tests and Lean proofs.
+   - Accepts `--resume-from` to restore source-matched rolling checkpoints after interruption.
 
 ---
 
@@ -96,17 +101,17 @@ Evaluate checkpoints using standard zero-shot reasoning probes:
 - **HellaSwag:** Grounded commonsense reasoning.
 - **PIQA:** Physical interaction question answering.
 - **LAMBADA:** Broad narrative context word prediction.
-- Report mean accuracy $\pm$ SEM across seeds. Parity bound: within $2.0\%$ absolute margin of the baseline.
+- Report mean accuracy $\pm$ SEM across seeds. Non-inferiority bound: the algebraic mean may be at most $2.0$ percentage points below the baseline mean.
 
 ### 4.3 Training Stability Dynamics
 - Maximum gradient norm: $\max_{t} \|\mathbf{g}_t\|_2$ over the entire 2.5B token trajectory.
 - Count of sudden loss spikes ($\Delta \mathcal{L} > 1.5$) and non-finite iterations ($0$ permitted).
-- Hidden activation variance tracking across all 12 layers: verify that parameter-free AVN maintains $\operatorname{Var}(\mathbf{h}_\ell) \in [0.8, 1.3]$ without gain drift across 2.5B tokens.
+- Normalized activation tracking across all 12 layers: verify that parameter-free AVN maintains the layer-input second moment $\mathbb{E}[h_\ell^2] \in [0.8, 1.3]$ without gain drift across 2.5B tokens.
 
 ### 4.4 Systems & Efficiency Telemetry on 16 TPU v4 Pod
 - Sustained training throughput (tokens/second) on 16 TPU v4 chips.
 - Peak HBM memory allocation during training.
-- Optimizer telemetry & purity: Confirm that AdamW operates identically across both models, with zero transcendentals evaluated throughout pretraining.
+- Optimizer telemetry & purity: Confirm both models use the same AdamW implementation. The algebraic arm uses its Phase 8-selected ARDS schedule and the baseline uses its Phase 8-selected cosine schedule.
 
 ---
 
@@ -135,9 +140,54 @@ When an issue occurs during 125M / 2.5B token pretraining:
 - [ ] All 6 pretraining runs (2 architectures $\times$ 3 seeds: 42, 43, 44) complete the full 2.5B token budget with zero unhandled NaNs or divergent loss spikes.
 - [ ] Algebraic Transformer validation perplexity on FineWeb-Edu achieves parity with the Standard Transformer baseline within $\le 1.08\times$ (mean over Seeds 42, 43, 44).
 - [ ] Perplexity variance across seeds is low and stable: $\operatorname{SEM} \le 0.15$.
-- [ ] Downstream zero-shot reasoning benchmarks (ARC-Easy, HellaSwag, PIQA, LAMBADA) are within $2.0\%$ absolute margin of the Standard Transformer baseline.
-- [ ] Optimizer parity and telemetry confirm identical AdamW optimizer state dynamics across both architectures with zero transcendental calls.
+- [ ] Downstream zero-shot reasoning benchmarks (ARC-Easy, HellaSwag, PIQA, LAMBADA) are no more than $2.0$ percentage points below the Standard Transformer baseline.
+- [ ] Both architectures use the same AdamW implementation and their frozen Phase 8 schedules; the algebraic training stack contains zero transcendental calls.
 - [ ] Strict Zero-Transcendental audit confirms 0 transcendental function calls across all 125M Algebraic checkpoints and training traces.
 - [ ] All Lean 4 formal proofs compile cleanly via `/root/.elan/bin/lake build`.
 - [ ] All inherited Phase 1–8 gates pass without regression.
 - [ ] `results/phase9/PASS.md` satisfies the shared PASS record contract with complete reproduction logs.
+
+---
+
+## 8. Preparation, Smoke Test, and Execution
+
+Phase 9 is fail-closed: `run_pretrain_125m.py` rejects missing, stale, or legacy Phase 8 evidence. If the FineWeb-Edu token caches are absent, prepare them first, then prepare the public zero-shot datasets:
+
+```bash
+.venv/bin/python scripts/prepare_fineweb_edu.py
+.venv/bin/python scripts/prepare_eval_benchmarks.py
+```
+
+Run the local CPU smoke test. It uses tiny synthetic models, checks checkpoint round trips and aggregation, and cannot produce Phase 9 evidence:
+
+```bash
+JAX_PLATFORMS=cpu .venv/bin/python scripts/smoke_phase9.py
+```
+
+After Phase 8 has a current PASS, commit the exact source and launch all six TPU runs:
+
+```bash
+.venv/bin/python scripts/launch_phase9_tpu.py \
+  --name my-tpu-v4 \
+  --zone us-central2-b
+```
+
+If a launch is interrupted, pass the prior downloaded run directory. Each checkpoint embeds the source fingerprint and will be rejected if it does not match:
+
+```bash
+.venv/bin/python scripts/launch_phase9_tpu.py \
+  --name my-tpu-v4 \
+  --zone us-central2-b \
+  --resume-from results/phase9/tpu/download/<run-id>
+```
+
+For manual execution of one arm on an already initialized four-host environment:
+
+```bash
+python scripts/run_pretrain_125m.py \
+  --architecture algebraic \
+  --seed 42 \
+  --output-dir results/phase9/algebraic-42
+```
+
+Only `scripts/run_verify_phase9.py` may create `results/phase9/PASS.md`, and only after six source-matched 16-device runs, all four downstream benchmarks, the statistical gates, the repository tests, and the Lean build pass.

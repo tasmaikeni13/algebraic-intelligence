@@ -104,6 +104,27 @@ def test_standard_model_forward_and_loss():
         assert jnp.all(jnp.isfinite(g)), "Non-finite baseline gradient encountered"
 
 
+def test_algebraic_attention_sink_configuration_is_used():
+    """Regression: Phase 8 sink candidates must affect the model computation."""
+    common = dict(
+        vocab_size=64,
+        d_model=32,
+        num_layers=1,
+        num_heads=2,
+        d_ff=64,
+        max_seq_len=16,
+        dtype=jnp.float32,
+    )
+    low_sink = AlgebraicTransformerLM(ModelConfig(**common, sink_omega=0.1))
+    high_sink = AlgebraicTransformerLM(ModelConfig(**common, sink_omega=2.0))
+    key = jax.random.PRNGKey(457)
+    params = low_sink.init_params(key)
+    tokens = jax.random.randint(jax.random.fold_in(key, 1), (1, 12), 0, 64)
+    low_logits = low_sink.forward(params, tokens)
+    high_logits = high_sink.forward(params, tokens)
+    assert not np.allclose(np.asarray(low_logits), np.asarray(high_logits))
+
+
 def test_zero_transcendental_ast_audit_model():
     """Verify src/model.py contains exactly 0 calls to transcendental functions."""
     path = Path(__file__).resolve().parents[1] / "src/model.py"

@@ -8,11 +8,9 @@ inter-tile log-sum-exp synchronization.
 
 Key components:
 - afa_kernel: Pure additive tile forward kernel for TPU v4 VMEM/MXU.
-- afa_bwd_kernel: Single-pass analytical backward kernel for TPU v4 VMEM/MXU.
 - pallas_afa_forward: Orchestrated JAX Pallas forward pass with 128x128 systolic tiling.
-- pallas_afa_backward: Orchestrated JAX Pallas analytical backward pass.
 - tiled_afa_forward: XLA-tiled additive accumulation kernel.
-- tiled_afa_backward: XLA-tiled analytical backward accumulation kernel.
+- tiled_afa_backward: Compact loop-tiled analytical backward used by the custom VJP.
 - exact_afa_reference: Exact un-tiled float64 mathematical reference.
 - distributed_ring_afa: Lock-free distributed Ring Attention across TPU mesh.
 - sharded_pallas_afa: Distributed Megacore SPMD sharded entrypoint on Mesh(data, fsdp, model).
@@ -56,6 +54,7 @@ def afa_kernel(
     k_ref,
     v_ref,
     o_ref,
+    d_ref,
     o_acc_ref,
     d_acc_ref,
     *,
@@ -86,8 +85,14 @@ def afa_kernel(
         o_acc_ref[...] = jnp.zeros_like(o_acc_ref)
         d_acc_ref[...] = jnp.zeros_like(d_acc_ref)
 
-    # 2. In causal attention, skip tiles strictly in future (k_blk_idx > q_blk_idx)
-    should_compute = (k_blk_idx <= q_blk_idx) if causal else True
+    # 2. In causal attention, skip key tiles that start strictly after the last
+    # query position in this query tile.  Comparing tile indices directly only
+    # works when block_q == block_k.
+    should_compute = (
+        k_blk_idx * block_k < (q_blk_idx + 1) * block_q
+        if causal
+        else True
+    )
 
     @pl.when(should_compute)
     def _compute_step():
@@ -112,7 +117,7 @@ def afa_kernel(
         if valid_seq_len is not None:
             p_bc = jnp.where(col_ids < valid_seq_len, p_bc, 0.0)
 
-        # 2d. Intra-tile causal masking on the diagonal tile (q_blk_idx == k_blk_idx)
+        # 2d. Position-based causal masking also covers unequal tile sizes.
         if causal:
             row_ids = lax.broadcasted_iota(jnp.int32, (block_q, block_k), 0) + q_blk_idx * block_q
             causal_mask = col_ids <= row_ids
@@ -135,8 +140,10 @@ def afa_kernel(
             denominator = d_acc_ref[:, :head_dim]
         else:
             denominator = pltpu.repeat(d_acc_ref[...], head_dim // 128, axis=1)
-        normalized = o_acc_ref[...] / (denominator + sink_omega)
+        d_total = denominator + sink_omega
+        normalized = o_acc_ref[...] / d_total
         o_ref[0, 0] = normalized.astype(o_ref.dtype)
+        d_ref[0, 0] = d_total[:, :1].astype(d_ref.dtype)
 
 
 def pallas_afa_forward(
@@ -149,7 +156,8 @@ def pallas_afa_forward(
     block_k: int = 128,
     valid_seq_len: Optional[int] = None,
     interpret: Optional[bool] = None,
-) -> jax.Array:
+    return_denominator: bool = False,
+) -> Union[jax.Array, Tuple[jax.Array, jax.Array]]:
     """Full forward call orchestrating Pallas TPU execution."""
     if q.ndim != 4 or k.ndim != 4 or v.ndim != 4:
         raise ValueError("q, k, and v must all have shape (batch, heads, sequence, dimension)")
@@ -183,8 +191,13 @@ def pallas_afa_forward(
         pl.BlockSpec((1, 1, block_k, head_dim), lambda b, h, i, j: (b, h, j, 0)),
         pl.BlockSpec((1, 1, block_k, head_dim), lambda b, h, i, j: (b, h, j, 0)),
     ]
-    out_specs = pl.BlockSpec(
-        (1, 1, block_q, head_dim), lambda b, h, i, j: (b, h, i, 0)
+    out_specs = (
+        pl.BlockSpec(
+            (1, 1, block_q, head_dim), lambda b, h, i, j: (b, h, i, 0)
+        ),
+        pl.BlockSpec(
+            (1, 1, block_q, 1), lambda b, h, i, j: (b, h, i, 0)
+        ),
     )
 
     accum_dtype = jnp.float64 if q.dtype == jnp.float64 else jnp.float32
@@ -230,14 +243,19 @@ def pallas_afa_forward(
         dimension_semantics=("parallel", "parallel", "parallel", "arbitrary")
     )
 
-    out_o = pl.pallas_call(
+    out_o, out_d = pl.pallas_call(
         kernel_fn,
-        out_shape=jax.ShapeDtypeStruct(q.shape, q.dtype),
+        out_shape=(
+            jax.ShapeDtypeStruct(q.shape, q.dtype),
+            jax.ShapeDtypeStruct(q.shape[:-1] + (1,), accum_dtype),
+        ),
         grid_spec=grid_spec,
         compiler_params=compiler_params,
         interpret=interpret,
     )(q, k, v)
 
+    if return_denominator:
+        return out_o, out_d
     return out_o
 
 
@@ -350,10 +368,9 @@ def tiled_afa_forward(
                 p_bc = jnp.where(col_ids < valid_seq_len, p_bc, 0.0)
 
             if causal:
-                is_diag = kj_idx == qi_idx
                 row_ids = lax.broadcasted_iota(jnp.int32, (block_q, block_k), 0) + qi_idx * block_q
                 mask = col_ids <= row_ids
-                p_bc = jnp.where(is_diag, jnp.where(mask[None, None, :, :], p_bc, 0.0), p_bc)
+                p_bc = jnp.where(mask[None, None, :, :], p_bc, 0.0)
 
             o_step = jnp.matmul(p_bc.astype(v_block.dtype), v_block).astype(accum_dtype)
             d_step = jnp.sum(p_bc, axis=-1, keepdims=True).astype(accum_dtype)
@@ -363,7 +380,11 @@ def tiled_afa_forward(
         init_o = (q_block * 0.0).astype(accum_dtype)
         init_d = (q_block[..., :1] * 0.0).astype(accum_dtype)
 
-        upper_k = (qi_idx + 1) if causal else num_k_blocks
+        upper_k = (
+            min(num_k_blocks, ((qi_idx + 1) * block_q + block_k - 1) // block_k)
+            if causal
+            else num_k_blocks
+        )
         final_o, final_d = lax.fori_loop(0, upper_k, _key_block_step, (init_o, init_d))
         d_total = final_d + sink_omega
         out_block = (final_o / d_total.astype(final_o.dtype)).astype(q.dtype)
@@ -391,6 +412,7 @@ def tiled_afa_backward(
     causal: bool = False,
     block_q: int = 128,
     block_k: int = 128,
+    valid_seq_len: Optional[int] = None,
 ) -> Tuple[jax.Array, jax.Array, jax.Array]:
     """Single-Pass Analytical Backward Kernel tiled in SRAM/VMEM registers.
 
@@ -416,16 +438,17 @@ def tiled_afa_backward(
     dk = jnp.zeros_like(k, dtype=accum_dtype)
     dv = jnp.zeros_like(v, dtype=accum_dtype)
 
-    for i in range(num_q_blocks):
+    def query_block(i, gradients):
+        dq, dk, dv = gradients
         q_i = lax.dynamic_slice_in_dim(q, i * block_q, block_q, axis=2)
         g_out_i = lax.dynamic_slice_in_dim(g_out, i * block_q, block_q, axis=2)
         d_i = lax.dynamic_slice_in_dim(d_total, i * block_q, block_q, axis=2)
         E_i = lax.dynamic_slice_in_dim(E, i * block_q, block_q, axis=2)
 
         dq_i = jnp.zeros_like(q_i, dtype=accum_dtype)
-        max_k = (i + 1) if causal else num_k_blocks
 
-        for j in range(max_k):
+        def key_block(j, key_gradients):
+            dq_i, dk, dv = key_gradients
             k_j = lax.dynamic_slice_in_dim(k, j * block_k, block_k, axis=2)
             v_j = lax.dynamic_slice_in_dim(v, j * block_k, block_k, axis=2)
 
@@ -441,9 +464,12 @@ def tiled_afa_backward(
             k4 = k2 * k2
             w_unnorm = k4 * k4
 
-            if causal and (i == j):
+            col_ids = lax.broadcasted_iota(jnp.int32, (block_q, block_k), 1) + j * block_k
+            if valid_seq_len is not None:
+                w_unnorm = jnp.where(col_ids < valid_seq_len, w_unnorm, 0.0)
+
+            if causal:
                 row_ids = lax.broadcasted_iota(jnp.int32, (block_q, block_k), 0) + i * block_q
-                col_ids = lax.broadcasted_iota(jnp.int32, (block_q, block_k), 1) + j * block_k
                 cmask = col_ids <= row_ids
                 w_unnorm = jnp.where(cmask[None, None, :, :], w_unnorm, 0.0)
 
@@ -451,7 +477,7 @@ def tiled_afa_backward(
             g_w_ij = jnp.matmul(g_out_i.astype(accum_dtype), jnp.swapaxes(v_j.astype(accum_dtype), -1, -2))
 
             ds_ij = (8.0 * scale) * r * w_ij * (g_w_ij - E_i)
-            if causal and (i == j):
+            if causal:
                 ds_ij = jnp.where(cmask[None, None, :, :], ds_ij, 0.0)
 
             # Stream updates into dQ, dK, dV
@@ -465,29 +491,77 @@ def tiled_afa_backward(
             curr_dv_j = lax.dynamic_slice_in_dim(dv, j * block_k, block_k, axis=2)
             dk = lax.dynamic_update_slice_in_dim(dk, curr_dk_j + dk_j, j * block_k, axis=2)
             dv = lax.dynamic_update_slice_in_dim(dv, curr_dv_j + dv_j, j * block_k, axis=2)
+            return dq_i, dk, dv
 
+        dq_i, dk, dv = lax.fori_loop(
+            0, num_k_blocks, key_block, (dq_i, dk, dv)
+        )
         curr_dq_i = lax.dynamic_slice_in_dim(dq, i * block_q, block_q, axis=2)
         dq = lax.dynamic_update_slice_in_dim(dq, curr_dq_i + dq_i, i * block_q, axis=2)
+        return dq, dk, dv
+
+    dq, dk, dv = lax.fori_loop(
+        0, num_q_blocks, query_block, (dq, dk, dv)
+    )
 
     return dq.astype(q.dtype), dk.astype(k.dtype), dv.astype(v.dtype)
 
 
-def _afa_fwd_vjp(q, k, v, sink_omega, causal, block_q, block_k):
-    out, d_total = tiled_afa_forward(
-        q, k, v, sink_omega=sink_omega, causal=causal, block_q=block_q, block_k=block_k, return_denominator=True
-    )
+def _running_on_tpu() -> bool:
+    try:
+        return jax.devices()[0].platform == "tpu"
+    except Exception:
+        return False
+
+
+def _afa_fwd_vjp(q, k, v, sink_omega, causal, block_q, block_k, valid_seq_len):
+    if _running_on_tpu():
+        out, d_total = pallas_afa_forward(
+            q,
+            k,
+            v,
+            sink_omega=sink_omega,
+            causal=causal,
+            block_q=block_q,
+            block_k=block_k,
+            valid_seq_len=valid_seq_len,
+            interpret=False,
+            return_denominator=True,
+        )
+    else:
+        out, d_total = tiled_afa_forward(
+            q,
+            k,
+            v,
+            sink_omega=sink_omega,
+            causal=causal,
+            block_q=block_q,
+            block_k=block_k,
+            valid_seq_len=valid_seq_len,
+            return_denominator=True,
+        )
     return out, (q, k, v, out, d_total)
 
 
-def _afa_bwd_vjp(sink_omega, causal, block_q, block_k, res, g_out):
+def _afa_bwd_vjp(sink_omega, causal, block_q, block_k, valid_seq_len, res, g_out):
     q, k, v, out, d_total = res
     dq, dk, dv = tiled_afa_backward(
-        q, k, v, out, d_total, g_out, sink_omega=sink_omega, causal=causal, block_q=block_q, block_k=block_k
+        q,
+        k,
+        v,
+        out,
+        d_total,
+        g_out,
+        sink_omega=sink_omega,
+        causal=causal,
+        block_q=block_q,
+        block_k=block_k,
+        valid_seq_len=valid_seq_len,
     )
     return dq, dk, dv
 
 
-@functools.partial(jax.custom_vjp, nondiff_argnums=(3, 4, 5, 6))
+@functools.partial(jax.custom_vjp, nondiff_argnums=(3, 4, 5, 6, 7))
 def pallas_afa(
     q: jax.Array,
     k: jax.Array,
@@ -496,9 +570,31 @@ def pallas_afa(
     causal: bool = False,
     block_q: int = 128,
     block_k: int = 128,
+    valid_seq_len: Optional[int] = None,
 ) -> jax.Array:
     """Hardware-fused Octic Algebraic FlashAttention with analytical single-pass VJP."""
-    return tiled_afa_forward(q, k, v, sink_omega=sink_omega, causal=causal, block_q=block_q, block_k=block_k)
+    if _running_on_tpu():
+        return pallas_afa_forward(
+            q,
+            k,
+            v,
+            sink_omega=sink_omega,
+            causal=causal,
+            block_q=block_q,
+            block_k=block_k,
+            valid_seq_len=valid_seq_len,
+            interpret=False,
+        )
+    return tiled_afa_forward(
+        q,
+        k,
+        v,
+        sink_omega=sink_omega,
+        causal=causal,
+        block_q=block_q,
+        block_k=block_k,
+        valid_seq_len=valid_seq_len,
+    )
 
 
 pallas_afa.defvjp(_afa_fwd_vjp, _afa_bwd_vjp)
@@ -611,35 +707,16 @@ def algebraic_flash_attention(
         q_pad, k_pad, v_pad = q, k, v
         valid_len = None
 
-    is_tpu = False
-    try:
-        is_tpu = (jax.devices()[0].platform == "tpu")
-    except Exception:
-        pass
-
-    if is_tpu:
-        out = pallas_afa_forward(
-            q_pad,
-            k_pad,
-            v_pad,
-            sink_omega=sink_omega,
-            causal=causal,
-            block_q=block_q,
-            block_k=block_k,
-            valid_seq_len=valid_len,
-            interpret=False,
-        )
-    else:
-        out = tiled_afa_forward(
-            q_pad,
-            k_pad,
-            v_pad,
-            sink_omega=sink_omega,
-            causal=causal,
-            block_q=block_q,
-            block_k=block_k,
-            valid_seq_len=valid_len,
-        )
+    out = pallas_afa(
+        q_pad,
+        k_pad,
+        v_pad,
+        sink_omega=sink_omega,
+        causal=causal,
+        block_q=block_q,
+        block_k=block_k,
+        valid_seq_len=valid_len,
+    )
 
     if rem != 0:
         out = out[:, :, :orig_seq_len, :]

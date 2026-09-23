@@ -23,7 +23,6 @@ def main():
     parser.add_argument("--output", type=Path, default=ROOT / "results/phase7/tpu")
     parser.add_argument("--steps", type=int, default=100_000, help="Total pretraining steps")
     parser.add_argument("--log-every", type=int, default=500)
-    parser.add_argument("--eval-every", type=int, default=10_000)
     args = parser.parse_args()
     out = args.output.resolve()
     out.mkdir(parents=True, exist_ok=True)
@@ -71,18 +70,18 @@ def main():
              f"{quote(remote+'/venv/bin/pip')} install -r {quote(remote+'/requirements-tpu.txt')}")
     ssh(setup, "setup.log")
 
-    # Ensure tokenized dataset is available on all workers (copy from host 0 cache if available)
-    if (ROOT / "data/train.npy").exists() and (ROOT / "data/valid.npy").exists():
-        print("Distributing pre-tokenized dataset cache to all TPU workers...", flush=True)
-        import shutil
-        dest_0 = Path(remote) / "data"
-        dest_0.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(ROOT / "data/train.npy", dest_0 / "train.npy")
-        shutil.copy2(ROOT / "data/valid.npy", dest_0 / "valid.npy")
-        for w in range(1, 4):
-            ssh(f"mkdir -p {quote(remote+'/data')}", f"mkdir-data-{w}.log", worker=str(w))
-            run(["gcloud", "compute", "tpus", "tpu-vm", "scp", str(ROOT / "data/train.npy"), str(ROOT / "data/valid.npy"),
-                 f"{args.name}:{remote}/data/", "--zone", args.zone, "--worker", str(w), "--quiet"], f"scp-data-{w}.log")
+    # Copy the same tokenized cache to every remote worker, including worker 0.
+    train_data = ROOT / "data/train.npy"
+    valid_data = ROOT / "data/valid.npy"
+    if not (train_data.exists() and valid_data.exists()):
+        raise FileNotFoundError("Phase 7 requires data/train.npy and data/valid.npy")
+    print("Distributing pre-tokenized dataset cache to all TPU workers...", flush=True)
+    ssh(f"mkdir -p {quote(remote+'/data')}", "mkdir-data.log")
+    run([
+        "gcloud", "compute", "tpus", "tpu-vm", "scp",
+        str(train_data), str(valid_data), f"{args.name}:{remote}/data/",
+        "--zone", args.zone, "--worker", "all", "--quiet",
+    ], "copy-data.log")
 
     # Separate CPU environments on every host do not initialize the TPU runtime.
     ssh(f"cd {quote(remote)} && JAX_PLATFORMS=cpu JAX_ENABLE_X64=1 venv/bin/python -m pytest -q", "host-tests.log")
@@ -91,7 +90,7 @@ def main():
     cmd = (
         f"cd {quote(remote)} && PYTHONUNBUFFERED=1 venv/bin/python scripts/run_pilot_15m.py "
         f"--output {quote(remote+'/measurements')} --steps {args.steps} "
-        f"--log-every {args.log_every} --eval-every {args.eval_every}"
+        f"--log-every {args.log_every}"
     )
 
     try:

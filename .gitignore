@@ -19,6 +19,7 @@ ENV/
 
 # Datasets and large caches
 data/
+results/phase9/**/checkpoints/
 
 # System files
 .DS_Store

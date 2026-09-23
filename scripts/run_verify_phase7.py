@@ -96,6 +96,32 @@ def main():
     metrics["elapsed_seconds"] = time.time() - t0
     output_path = res_dir / "metrics.json"
     write_json(output_path, metrics)
+    pass_path = res_dir / "PASS.md"
+    if metrics["passed"]:
+        tpu = json.loads(tpu_metrics_path.read_text())
+        pilot = tpu["pilot_pretraining"]
+        pass_path.write_text(
+            "# Phase 7 PASS — 15M WikiText-103 Pilot\n\n"
+            f"Verified the full {tpu['total_steps']:,}-step run for each architecture "
+            "on four hosts and 16 TPU v4 chips.\n\n"
+            f"- Algebraic/baseline validation perplexity ratio: "
+            f"{pilot['perplexity_ratio']:.6f} (gate: at most 1.08).\n"
+            f"- Algebraic/baseline throughput ratio: "
+            f"{pilot['throughput_ratio']:.6f} (gate: at least 0.90).\n"
+            f"- Peak algebraic gradient norm: {pilot['peak_gradient_norm']:.6f}.\n"
+            f"- Algebraic non-finite iterations / loss spikes: "
+            f"{pilot['nan_or_inf_count']} / {pilot['loss_spike_count']}.\n"
+            "- Inherited Phase 6, Lean, source audit, tests, source hashes, and "
+            "hardware inventory all passed.\n\n"
+            "Authoritative evidence: `metrics.json`, `tpu/metrics.json`, "
+            "`tpu/losses.npz`, `pytest.log`, and `lean-build.log`.\n"
+        )
+    else:
+        pass_path.write_text(
+            "# Phase 7 Evidence Invalidated\n\n"
+            "**Current status: NOT PASSED.** See `metrics.json` for the failing "
+            "source, inherited, formal, test, or hardware gate.\n"
+        )
 
     print("\n================================================================================")
     print(f"PHASE 7 AGGREGATE VERIFICATION COMPLETE: {metrics['status']}")

@@ -6,6 +6,7 @@ on FineWeb-Edu across Seeds 42, 43, 44.
 
 from dataclasses import dataclass, asdict
 from functools import partial
+import json
 import math
 from pathlib import Path
 import time
@@ -21,6 +22,7 @@ from src.baseline import StandardTransformerLM, BaselineConfig
 from src.optimizer import algebraic_adamw, ards_schedule
 from src.attention import build_cayley_rotary_matrix
 from src.baseline import _build_standard_rope
+from src.dataset import evaluate_perplexity_and_nll_tokens
 from scripts.audit_primitives import source_audit
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -39,6 +41,107 @@ class HparamConfig:
     min_lr: float = 1e-5
     schedule: str = "ards"  # "ards" or "cosine"
     max_grad_norm: float = 1.0
+
+
+def load_hparam_candidates(path: Path) -> Dict[str, List[Tuple[str, HparamConfig]]]:
+    """Load and validate the preregistered Phase 8 candidate matrix."""
+    payload = json.loads(Path(path).read_text())
+    expected_architectures = {"algebraic", "baseline"}
+    if set(payload) != expected_architectures:
+        raise ValueError(f"candidate file must contain exactly {sorted(expected_architectures)}")
+
+    result: Dict[str, List[Tuple[str, HparamConfig]]] = {}
+    for architecture in sorted(expected_architectures):
+        rows = payload[architecture]
+        if not isinstance(rows, list) or len(rows) < 2:
+            raise ValueError(f"{architecture} requires at least two candidates for a sweep")
+        parsed = []
+        seen = set()
+        for row in rows:
+            row = dict(row)
+            name = row.pop("name", None)
+            if not isinstance(name, str) or not name or name in seen:
+                raise ValueError(f"{architecture} candidate names must be nonempty and unique")
+            seen.add(name)
+            config = HparamConfig(**row)
+            expected_schedule = "ards" if architecture == "algebraic" else "cosine"
+            if config.schedule != expected_schedule:
+                raise ValueError(
+                    f"{architecture}/{name} must use {expected_schedule}, got {config.schedule}"
+                )
+            if not 1e-4 <= config.learning_rate <= 2e-3:
+                raise ValueError(f"{architecture}/{name} learning_rate is outside [1e-4, 2e-3]")
+            if config.warmup_steps <= 0:
+                raise ValueError(f"{architecture}/{name} warmup_steps must be positive")
+            if not 0.0 < config.weight_decay <= 0.15:
+                raise ValueError(f"{architecture}/{name} weight_decay must be in (0, 0.15]")
+            if not 0.0 < config.beta1 < 1.0 or not 0.0 < config.beta2 < 1.0:
+                raise ValueError(f"{architecture}/{name} beta values must be in (0, 1)")
+            if config.sink_omega < 0.0 or config.gamma <= 0.0:
+                raise ValueError(f"{architecture}/{name} sink_omega/gamma are invalid")
+            if not 0.0 < config.min_lr <= config.learning_rate:
+                raise ValueError(f"{architecture}/{name} min_lr must be in (0, learning_rate]")
+            if config.max_grad_norm <= 0.0:
+                raise ValueError(f"{architecture}/{name} max_grad_norm must be positive")
+            parsed.append((name, config))
+        result[architecture] = parsed
+    return result
+
+
+def training_steps_for_budget(token_budget: int, tokens_per_step: int) -> Tuple[int, int]:
+    """Return full-batch steps and actual tokens, never undershooting the budget."""
+    if token_budget <= 0 or tokens_per_step <= 0:
+        raise ValueError("token_budget and tokens_per_step must be positive")
+    steps = math.ceil(token_budget / tokens_per_step)
+    return steps, steps * tokens_per_step
+
+
+def select_best_candidate(
+    records: List[Dict[str, Any]],
+    architecture: str,
+    seeds: List[int],
+    max_seed_std_pct: float = 2.0,
+) -> Tuple[HparamConfig, List[Dict[str, Any]], float]:
+    """Select the lowest mean validation-loss candidate satisfying all gates."""
+    expected_seeds = set(seeds)
+    grouped: Dict[str, List[Dict[str, Any]]] = {}
+    for record in records:
+        if record["architecture"] == architecture:
+            grouped.setdefault(record["candidate"], []).append(record)
+
+    eligible = []
+    for name, candidate_records in grouped.items():
+        if (
+            len(candidate_records) != len(expected_seeds)
+            or {r["seed"] for r in candidate_records} != expected_seeds
+        ):
+            continue
+        losses = np.asarray([r["validation_loss"] for r in candidate_records], dtype=np.float64)
+        mean_loss = float(np.mean(losses))
+        std_pct = float(np.std(losses) / mean_loss * 100.0) if mean_loss > 0 else float("inf")
+        stable = (
+            np.all(np.isfinite(losses))
+            and std_pct < max_seed_std_pct
+            and all(r["nan_or_inf_count"] == 0 for r in candidate_records)
+            and all(r["loss_spike_count"] == 0 for r in candidate_records)
+            and all(r["peak_gradient_norm"] <= 5.0 for r in candidate_records)
+            and all(r["token_budget_satisfied"] for r in candidate_records)
+            and (
+                architecture != "algebraic"
+                or all(
+                    r["normalization_second_moment_min"] >= 0.8
+                    and r["normalization_second_moment_max"] <= 1.3
+                    for r in candidate_records
+                )
+            )
+        )
+        if stable:
+            eligible.append((mean_loss, name, candidate_records, std_pct))
+
+    if not eligible:
+        raise RuntimeError(f"no eligible {architecture} candidate satisfied the Phase 8 gates")
+    _, _, winning_records, std_pct = min(eligible, key=lambda row: (row[0], row[1]))
+    return HparamConfig(**winning_records[0]["hparams"]), winning_records, std_pct
 
 
 def get_125m_algebraic_config(sink_omega: float = 0.5, gamma: float = 2.0) -> ModelConfig:
@@ -212,50 +315,21 @@ def evaluate_perplexity_fast(
     is_algebraic: bool = True,
     rotary_or_angles: Optional[Any] = None,
 ) -> Tuple[float, float]:
-    """Fast validation perplexity and loss evaluation on FineWeb-Edu.
-
-    Returns:
-        (perplexity, average_loss)
-    """
-    total_tokens = len(valid_tokens)
-    span = seq_len + 1
-    total_nll = 0.0
-    total_count = 0
-
-    max_b = min(num_eval_batches, (total_tokens - span) // (batch_size * seq_len))
-
-    for b in range(max(1, max_b)):
-        starts = [b * batch_size * seq_len + i * seq_len for i in range(batch_size)]
-        x = np.stack([valid_tokens[s : s + seq_len].astype(np.int32) for s in starts])
-        y = np.stack([valid_tokens[s + 1 : s + span].astype(np.int32) for s in starts])
-
-        x_j = jnp.asarray(x)
-        y_j = jnp.asarray(y)
-
-        if is_algebraic:
-            rotary = rotary_or_angles
-            if rotary is None:
-                rotary = build_cayley_rotary_matrix(model.head_dim, seq_len)
-            logits = model.forward(params, x_j, rotary_params=rotary)
-            from src.attention import algebraic_softmax
-            eps_v = float(getattr(model.config, "eps_vocab", 100.0))
-            probs = algebraic_softmax(logits, sink_omega=0.0, eps=eps_v)
-            probs = jnp.maximum(probs, 1e-12)
-            target_probs = jnp.take_along_axis(probs, y_j[..., None], axis=-1).squeeze(-1)
-            batch_nll = float(jax.device_get(-jnp.sum(jnp.log(target_probs))))
-        else:
-            if rotary_or_angles is None:
-                cos_angles, sin_angles = _build_standard_rope(model.head_dim, seq_len)
-            else:
-                cos_angles, sin_angles = rotary_or_angles
-            logits = model.forward(params, x_j, cos_angles=cos_angles, sin_angles=sin_angles)
-            log_probs = jax.nn.log_softmax(logits, axis=-1)
-            target_log_probs = jnp.take_along_axis(log_probs, y_j[..., None], axis=-1).squeeze(-1)
-            batch_nll = float(jax.device_get(-jnp.sum(target_log_probs)))
-
-        total_nll += batch_nll
-        total_count += x.size
-
-    avg_nll = total_nll / total_count
-    ppl = float(np.exp(min(avg_nll, 20.0)))
+    """Fast bounded-memory validation perplexity on FineWeb-Edu."""
+    if rotary_or_angles is None:
+        rotary_or_angles = (
+            build_cayley_rotary_matrix(model.head_dim, seq_len)
+            if is_algebraic
+            else _build_standard_rope(model.head_dim, seq_len)
+        )
+    ppl, avg_nll = evaluate_perplexity_and_nll_tokens(
+        model,
+        params,
+        valid_tokens,
+        seq_len=seq_len,
+        batch_size=batch_size,
+        max_eval_batches=num_eval_batches,
+        is_algebraic=is_algebraic,
+        rotary_or_angles=rotary_or_angles,
+    )
     return ppl, avg_nll

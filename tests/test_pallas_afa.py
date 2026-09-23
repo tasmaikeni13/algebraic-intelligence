@@ -158,6 +158,18 @@ def test_causal_masking_correctness():
     assert prefix_diff == 0.0, f"Causal leak detected: prefix diff = {prefix_diff}"
 
 
+def test_causal_masking_with_unequal_tiles_matches_reference():
+    """Position-based masking must remain correct when query/key tiles differ."""
+    key = jax.random.PRNGKey(204)
+    shape = (1, 1, 128, 16)
+    q = jax.random.normal(key, shape)
+    k = jax.random.normal(jax.random.fold_in(key, 1), shape)
+    v = jax.random.normal(jax.random.fold_in(key, 2), shape)
+    actual = tiled_afa_forward(q, k, v, causal=True, block_q=32, block_k=64)
+    expected = exact_afa_reference(q, k, v, causal=True)
+    np.testing.assert_allclose(actual, expected, rtol=2e-5, atol=2e-5)
+
+
 def test_unified_interface_arbitrary_seq_len():
     """Verify algebraic_flash_attention handles arbitrary sequence lengths via automatic padding."""
     key = jax.random.PRNGKey(105)
@@ -328,6 +340,30 @@ def test_pallas_afa_custom_vjp():
     assert jnp.all(jnp.isfinite(dv))
 
 
+def test_pallas_afa_custom_vjp_matches_autodiff_reference():
+    """Catch scale-factor errors in all three analytical attention gradients."""
+    key = jax.random.PRNGKey(304)
+    shape = (1, 1, 64, 8)
+    q = jax.random.normal(key, shape, dtype=jnp.float64)
+    k = jax.random.normal(jax.random.fold_in(key, 1), shape, dtype=jnp.float64)
+    v = jax.random.normal(jax.random.fold_in(key, 2), shape, dtype=jnp.float64)
+    cotangent = jax.random.normal(jax.random.fold_in(key, 3), shape, dtype=jnp.float64)
+
+    def exact_loss(q_a, k_a, v_a):
+        return jnp.sum(exact_afa_reference(q_a, k_a, v_a, causal=True) * cotangent)
+
+    def fused_loss(q_a, k_a, v_a):
+        return jnp.sum(
+            pallas_afa(q_a, k_a, v_a, causal=True, block_q=32, block_k=64)
+            * cotangent
+        )
+
+    expected = jax.grad(exact_loss, argnums=(0, 1, 2))(q, k, v)
+    actual = jax.grad(fused_loss, argnums=(0, 1, 2))(q, k, v)
+    for actual_grad, expected_grad in zip(actual, expected):
+        np.testing.assert_allclose(actual_grad, expected_grad, rtol=2e-6, atol=2e-7)
+
+
 def test_spmd_megacore_sharding_mesh():
     """Verify distributed Megacore SPMD sharded entrypoint executes cleanly on Mesh."""
     mesh = create_tpu_mesh(mesh_shape=(1, 1, 1), axis_names=("data", "fsdp", "model"))
@@ -340,4 +376,3 @@ def test_spmd_megacore_sharding_mesh():
     out = sharded_pallas_afa(q, k, v, mesh=mesh, sink_omega=0.5, causal=True, block_q=128, block_k=128)
     assert out.shape == (B, H, L, D)
     assert jnp.all(jnp.isfinite(out))
-

@@ -34,6 +34,29 @@ def test_divergent_ppl_cannot_pass(tmp_path):
     assert not hardware_evidence(path, hashes)["passed"]
 
 
+def test_short_pilot_cannot_pass(tmp_path):
+    path = tmp_path / "metrics.json"
+    hashes = {"src/model.py": "abc"}
+    path.write_text(json.dumps({
+        "environment": {"source_sha256": hashes},
+        "device_count": 16,
+        "total_steps": 200,
+        "pilot_pretraining": {
+            "perplexity_ratio": 1.0,
+            "nan_or_inf_count": 0,
+            "loss_spike_count": 0,
+            "peak_gradient_norm": 1.0,
+            "throughput_ratio": 1.0,
+            "algebraic_results": {"total_steps": 200},
+            "baseline_results": {"total_steps": 200},
+        },
+        "ast_audit": {"passed": True},
+    }))
+    result = hardware_evidence(path, hashes)
+    assert result["passed"] is False
+    assert result["required_steps"] == 100_000
+
+
 def test_committed_tpu_metrics_validates_cleanly():
     tpu_path = ROOT / "results/phase7/tpu/metrics.json"
     if not tpu_path.exists():

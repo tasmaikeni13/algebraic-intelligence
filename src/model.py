@@ -38,7 +38,8 @@ from src.attention import (
     _align_param,
     _rotate_tensor,
 )
-from src.kernels.pallas_afa import _vmu_octic_kernel
+from src.kernels.pallas_afa import algebraic_flash_attention
+from src.kernels.pallas_oace import fused_linear_oace
 from src.loss import oace_loss
 from src.baseline import StandardTransformerLM, BaselineConfig
 
@@ -60,6 +61,8 @@ class ModelConfig:
     dtype: Any = jnp.bfloat16
     param_dtype: Any = jnp.float32
     remat: bool = False
+    attention_block_size: int = 128
+    vocab_chunk_size: int = 4096
 
 
 def count_parameters(params: Any) -> int:
@@ -128,12 +131,12 @@ def _causal_algebraic_attention_fwd(q, k, v, sink_omega):
     w = p_masked * lax.reciprocal(d)
     out = jnp.matmul(w, v)
 
-    return out, (q_scaled, k, v, w, r, scale, out)
+    return out, (q, k, v, w, r, scale, out)
 
 
 def _causal_algebraic_attention_bwd(sink_omega, cache, g_out):
     del sink_omega
-    q_scaled, k, v, w, r, scale, out = cache
+    q, k, v, w, r, scale, out = cache
 
     # FlashAttention-style analytical scalar row reduction along feature dim D
     D_i = jnp.sum(g_out * out, axis=-1, keepdims=True)
@@ -142,10 +145,10 @@ def _causal_algebraic_attention_bwd(sink_omega, cache, g_out):
     ds = factor * (g_w - D_i)
 
     dq = jnp.matmul(ds, k)
-    dk = jnp.matmul(jnp.swapaxes(ds, -1, -2), q_scaled)
+    dk = jnp.matmul(jnp.swapaxes(ds, -1, -2), q)
     dv = jnp.matmul(jnp.swapaxes(w, -1, -2), g_out)
 
-    return (dq.astype(q_scaled.dtype), dk.astype(k.dtype), dv.astype(v.dtype))
+    return (dq.astype(q.dtype), dk.astype(k.dtype), dv.astype(v.dtype))
 
 
 @partial(jax.custom_vjp, nondiff_argnums=(3,))
@@ -235,14 +238,20 @@ def fused_oace_softmax_loss(logits, targets, eps=100.0, gamma=2.0):
 fused_oace_softmax_loss.defvjp(_fused_oace_softmax_fwd, _fused_oace_softmax_bwd)
 
 
-def _algebraic_layer_forward(x, layer, c, s):
+def _algebraic_layer_forward(
+    x,
+    layer,
+    c,
+    s,
+    *,
+    eps,
+    sink_omega,
+    attention_block_size,
+):
     B, T, d_model = x.shape
     dtype = x.dtype
     head_dim = c.shape[-1] * 2
     num_heads = d_model // head_dim
-    eps = 1e-5
-    sink_omega = 0.5
-
     h1 = avn(x, eps=eps)
     q = jnp.matmul(h1, layer["w_q"].astype(dtype)).reshape(B, T, num_heads, head_dim).swapaxes(1, 2)
     k = jnp.matmul(h1, layer["w_k"].astype(dtype)).reshape(B, T, num_heads, head_dim).swapaxes(1, 2)
@@ -253,7 +262,15 @@ def _algebraic_layer_forward(x, layer, c, s):
     k_rot = _rotate_tensor(k, c, s)
 
     # Octic AFA Causal Attention
-    attn_out = _causal_algebraic_attention(q_rot, k_rot, v, sink_omega=sink_omega)
+    attn_out = algebraic_flash_attention(
+        q_rot,
+        k_rot,
+        v,
+        sink_omega=sink_omega,
+        causal=True,
+        block_q=attention_block_size,
+        block_k=attention_block_size,
+    )
     attn_flat = attn_out.swapaxes(1, 2).reshape(B, T, d_model)
     x = x + jnp.matmul(attn_flat, layer["w_o"].astype(dtype))
 
@@ -273,6 +290,12 @@ class AlgebraicTransformerLM:
 
     def __init__(self, config: Optional[ModelConfig] = None):
         self.config = config or ModelConfig()
+        if self.config.num_heads <= 0 or self.config.d_model % self.config.num_heads != 0:
+            raise ValueError("d_model must be divisible by a positive num_heads")
+        if self.config.attention_block_size <= 0:
+            raise ValueError("attention_block_size must be positive")
+        if self.config.vocab_chunk_size <= 0:
+            raise ValueError("vocab_chunk_size must be positive")
         self.head_dim = self.config.d_model // self.config.num_heads
         if self.head_dim % 2 != 0:
             raise ValueError(f"head_dim must be even for AGO Cayley rotation, got {self.head_dim}")
@@ -310,15 +333,17 @@ class AlgebraicTransformerLM:
 
         return params
 
-    def forward(
+    def _hidden(
         self,
         params: Dict[str, Any],
         tokens: jax.Array,
         rotary_params: Optional[CayleyRotary] = None,
     ) -> jax.Array:
-        """Forward pass of AlgebraicTransformerLM returning un-embedding logits."""
+        """Return final normalized hidden states without projecting the vocabulary."""
         cfg = self.config
         B, T = tokens.shape
+        if T > cfg.max_seq_len:
+            raise ValueError(f"sequence length {T} exceeds max_seq_len {cfg.max_seq_len}")
 
         if rotary_params is None:
             rotary_params = build_cayley_rotary_matrix(self.head_dim, cfg.max_seq_len, dtype=cfg.dtype)
@@ -331,12 +356,28 @@ class AlgebraicTransformerLM:
         x = params["token_embed"][tokens].astype(cfg.dtype)
         x = avn(x, eps=cfg.eps)
 
-        layer_fn = jax.checkpoint(_algebraic_layer_forward) if cfg.remat else _algebraic_layer_forward
+        layer_impl = partial(
+            _algebraic_layer_forward,
+            eps=cfg.eps,
+            sink_omega=cfg.sink_omega,
+            attention_block_size=cfg.attention_block_size,
+        )
+        layer_fn = jax.checkpoint(layer_impl) if cfg.remat else layer_impl
         for layer in params["layers"]:
             x = layer_fn(x, layer, c, s)
 
         # 4. Final Parameter-Free AVN
-        x_final = avn(x, eps=cfg.eps)
+        return avn(x, eps=cfg.eps)
+
+    def forward(
+        self,
+        params: Dict[str, Any],
+        tokens: jax.Array,
+        rotary_params: Optional[CayleyRotary] = None,
+    ) -> jax.Array:
+        """Forward pass of AlgebraicTransformerLM returning un-embedding logits."""
+        cfg = self.config
+        x_final = self._hidden(params, tokens, rotary_params=rotary_params)
 
         # 5. Linear Un-Embedding Head
         if cfg.tie_embeddings:
@@ -345,6 +386,46 @@ class AlgebraicTransformerLM:
             logits = jnp.matmul(x_final, params["output_head"].astype(cfg.dtype))
 
         return logits
+
+    def normalization_second_moments(
+        self,
+        params: Dict[str, Any],
+        tokens: jax.Array,
+        rotary_params: Optional[CayleyRotary] = None,
+    ) -> jax.Array:
+        """Measure normalized layer-input second moments for diagnostics."""
+        cfg = self.config
+        batch_size, seq_len = tokens.shape
+        if seq_len > cfg.max_seq_len:
+            raise ValueError(
+                f"sequence length {seq_len} exceeds max_seq_len {cfg.max_seq_len}"
+            )
+        if rotary_params is None:
+            rotary_params = build_cayley_rotary_matrix(
+                self.head_dim, cfg.max_seq_len, dtype=cfg.dtype
+            )
+        c_raw, s_raw = _extract_cs(rotary_params)
+        shape = (batch_size, cfg.num_heads, seq_len, self.head_dim)
+        c = _align_param(c_raw, shape, seq_axis=2)
+        s = _align_param(s_raw, shape, seq_axis=2)
+
+        x = avn(params["token_embed"][tokens].astype(cfg.dtype), eps=cfg.eps)
+        moments = []
+        for layer in params["layers"]:
+            normalized = avn(x, eps=cfg.eps)
+            moments.append(jnp.mean(normalized.astype(jnp.float32) ** 2))
+            x = _algebraic_layer_forward(
+                x,
+                layer,
+                c,
+                s,
+                eps=cfg.eps,
+                sink_omega=cfg.sink_omega,
+                attention_block_size=cfg.attention_block_size,
+            )
+        final = avn(x, eps=cfg.eps)
+        moments.append(jnp.mean(final.astype(jnp.float32) ** 2))
+        return jnp.stack(moments)
 
     def loss(
         self,
@@ -355,7 +436,17 @@ class AlgebraicTransformerLM:
     ) -> Tuple[jax.Array, Dict[str, Any]]:
         """Computes OACE loss functional over token sequence."""
         cfg = self.config
-        logits = self.forward(params, tokens, rotary_params=rotary_params)
-
-        loss = fused_oace_softmax_loss(logits, targets, eps=cfg.eps_vocab, gamma=cfg.gamma)
+        hidden = self._hidden(params, tokens, rotary_params=rotary_params)
+        if cfg.tie_embeddings:
+            output_weight = params["token_embed"].T
+        else:
+            output_weight = params["output_head"]
+        loss = fused_linear_oace(
+            hidden,
+            output_weight,
+            targets,
+            eps_vocab=cfg.eps_vocab,
+            gamma=cfg.gamma,
+            chunk_size=cfg.vocab_chunk_size,
+        )
         return loss, {"loss": loss}

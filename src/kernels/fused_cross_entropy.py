@@ -1,6 +1,6 @@
 """Standard Fused Linear + Cross-Entropy Projection Head in JAX.
 
-Implements the vendor-grade fused cross-entropy algorithm (Liger Kernel / Megatron-LM):
+Implements a vocabulary-chunked fused cross-entropy algorithm:
 - Tiles vocabulary V in chunks of V_chunk = 4096 tokens
 - Computes chunk logits z_c = h @ W_vocab,c in SRAM
 - Online tracking of global maximum m and sum of exponentials S = sum exp(z - m)
@@ -73,7 +73,10 @@ def standard_fused_linear_ce_forward(
 
     log_sum_exp = m_global + jnp.log(jnp.maximum(s_global, 1e-12))
     loss_per_token = log_sum_exp - target_logit
-    mean_loss = jnp.mean(loss_per_token).astype(h.dtype)
+    # Keep the scalar reduction in FP32 even when activations are BF16.  Casting
+    # the loss to the activation dtype quantizes training telemetry and the
+    # upstream scalar cotangent before the analytical backward pass.
+    mean_loss = jnp.mean(loss_per_token, dtype=calc_dtype)
 
     cache = (
         h_flat,

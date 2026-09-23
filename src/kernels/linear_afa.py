@@ -1,12 +1,14 @@
-"""Exact O(N) Linear Algebraic Attention and State Space Duality (SSM).
+"""Experimental O(N) diagonal-feature approximation to Algebraic Attention.
 
 Under Section 4 of the Kernel Engineering Blueprint:
-Because the octic kernel rho(s)^8 is an exact finite-order polynomial, it admits
-an exact finite-dimensional feature map expansion:
-    rho(s)^8 = sum_{m=0}^8 c_m s^m = sum_{m=0}^8 c_m (q^T k / sqrt(D))^m
+rho(s)^8 = exp(8 asinh(s)) is not a finite polynomial. The recurrence in this
+module uses its degree-8 Taylor coefficients and retains only coordinate-wise
+monomials. It is therefore a bounded-state approximation and is not equivalent
+to the production octic AFA kernel.
 
-Using the symmetric tensor power basis:
-    phi(q) = [1, sqrt(c_1) q, sqrt(c_2) (q tensor q), ..., sqrt(c_8) q^{tensor 8}]
+The full polynomial kernel for (q^T k)^m would require all symmetric tensor
+monomials. This implementation deliberately uses a much smaller diagonal map:
+    phi(x) = [1, sqrt(c_1) x, sqrt(c_2) x^2, ..., sqrt(c_8) x^8]
 
 Linear Recurrence Step (Inference / Long-Context):
 Instead of quadratic O(N^2) attention matrices:
@@ -22,17 +24,14 @@ Instead of quadratic O(N^2) attention matrices:
 Strictly zero transcendental functions (0 exp, 0 log, 0 trig).
 """
 
-from functools import partial
-import math
 from typing import NamedTuple, Optional, Tuple
 
 import jax
-from jax import lax
 import jax.numpy as jnp
 
 
-# Exact closed-form Taylor / power expansion coefficients c_0 to c_8 for rho(s)^8
-# evaluated analytically from (s + sqrt(1 + s^2))^8
+# Degree-8 Taylor coefficients at s=0 for rho(s)^8. The series continues past
+# degree 8; these values do not define an exact global polynomial identity.
 OCTIC_POLYNOMIAL_COEFFICIENTS = (
     1.0,      # c_0
     8.0,      # c_1
@@ -66,7 +65,8 @@ def compute_algebraic_feature_map(
         projection_basis: Optional random or learned projection basis (R, D).
             If None, uses degree-wise powers of scaled x.
         order: Truncation order of the polynomial (default: 4, max: 8).
-        scale: Optional scalar scale factor (defaults to 1 / sqrt(D)).
+        scale: Optional per-vector scale factor (defaults to D^(-1/4), so a
+            paired coordinate product has the usual 1/sqrt(D) score scale).
 
     Returns:
         phi(x) tensor of shape (..., D_phi) with positive real features.
@@ -75,7 +75,7 @@ def compute_algebraic_feature_map(
         raise ValueError(f"order must be in [1, 8], got {order}")
     d_in = x.shape[-1]
     if scale is None:
-        scale = float(1.0 / math.sqrt(d_in))
+        scale = float(d_in ** -0.25)
 
     x_scaled = x * scale
     c = jnp.array(OCTIC_POLYNOMIAL_COEFFICIENTS[: order + 1], dtype=x.dtype)
@@ -88,7 +88,7 @@ def compute_algebraic_feature_map(
             feature_blocks.append(weight * (proj ** m))
         return jnp.concatenate(feature_blocks, axis=-1)
     else:
-        # Canonical symmetric coordinate power basis
+        # Compact diagonal coordinate-power basis. This omits cross monomials.
         feature_blocks = [jnp.ones(x.shape[:-1] + (1,), dtype=x.dtype)]
         for m in range(1, order + 1):
             weight = jnp.sqrt(c[m])
@@ -163,10 +163,10 @@ def linear_afa_parallel_scan(
     projection_basis: Optional[jax.Array] = None,
     order: int = 4,
 ) -> jax.Array:
-    """Exact O(N) training execution via parallel cumulative scan.
+    """Approximate O(N) training execution via a cumulative scan.
 
-    Evaluates exact SSM linear attention across full sequence length T
-    in O(N) arithmetic operations and O(log N) parallel depth.
+    Evaluates the same diagonal-feature recurrence as ``linear_afa_step`` across
+    the full sequence. It does not reproduce exact octic AFA.
 
     Args:
         q: Query tensor of shape (B, H, T, D_k).

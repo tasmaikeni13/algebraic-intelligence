@@ -31,6 +31,7 @@ def audit_phase7_ast() -> Dict[str, Any]:
         "src/optimizer.py",
         "src/mesh.py",
         "src/kernels/pallas_afa.py",
+        "src/kernels/pallas_oace.py",
     ]
     all_violations = {}
     for rel_path in files_to_audit:

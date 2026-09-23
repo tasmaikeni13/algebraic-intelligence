@@ -1,10 +1,10 @@
-"""Tests for Exact O(N) Linear Algebraic Attention & SSM Duality.
+"""Tests for the experimental O(N) diagonal-feature AFA approximation.
 
 Verifies:
 1. Zero-transcendental AST and token audit.
 2. Bitwise equivalence between sequential O(1) recurrence and O(N) parallel prefix scan.
 3. Positivity and numerical stability of algebraic polynomial feature mapping.
-4. Correctness of Taylor polynomial expansion coefficients.
+4. Correctness of the first nine Taylor-series coefficients.
 """
 
 import ast
@@ -92,8 +92,8 @@ def test_recurrent_step_matches_parallel_scan():
     assert diff <= 1.0e-12, f"Scan vs recurrent mismatch: {diff}"
 
 
-def test_polynomial_coefficients_match_ground_truth():
-    """Verify Taylor series coefficients c_0 through c_8 match analytical values."""
+def test_taylor_coefficients_match_ground_truth():
+    """Verify Taylor-series coefficients c_0 through c_8 match analytical values."""
     expected = [1.0, 8.0, 32.0, 84.0, 160.0, 231.0, 256.0, 214.5, 128.0]
     actual = list(OCTIC_POLYNOMIAL_COEFFICIENTS)
     np.testing.assert_allclose(actual, expected, rtol=1e-12, atol=1e-12)

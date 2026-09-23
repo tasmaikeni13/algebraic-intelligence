@@ -47,6 +47,22 @@ def test_flash_attention_forward_parity():
     assert rel_err <= 1e-4, f"FlashAttention mismatch: rel_err={rel_err}"
 
 
+def test_flash_attention_unequal_tiles_and_arbitrary_length():
+    key = jax.random.PRNGKey(605)
+    B, H, L, D = 1, 1, 90, 16
+    q = jax.random.normal(key, (B, H, L, D))
+    k = jax.random.normal(jax.random.fold_in(key, 1), (B, H, L, D))
+    v = jax.random.normal(jax.random.fold_in(key, 2), (B, H, L, D))
+
+    scores = jnp.matmul(q, jnp.swapaxes(k, -1, -2)) / (D ** 0.5)
+    mask = jnp.tril(jnp.ones((L, L), dtype=bool))[None, None]
+    expected = jnp.matmul(jax.nn.softmax(jnp.where(mask, scores, -1e9), axis=-1), v)
+    actual = standard_flash_attention(q, k, v, causal=True, block_q=32, block_k=64)
+
+    assert actual.shape == (B, H, L, D)
+    np.testing.assert_allclose(actual, expected, rtol=2e-4, atol=2e-5)
+
+
 def test_flash_attention_gradient_accuracy():
     """Verify FlashAttention-2 analytical VJP gradients match AD reference."""
     key = jax.random.PRNGKey(602)
@@ -97,6 +113,15 @@ def test_standard_fused_cross_entropy_parity():
     diff = np.abs(float(fused_loss) - float(ref_loss))
     rel_err = diff / float(ref_loss)
     assert rel_err <= 1e-5, f"Fused CE loss mismatch: rel_err={rel_err}"
+
+
+def test_standard_fused_cross_entropy_accumulates_bfloat16_in_float32():
+    key = jax.random.PRNGKey(606)
+    h = jax.random.normal(key, (8, 16), dtype=jnp.bfloat16)
+    w = jax.random.normal(jax.random.fold_in(key, 1), (16, 64), dtype=jnp.bfloat16)
+    targets = jax.random.randint(jax.random.fold_in(key, 2), (8,), 0, 64)
+    loss = standard_fused_cross_entropy(h, w, targets, chunk_size=32)
+    assert loss.dtype == jnp.float32
 
 
 def test_standard_fused_cross_entropy_gradients():

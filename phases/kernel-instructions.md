@@ -84,12 +84,9 @@ Fuse the final hidden state projection $h_t W_{\text{vocab}}$ directly with the 
 
 ---
 
-## 4. Exact $O(N)$ Linear Attention / SSM Duality
+## 4. Experimental $O(N)$ Diagonal-Feature Approximation
 
-Because the octic kernel $\rho(s)^8$ is an exact finite-order polynomial, it admits an exact finite-dimensional feature map expansion:
-$$\rho(s)^8 = \sum_{m=0}^8 c_m s^m = \sum_{m=0}^8 c_m \left( \frac{q^T k}{\sqrt{D}} \right)^m$$
-Using the symmetric tensor power basis:
-$$\phi(q) = \left[ 1, \sqrt{c_1} q, \sqrt{c_2} (q \otimes q), \dots, \sqrt{c_8} q^{\otimes 8} \right]$$
+$\rho(s)^8 = \exp(8\,\operatorname{asinh}(s))$ is not a finite polynomial. `src/kernels/linear_afa.py` uses a degree-8 Taylor truncation and a compact coordinate-wise feature map. It omits the cross monomials required even for an exact degree-8 polynomial dot-product kernel, so it must be treated as an experimental approximation and is not used by the Phase 7 or Phase 8 training models.
 
 ### 4.1 Linear Recurrence Step (Inference / Long-Context)
 Instead of quadratic $O(N^2)$ attention matrices:
@@ -99,8 +96,8 @@ Instead of quadratic $O(N^2)$ attention matrices:
 2. **Output Query**:
    $$out_t = \frac{\phi(q_t) M_t}{\phi(q_t) Z_t + \Omega}$$
 3. **Complexity**:
-   - Training: $O(N)$ with parallel prefix scan.
-   - Inference: **$O(1)$ memory per step**, independent of context length (100k, 1M, or 10M tokens).
+   - Training: $O(N)$ in sequence length with a cumulative scan for the approximate kernel.
+   - Inference: **$O(1)$ state size per step** with respect to context length.
 
 ---
 

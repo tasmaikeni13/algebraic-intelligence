@@ -1,4 +1,8 @@
-# Phase 8 PASS — Systematic Hyperparameter Sweeping & Architecture Tuning on 16 TPU v4 Chips (v4-32 Pod Slice)
+# Phase 8 Evidence Invalidated — Hyperparameter Sweep
+
+**Current status: NOT PASSED.** The recorded job ran one fixed configuration per architecture across three seeds, so its six runs were not a hyperparameter sweep. It also reported 600,000,000 tokens per run while 572 full batches of $512 \times 2048$ contain only 599,785,472 tokens. The measurements and configurations below are retained as historical diagnostics only; they cannot select Phase 9 hyperparameters. A valid rerun must use the preregistered candidate matrix and the corrected evidence gates.
+
+## Historical invalid record
 
 Verified 2026-09-20 on CPU and the dedicated 4-host Cloud TPU v4-32 Pod slice (`my-tpu-v4`, 4 hosts, 16 physical TPU v4 chips, 32 TensorCore devices, 512 GB unified HBM2e) in `us-central2-b`.
 Conducted the full equal-budget hyperparameter sweep and multi-seed calibration study across 6 runs (2 architectures $\times$ 3 seeds: 42, 43, 44 on 600M tokens of FineWeb-Edu each, totaling **3.6 Billion tokens evaluated**).

@@ -11,8 +11,12 @@ Handles:
 from pathlib import Path
 import urllib.request
 import zipfile
-from typing import Generator, Optional, Tuple
+import math
+from typing import Any, Generator, Optional, Tuple
 
+import jax
+from jax import lax
+import jax.numpy as jnp
 import numpy as np
 import tiktoken
 
@@ -142,6 +146,210 @@ class ShardedTokenLoader:
         return x_batch, y_batch
 
 
+def _output_weight(model, params):
+    if model.config.tie_embeddings:
+        return params["token_embed"].T
+    return params["output_head"]
+
+
+def chunked_target_log_probs(
+    model,
+    params,
+    tokens: jax.Array,
+    targets: jax.Array,
+    *,
+    is_algebraic: bool,
+    rotary_or_angles: Optional[Any] = None,
+    chunk_size: Optional[int] = None,
+) -> jax.Array:
+    """Return target log-probabilities without materializing ``(..., vocab)``.
+
+    The algebraic branch exactly matches ``algebraic_softmax(..., sink=0)``:
+    it first AVN-normalizes the vocabulary logits and then normalizes the octic
+    kernel.  The standard branch performs an online log-sum-exp reduction.
+    """
+    if tokens.shape != targets.shape:
+        raise ValueError("tokens and targets must have identical shapes")
+    if is_algebraic:
+        hidden = model._hidden(params, tokens, rotary_params=rotary_or_angles)
+    else:
+        if rotary_or_angles is None:
+            cosine = sine = None
+        else:
+            cosine, sine = rotary_or_angles
+        hidden = model._hidden(params, tokens, cos_angles=cosine, sin_angles=sine)
+
+    weight = _output_weight(model, params)
+    vocab_size = weight.shape[-1]
+    width = chunk_size or int(getattr(model.config, "vocab_chunk_size", 4096))
+    if width <= 0:
+        raise ValueError("chunk_size must be positive")
+    calc_dtype = jnp.float64 if hidden.dtype == jnp.float64 else jnp.float32
+    flat_hidden = hidden.reshape(-1, hidden.shape[-1]).astype(calc_dtype)
+    flat_targets = targets.reshape(-1)
+    rows = flat_hidden.shape[0]
+
+    if is_algebraic:
+        sum_squares = jnp.zeros((rows,), dtype=calc_dtype)
+        for start in range(0, vocab_size, width):
+            stop = min(start + width, vocab_size)
+            logits = flat_hidden @ weight[:, start:stop].astype(calc_dtype)
+            sum_squares += jnp.sum(logits * logits, axis=-1)
+        eps = float(getattr(model.config, "eps_vocab", 100.0))
+        tau = lax.rsqrt(sum_squares / float(vocab_size) + eps)
+
+        partition = jnp.zeros((rows,), dtype=calc_dtype)
+        target_weight = jnp.zeros((rows,), dtype=calc_dtype)
+        for start in range(0, vocab_size, width):
+            stop = min(start + width, vocab_size)
+            normalized = (flat_hidden @ weight[:, start:stop].astype(calc_dtype)) * tau[:, None]
+            rad = 1.0 + normalized * normalized
+            inv_root = lax.rsqrt(rad)
+            unit = normalized * inv_root
+            rho = jnp.where(
+                normalized < 0,
+                inv_root / (1.0 - unit),
+                normalized + rad * inv_root,
+            )
+            rho2 = rho * rho
+            rho4 = rho2 * rho2
+            kernel = rho4 * rho4
+            partition += jnp.sum(kernel, axis=-1)
+            in_chunk = (flat_targets >= start) & (flat_targets < stop)
+            local_index = jnp.clip(flat_targets - start, 0, stop - start - 1)
+            selected = jnp.take_along_axis(kernel, local_index[:, None], axis=-1)[:, 0]
+            target_weight = jnp.where(in_chunk, selected, target_weight)
+        result = jnp.log(jnp.maximum(target_weight, 1e-30)) - jnp.log(
+            jnp.maximum(partition, 1e-30)
+        )
+    else:
+        running_max = jnp.full((rows,), -jnp.inf, dtype=calc_dtype)
+        running_sum = jnp.zeros((rows,), dtype=calc_dtype)
+        target_logit = jnp.zeros((rows,), dtype=calc_dtype)
+        for start in range(0, vocab_size, width):
+            stop = min(start + width, vocab_size)
+            logits = flat_hidden @ weight[:, start:stop].astype(calc_dtype)
+            block_max = jnp.max(logits, axis=-1)
+            new_max = jnp.maximum(running_max, block_max)
+            running_sum = (
+                running_sum * jnp.exp(running_max - new_max)
+                + jnp.sum(jnp.exp(logits - new_max[:, None]), axis=-1)
+            )
+            running_max = new_max
+            in_chunk = (flat_targets >= start) & (flat_targets < stop)
+            local_index = jnp.clip(flat_targets - start, 0, stop - start - 1)
+            selected = jnp.take_along_axis(logits, local_index[:, None], axis=-1)[:, 0]
+            target_logit = jnp.where(in_chunk, selected, target_logit)
+        result = target_logit - running_max - jnp.log(jnp.maximum(running_sum, 1e-30))
+    return result.reshape(targets.shape)
+
+
+def chunked_argmax_tokens(
+    model,
+    params,
+    tokens: jax.Array,
+    *,
+    is_algebraic: bool,
+    rotary_or_angles: Optional[Any] = None,
+    chunk_size: Optional[int] = None,
+) -> jax.Array:
+    """Return vocabulary argmax indices using bounded vocabulary tiles."""
+    if is_algebraic:
+        hidden = model._hidden(params, tokens, rotary_params=rotary_or_angles)
+    else:
+        if rotary_or_angles is None:
+            cosine = sine = None
+        else:
+            cosine, sine = rotary_or_angles
+        hidden = model._hidden(params, tokens, cos_angles=cosine, sin_angles=sine)
+    weight = _output_weight(model, params)
+    vocab_size = weight.shape[-1]
+    width = chunk_size or int(getattr(model.config, "vocab_chunk_size", 4096))
+    if width <= 0:
+        raise ValueError("chunk_size must be positive")
+    calc_dtype = jnp.float64 if hidden.dtype == jnp.float64 else jnp.float32
+    flat_hidden = hidden.reshape(-1, hidden.shape[-1]).astype(calc_dtype)
+    best_value = jnp.full((flat_hidden.shape[0],), -jnp.inf, dtype=calc_dtype)
+    best_index = jnp.zeros((flat_hidden.shape[0],), dtype=jnp.int32)
+    for start in range(0, vocab_size, width):
+        stop = min(start + width, vocab_size)
+        logits = flat_hidden @ weight[:, start:stop].astype(calc_dtype)
+        local_index = jnp.argmax(logits, axis=-1)
+        local_value = jnp.take_along_axis(logits, local_index[:, None], axis=-1)[:, 0]
+        replace = local_value > best_value
+        best_value = jnp.where(replace, local_value, best_value)
+        best_index = jnp.where(replace, local_index.astype(jnp.int32) + start, best_index)
+    return best_index.reshape(tokens.shape)
+
+
+def evaluate_perplexity_and_nll_tokens(
+    model,
+    params,
+    tokens: np.ndarray,
+    seq_len: int = 512,
+    batch_size: int = 32,
+    max_eval_batches: int = 20,
+    is_algebraic: bool = True,
+    rotary_or_angles: Optional[Any] = None,
+) -> Tuple[float, float]:
+    """Return perplexity and mean NLL with a bounded vocabulary working set."""
+    total_tokens = len(tokens)
+    span = seq_len + 1
+    total_nll = 0.0
+    total_count = 0
+    num_sequences = (total_tokens - 1) // seq_len
+    num_batches = min(max_eval_batches, num_sequences // batch_size)
+    if num_batches <= 0:
+        raise ValueError("validation data does not contain one complete batch")
+
+    def batch_nll(current_params, x, y):
+        log_probs = chunked_target_log_probs(
+            model,
+            current_params,
+            x,
+            y,
+            is_algebraic=is_algebraic,
+            rotary_or_angles=rotary_or_angles,
+        )
+        return -jnp.sum(log_probs, dtype=jnp.float32)
+
+    compiled_nll = jax.jit(batch_nll)
+
+    for b in range(num_batches):
+        batch_starts = [i * seq_len for i in range(b * batch_size, (b + 1) * batch_size)]
+        x = np.stack([tokens[s : s + seq_len].astype(np.int32) for s in batch_starts])
+        y = np.stack([tokens[s + 1 : s + span].astype(np.int32) for s in batch_starts])
+        total_nll += float(jax.device_get(compiled_nll(params, x, y)))
+        total_count += x.size
+
+    avg_nll = total_nll / total_count
+    return float(math.exp(min(avg_nll, 20.0))), float(avg_nll)
+
+
+def evaluate_perplexity_tokens(
+    model,
+    params,
+    tokens: np.ndarray,
+    seq_len: int = 512,
+    batch_size: int = 32,
+    max_eval_batches: int = 20,
+    is_algebraic: bool = True,
+    rotary_or_angles: Optional[Any] = None,
+) -> float:
+    """Evaluate held-out perplexity with a bounded vocabulary working set."""
+    perplexity, _ = evaluate_perplexity_and_nll_tokens(
+        model,
+        params,
+        tokens,
+        seq_len=seq_len,
+        batch_size=batch_size,
+        max_eval_batches=max_eval_batches,
+        is_algebraic=is_algebraic,
+        rotary_or_angles=rotary_or_angles,
+    )
+    return perplexity
+
+
 def evaluate_perplexity(
     model,
     params,
@@ -150,42 +358,17 @@ def evaluate_perplexity(
     batch_size: int = 32,
     max_eval_batches: int = 20,
     is_algebraic: bool = True,
+    rotary_or_angles: Optional[Any] = None,
 ) -> float:
-    """Evaluates held-out validation perplexity on WikiText-103."""
+    """Evaluate held-out validation perplexity from a memory-mapped token file."""
     tokens = np.load(valid_tokens_path, mmap_mode="r")
-    total_tokens = len(tokens)
-    span = seq_len + 1
-
-    total_nll = 0.0
-    total_count = 0
-
-    num_seqs = min((total_tokens - 1) // seq_len, max_eval_batches * batch_size)
-    num_batches = num_seqs // batch_size
-
-    for b in range(num_batches):
-        batch_starts = [i * seq_len for i in range(b * batch_size, (b + 1) * batch_size)]
-        x = np.stack([tokens[s : s + seq_len].astype(np.int32) for s in batch_starts])
-        y = np.stack([tokens[s + 1 : s + span].astype(np.int32) for s in batch_starts])
-
-        logits = model.forward(params, x)
-        if is_algebraic:
-            # Octic A-Softmax probability evaluation on closed vocabulary simplex (zero sink)
-            from src.attention import algebraic_softmax
-            eps_v = float(getattr(model.config, "eps_vocab", 100.0))
-            probs = np.asarray(algebraic_softmax(logits, sink_omega=0.0, eps=eps_v))
-            # Clamp to prevent log(0)
-            probs = np.maximum(probs, 1e-12)
-            # Pick target probabilities
-            target_probs = np.take_along_axis(probs, y[..., None], axis=-1).squeeze(-1)
-            batch_nll = -np.sum(np.log(target_probs))
-        else:
-            import jax
-            log_probs = np.asarray(jax.nn.log_softmax(logits, axis=-1))
-            target_log_probs = np.take_along_axis(log_probs, y[..., None], axis=-1).squeeze(-1)
-            batch_nll = -np.sum(target_log_probs)
-
-        total_nll += float(batch_nll)
-        total_count += x.size
-
-    avg_nll = total_nll / total_count
-    return float(np.exp(avg_nll))
+    return evaluate_perplexity_tokens(
+        model,
+        params,
+        tokens,
+        seq_len=seq_len,
+        batch_size=batch_size,
+        max_eval_batches=max_eval_batches,
+        is_algebraic=is_algebraic,
+        rotary_or_angles=rotary_or_angles,
+    )
