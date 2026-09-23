@@ -8,211 +8,420 @@ AST Zero-Transcendental Audit: PASS
 Distributed Mesh Topology: OrderedDict([('data', 2), ('fsdp', 2), ('model', 4)])
 
 ==================== Starting Pretraining: StandardTransformerLM (100000 steps) ====================
-Traceback (most recent call last):
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/scripts/run_pilot_15m.py", line 460, in <module>
-    raise SystemExit(main())
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/scripts/run_pilot_15m.py", line 318, in main
-    base_res = run_training_arm(
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/scripts/run_pilot_15m.py", line 100, in run_training_arm
-    warmup_params, warmup_opt_state, _ = jitted_step(
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/scripts/phase7_experiments.py", line 127, in step_fn
-    (loss, aux), raw_grads = jax.value_and_grad(loss_fn, has_aux=True)(params)
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/scripts/phase7_experiments.py", line 124, in loss_fn
-    loss_val, aux = model.loss(p, tokens, targets, cos_angles=cos_angles, sin_angles=sin_angles)
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/src/baseline.py", line 270, in loss
-    hidden = self._hidden(params, tokens, cos_angles, sin_angles)
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/src/baseline.py", line 204, in _hidden
-    x = layer_fn(x, layer, cos_angles, sin_angles)
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/src/baseline.py", line 108, in _baseline_layer_forward
-    attn_out = standard_flash_attention(
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/src/kernels/pallas_flash_attention.py", line 292, in standard_flash_attention
-    return flash_attention(
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/venv/lib/python3.10/site-packages/jax/experimental/pallas/ops/tpu/flash_attention.py", line 199, in flash_attention
-    return _flash_attention(
-jax._src.source_info_util.JaxStackTraceBeforeTransformation: NotImplementedError: Mosaic kernels cannot be automatically partitioned. Please wrap the call in a shard_map.
+[StandardTransformerLM] Step    500/100000 | Loss: 6.3616 | Grad Norm: 0.257 | Throughput: 2,459,915 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step   1000/100000 | Loss: 5.2812 | Grad Norm: 0.446 | Throughput: 2,446,488 tok/s | Step time: 13.4ms
+[StandardTransformerLM] Step   1500/100000 | Loss: 4.8227 | Grad Norm: 0.389 | Throughput: 2,457,582 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step   2000/100000 | Loss: 4.4567 | Grad Norm: 0.408 | Throughput: 2,472,794 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step   2500/100000 | Loss: 4.0520 | Grad Norm: 0.407 | Throughput: 2,461,504 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step   3000/100000 | Loss: 3.9344 | Grad Norm: 0.408 | Throughput: 2,465,008 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step   3500/100000 | Loss: 3.7779 | Grad Norm: 0.386 | Throughput: 2,458,767 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step   4000/100000 | Loss: 3.7124 | Grad Norm: 0.388 | Throughput: 2,468,418 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step   4500/100000 | Loss: 3.6872 | Grad Norm: 0.403 | Throughput: 2,476,784 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step   5000/100000 | Loss: 3.5786 | Grad Norm: 0.396 | Throughput: 2,467,271 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step   5500/100000 | Loss: 3.6460 | Grad Norm: 0.381 | Throughput: 2,467,083 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step   6000/100000 | Loss: 3.5757 | Grad Norm: 0.383 | Throughput: 2,472,855 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step   6500/100000 | Loss: 3.5943 | Grad Norm: 0.376 | Throughput: 2,476,417 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step   7000/100000 | Loss: 3.5149 | Grad Norm: 0.373 | Throughput: 2,481,610 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step   7500/100000 | Loss: 3.4041 | Grad Norm: 0.367 | Throughput: 2,477,802 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step   8000/100000 | Loss: 3.4425 | Grad Norm: 0.369 | Throughput: 2,472,168 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step   8500/100000 | Loss: 3.4789 | Grad Norm: 0.366 | Throughput: 2,471,691 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step   9000/100000 | Loss: 3.3885 | Grad Norm: 0.370 | Throughput: 2,465,321 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step   9500/100000 | Loss: 3.4203 | Grad Norm: 0.355 | Throughput: 2,465,380 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step  10000/100000 | Loss: 3.4289 | Grad Norm: 0.360 | Throughput: 2,469,535 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step  10500/100000 | Loss: 3.5390 | Grad Norm: 0.386 | Throughput: 2,477,057 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  11000/100000 | Loss: 3.3691 | Grad Norm: 0.360 | Throughput: 2,454,303 tok/s | Step time: 13.4ms
+[StandardTransformerLM] Step  11500/100000 | Loss: 3.4144 | Grad Norm: 0.360 | Throughput: 2,472,531 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step  12000/100000 | Loss: 3.3665 | Grad Norm: 0.349 | Throughput: 2,474,293 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  12500/100000 | Loss: 3.4490 | Grad Norm: 0.343 | Throughput: 2,472,614 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step  13000/100000 | Loss: 3.4421 | Grad Norm: 0.346 | Throughput: 2,468,087 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step  13500/100000 | Loss: 3.3702 | Grad Norm: 0.344 | Throughput: 2,470,065 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step  14000/100000 | Loss: 3.3328 | Grad Norm: 0.342 | Throughput: 2,472,602 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step  14500/100000 | Loss: 3.3494 | Grad Norm: 0.353 | Throughput: 2,463,954 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step  15000/100000 | Loss: 3.4101 | Grad Norm: 0.342 | Throughput: 2,480,212 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  15500/100000 | Loss: 3.3125 | Grad Norm: 0.336 | Throughput: 2,476,416 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  16000/100000 | Loss: 3.3759 | Grad Norm: 0.341 | Throughput: 2,472,896 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step  16500/100000 | Loss: 3.2008 | Grad Norm: 0.337 | Throughput: 2,478,321 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  17000/100000 | Loss: 3.3903 | Grad Norm: 0.338 | Throughput: 2,463,353 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step  17500/100000 | Loss: 3.3777 | Grad Norm: 0.332 | Throughput: 2,477,903 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  18000/100000 | Loss: 3.2885 | Grad Norm: 0.333 | Throughput: 2,482,001 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  18500/100000 | Loss: 3.2932 | Grad Norm: 0.340 | Throughput: 2,480,531 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  19000/100000 | Loss: 3.2798 | Grad Norm: 0.326 | Throughput: 2,480,603 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  19500/100000 | Loss: 3.4154 | Grad Norm: 0.353 | Throughput: 2,476,428 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  20000/100000 | Loss: 3.2685 | Grad Norm: 0.332 | Throughput: 2,478,270 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  20500/100000 | Loss: 3.2827 | Grad Norm: 0.338 | Throughput: 2,478,274 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  21000/100000 | Loss: 3.2915 | Grad Norm: 0.328 | Throughput: 2,473,739 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  21500/100000 | Loss: 3.2848 | Grad Norm: 0.335 | Throughput: 2,472,439 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step  22000/100000 | Loss: 3.2419 | Grad Norm: 0.323 | Throughput: 2,476,806 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  22500/100000 | Loss: 3.3822 | Grad Norm: 0.323 | Throughput: 2,482,529 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  23000/100000 | Loss: 3.3127 | Grad Norm: 0.320 | Throughput: 2,477,994 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  23500/100000 | Loss: 3.3398 | Grad Norm: 0.320 | Throughput: 2,488,881 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  24000/100000 | Loss: 3.2754 | Grad Norm: 0.318 | Throughput: 2,497,818 tok/s | Step time: 13.1ms
+[StandardTransformerLM] Step  24500/100000 | Loss: 3.2411 | Grad Norm: 0.331 | Throughput: 2,496,134 tok/s | Step time: 13.1ms
+[StandardTransformerLM] Step  25000/100000 | Loss: 3.3068 | Grad Norm: 0.322 | Throughput: 2,494,942 tok/s | Step time: 13.1ms
+[StandardTransformerLM] Step  25500/100000 | Loss: 3.2589 | Grad Norm: 0.333 | Throughput: 2,491,020 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  26000/100000 | Loss: 3.2272 | Grad Norm: 0.309 | Throughput: 2,489,453 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  26500/100000 | Loss: 3.4065 | Grad Norm: 0.338 | Throughput: 2,489,597 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  27000/100000 | Loss: 3.3323 | Grad Norm: 0.332 | Throughput: 2,487,088 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  27500/100000 | Loss: 3.2619 | Grad Norm: 0.347 | Throughput: 2,477,407 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  28000/100000 | Loss: 3.2172 | Grad Norm: 0.326 | Throughput: 2,479,967 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  28500/100000 | Loss: 3.3387 | Grad Norm: 0.330 | Throughput: 2,479,495 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  29000/100000 | Loss: 3.1462 | Grad Norm: 0.320 | Throughput: 2,481,324 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  29500/100000 | Loss: 3.3162 | Grad Norm: 0.327 | Throughput: 2,477,325 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  30000/100000 | Loss: 3.2195 | Grad Norm: 0.319 | Throughput: 2,472,567 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step  30500/100000 | Loss: 3.2683 | Grad Norm: 0.321 | Throughput: 2,471,319 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step  31000/100000 | Loss: 3.2709 | Grad Norm: 0.330 | Throughput: 2,474,244 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  31500/100000 | Loss: 3.2257 | Grad Norm: 0.318 | Throughput: 2,476,902 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  32000/100000 | Loss: 3.3205 | Grad Norm: 0.316 | Throughput: 2,478,005 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  32500/100000 | Loss: 3.1979 | Grad Norm: 0.317 | Throughput: 2,473,441 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  33000/100000 | Loss: 3.1903 | Grad Norm: 0.321 | Throughput: 2,474,371 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  33500/100000 | Loss: 3.2388 | Grad Norm: 0.321 | Throughput: 2,473,970 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  34000/100000 | Loss: 3.0875 | Grad Norm: 0.310 | Throughput: 2,479,077 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  34500/100000 | Loss: 3.2240 | Grad Norm: 0.333 | Throughput: 2,478,762 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  35000/100000 | Loss: 3.2393 | Grad Norm: 0.320 | Throughput: 2,479,904 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  35500/100000 | Loss: 3.1643 | Grad Norm: 0.312 | Throughput: 2,482,311 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  36000/100000 | Loss: 3.2206 | Grad Norm: 0.322 | Throughput: 2,480,251 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  36500/100000 | Loss: 3.1281 | Grad Norm: 0.325 | Throughput: 2,481,699 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  37000/100000 | Loss: 3.1440 | Grad Norm: 0.316 | Throughput: 2,481,569 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  37500/100000 | Loss: 3.1503 | Grad Norm: 0.319 | Throughput: 2,483,821 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  38000/100000 | Loss: 3.2111 | Grad Norm: 0.332 | Throughput: 2,487,340 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  38500/100000 | Loss: 3.1674 | Grad Norm: 0.330 | Throughput: 2,489,508 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  39000/100000 | Loss: 3.1212 | Grad Norm: 0.320 | Throughput: 2,492,677 tok/s | Step time: 13.1ms
+[StandardTransformerLM] Step  39500/100000 | Loss: 3.2654 | Grad Norm: 0.315 | Throughput: 2,493,220 tok/s | Step time: 13.1ms
+[StandardTransformerLM] Step  40000/100000 | Loss: 3.1387 | Grad Norm: 0.314 | Throughput: 2,493,594 tok/s | Step time: 13.1ms
+[StandardTransformerLM] Step  40500/100000 | Loss: 3.1330 | Grad Norm: 0.326 | Throughput: 2,490,261 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  41000/100000 | Loss: 3.1365 | Grad Norm: 0.317 | Throughput: 2,487,230 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  41500/100000 | Loss: 3.2054 | Grad Norm: 0.318 | Throughput: 2,483,194 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  42000/100000 | Loss: 3.1152 | Grad Norm: 0.329 | Throughput: 2,477,788 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  42500/100000 | Loss: 3.2196 | Grad Norm: 0.330 | Throughput: 2,484,433 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  43000/100000 | Loss: 3.1983 | Grad Norm: 0.327 | Throughput: 2,482,923 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  43500/100000 | Loss: 3.0643 | Grad Norm: 0.315 | Throughput: 2,486,708 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  44000/100000 | Loss: 3.1651 | Grad Norm: 0.316 | Throughput: 2,486,377 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  44500/100000 | Loss: 3.1160 | Grad Norm: 0.326 | Throughput: 2,484,086 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  45000/100000 | Loss: 3.0455 | Grad Norm: 0.316 | Throughput: 2,479,097 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  45500/100000 | Loss: 3.0831 | Grad Norm: 0.327 | Throughput: 2,481,984 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  46000/100000 | Loss: 3.1654 | Grad Norm: 0.326 | Throughput: 2,483,541 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  46500/100000 | Loss: 3.2551 | Grad Norm: 0.316 | Throughput: 2,482,529 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  47000/100000 | Loss: 3.1795 | Grad Norm: 0.317 | Throughput: 2,483,935 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  47500/100000 | Loss: 3.1093 | Grad Norm: 0.322 | Throughput: 2,483,155 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  48000/100000 | Loss: 3.1558 | Grad Norm: 0.322 | Throughput: 2,475,941 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  48500/100000 | Loss: 3.2706 | Grad Norm: 0.337 | Throughput: 2,483,172 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  49000/100000 | Loss: 3.1954 | Grad Norm: 0.321 | Throughput: 2,484,265 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  49500/100000 | Loss: 3.1114 | Grad Norm: 0.334 | Throughput: 2,479,759 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  50000/100000 | Loss: 3.0709 | Grad Norm: 0.315 | Throughput: 2,482,665 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  50500/100000 | Loss: 3.0706 | Grad Norm: 0.324 | Throughput: 2,478,934 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  51000/100000 | Loss: 2.9836 | Grad Norm: 0.324 | Throughput: 2,477,491 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  51500/100000 | Loss: 3.1272 | Grad Norm: 0.328 | Throughput: 2,477,070 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  52000/100000 | Loss: 3.1269 | Grad Norm: 0.325 | Throughput: 2,475,037 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  52500/100000 | Loss: 3.0282 | Grad Norm: 0.328 | Throughput: 2,475,906 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  53000/100000 | Loss: 3.1804 | Grad Norm: 0.331 | Throughput: 2,477,320 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  53500/100000 | Loss: 3.1280 | Grad Norm: 0.324 | Throughput: 2,477,614 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  54000/100000 | Loss: 3.0252 | Grad Norm: 0.332 | Throughput: 2,471,542 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step  54500/100000 | Loss: 3.1649 | Grad Norm: 0.340 | Throughput: 2,475,578 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  55000/100000 | Loss: 3.1122 | Grad Norm: 0.337 | Throughput: 2,480,100 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  55500/100000 | Loss: 3.1033 | Grad Norm: 0.328 | Throughput: 2,483,892 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  56000/100000 | Loss: 2.9606 | Grad Norm: 0.324 | Throughput: 2,483,571 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  56500/100000 | Loss: 3.1269 | Grad Norm: 0.351 | Throughput: 2,482,550 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  57000/100000 | Loss: 3.1025 | Grad Norm: 0.334 | Throughput: 2,478,813 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  57500/100000 | Loss: 3.0842 | Grad Norm: 0.328 | Throughput: 2,478,643 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  58000/100000 | Loss: 3.0973 | Grad Norm: 0.335 | Throughput: 2,484,153 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  58500/100000 | Loss: 3.0999 | Grad Norm: 0.340 | Throughput: 2,473,230 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  59000/100000 | Loss: 3.0641 | Grad Norm: 0.334 | Throughput: 2,481,617 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  59500/100000 | Loss: 3.1284 | Grad Norm: 0.339 | Throughput: 2,480,778 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  60000/100000 | Loss: 3.0529 | Grad Norm: 0.329 | Throughput: 2,479,309 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  60500/100000 | Loss: 3.0838 | Grad Norm: 0.340 | Throughput: 2,478,276 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  61000/100000 | Loss: 3.1082 | Grad Norm: 0.344 | Throughput: 2,478,884 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  61500/100000 | Loss: 3.0513 | Grad Norm: 0.336 | Throughput: 2,481,745 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  62000/100000 | Loss: 3.0184 | Grad Norm: 0.349 | Throughput: 2,480,399 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  62500/100000 | Loss: 3.1205 | Grad Norm: 0.336 | Throughput: 2,478,103 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  63000/100000 | Loss: 3.1236 | Grad Norm: 0.333 | Throughput: 2,482,171 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  63500/100000 | Loss: 3.0963 | Grad Norm: 0.339 | Throughput: 2,484,138 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  64000/100000 | Loss: 3.1233 | Grad Norm: 0.329 | Throughput: 2,481,221 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  64500/100000 | Loss: 3.0560 | Grad Norm: 0.337 | Throughput: 2,481,561 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  65000/100000 | Loss: 3.0910 | Grad Norm: 0.335 | Throughput: 2,483,590 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  65500/100000 | Loss: 3.1381 | Grad Norm: 0.342 | Throughput: 2,483,338 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  66000/100000 | Loss: 3.0262 | Grad Norm: 0.351 | Throughput: 2,481,060 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  66500/100000 | Loss: 3.1035 | Grad Norm: 0.347 | Throughput: 2,479,712 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  67000/100000 | Loss: 2.8963 | Grad Norm: 0.329 | Throughput: 2,477,949 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  67500/100000 | Loss: 3.0464 | Grad Norm: 0.341 | Throughput: 2,483,788 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  68000/100000 | Loss: 3.0780 | Grad Norm: 0.345 | Throughput: 2,482,020 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  68500/100000 | Loss: 2.9912 | Grad Norm: 0.355 | Throughput: 2,474,867 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  69000/100000 | Loss: 3.0867 | Grad Norm: 0.340 | Throughput: 2,480,300 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  69500/100000 | Loss: 3.0316 | Grad Norm: 0.345 | Throughput: 2,482,258 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  70000/100000 | Loss: 3.0631 | Grad Norm: 0.347 | Throughput: 2,478,410 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  70500/100000 | Loss: 3.0894 | Grad Norm: 0.351 | Throughput: 2,480,825 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  71000/100000 | Loss: 3.0488 | Grad Norm: 0.348 | Throughput: 2,476,787 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  71500/100000 | Loss: 3.0804 | Grad Norm: 0.344 | Throughput: 2,474,163 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  72000/100000 | Loss: 3.0086 | Grad Norm: 0.345 | Throughput: 2,473,746 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  72500/100000 | Loss: 2.9878 | Grad Norm: 0.349 | Throughput: 2,475,825 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  73000/100000 | Loss: 2.9890 | Grad Norm: 0.356 | Throughput: 2,476,450 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  73500/100000 | Loss: 2.8783 | Grad Norm: 0.362 | Throughput: 2,471,819 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step  74000/100000 | Loss: 3.0044 | Grad Norm: 0.353 | Throughput: 2,480,029 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  74500/100000 | Loss: 3.0806 | Grad Norm: 0.350 | Throughput: 2,478,514 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  75000/100000 | Loss: 3.1473 | Grad Norm: 0.347 | Throughput: 2,478,065 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  75500/100000 | Loss: 2.9869 | Grad Norm: 0.347 | Throughput: 2,476,070 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  76000/100000 | Loss: 3.0380 | Grad Norm: 0.350 | Throughput: 2,476,842 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  76500/100000 | Loss: 3.0546 | Grad Norm: 0.337 | Throughput: 2,477,312 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  77000/100000 | Loss: 3.1125 | Grad Norm: 0.350 | Throughput: 2,477,404 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  77500/100000 | Loss: 3.1376 | Grad Norm: 0.363 | Throughput: 2,478,439 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  78000/100000 | Loss: 3.0061 | Grad Norm: 0.347 | Throughput: 2,475,213 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  78500/100000 | Loss: 2.9533 | Grad Norm: 0.350 | Throughput: 2,476,950 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  79000/100000 | Loss: 2.9826 | Grad Norm: 0.348 | Throughput: 2,478,366 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  79500/100000 | Loss: 3.0887 | Grad Norm: 0.353 | Throughput: 2,472,384 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step  80000/100000 | Loss: 3.1361 | Grad Norm: 0.361 | Throughput: 2,477,886 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  80500/100000 | Loss: 3.1161 | Grad Norm: 0.350 | Throughput: 2,477,659 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  81000/100000 | Loss: 2.9964 | Grad Norm: 0.356 | Throughput: 2,475,997 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  81500/100000 | Loss: 3.1878 | Grad Norm: 0.352 | Throughput: 2,478,926 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  82000/100000 | Loss: 3.1690 | Grad Norm: 0.361 | Throughput: 2,472,640 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step  82500/100000 | Loss: 2.9043 | Grad Norm: 0.352 | Throughput: 2,472,919 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step  83000/100000 | Loss: 3.0283 | Grad Norm: 0.348 | Throughput: 2,478,176 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  83500/100000 | Loss: 3.2093 | Grad Norm: 0.357 | Throughput: 2,477,922 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  84000/100000 | Loss: 2.9704 | Grad Norm: 0.352 | Throughput: 2,479,381 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  84500/100000 | Loss: 2.9507 | Grad Norm: 0.352 | Throughput: 2,479,854 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  85000/100000 | Loss: 3.0591 | Grad Norm: 0.350 | Throughput: 2,479,250 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  85500/100000 | Loss: 3.0063 | Grad Norm: 0.352 | Throughput: 2,480,831 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  86000/100000 | Loss: 3.0404 | Grad Norm: 0.352 | Throughput: 2,478,235 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  86500/100000 | Loss: 3.1317 | Grad Norm: 0.358 | Throughput: 2,478,636 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  87000/100000 | Loss: 3.0560 | Grad Norm: 0.360 | Throughput: 2,477,301 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  87500/100000 | Loss: 3.0549 | Grad Norm: 0.362 | Throughput: 2,477,258 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  88000/100000 | Loss: 2.9611 | Grad Norm: 0.349 | Throughput: 2,478,891 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  88500/100000 | Loss: 2.9552 | Grad Norm: 0.357 | Throughput: 2,469,351 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step  89000/100000 | Loss: 3.0981 | Grad Norm: 0.359 | Throughput: 2,479,624 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  89500/100000 | Loss: 3.0187 | Grad Norm: 0.357 | Throughput: 2,480,417 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  90000/100000 | Loss: 3.1029 | Grad Norm: 0.354 | Throughput: 2,473,369 tok/s | Step time: 13.2ms
+[StandardTransformerLM] Step  90500/100000 | Loss: 2.9721 | Grad Norm: 0.351 | Throughput: 2,469,073 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step  91000/100000 | Loss: 3.0842 | Grad Norm: 0.354 | Throughput: 2,466,878 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step  91500/100000 | Loss: 3.0789 | Grad Norm: 0.358 | Throughput: 2,464,118 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step  92000/100000 | Loss: 3.1553 | Grad Norm: 0.361 | Throughput: 2,466,026 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step  92500/100000 | Loss: 2.9899 | Grad Norm: 0.355 | Throughput: 2,469,954 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step  93000/100000 | Loss: 3.1252 | Grad Norm: 0.358 | Throughput: 2,466,611 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step  93500/100000 | Loss: 3.0967 | Grad Norm: 0.357 | Throughput: 2,468,354 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step  94000/100000 | Loss: 3.0172 | Grad Norm: 0.358 | Throughput: 2,465,263 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step  94500/100000 | Loss: 2.9993 | Grad Norm: 0.357 | Throughput: 2,469,822 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step  95000/100000 | Loss: 3.0128 | Grad Norm: 0.350 | Throughput: 2,469,887 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step  95500/100000 | Loss: 3.0093 | Grad Norm: 0.363 | Throughput: 2,472,063 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step  96000/100000 | Loss: 3.0514 | Grad Norm: 0.357 | Throughput: 2,467,682 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step  96500/100000 | Loss: 3.0774 | Grad Norm: 0.353 | Throughput: 2,464,588 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step  97000/100000 | Loss: 3.0437 | Grad Norm: 0.360 | Throughput: 2,470,403 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step  97500/100000 | Loss: 2.9246 | Grad Norm: 0.356 | Throughput: 2,471,677 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step  98000/100000 | Loss: 2.9928 | Grad Norm: 0.359 | Throughput: 2,465,521 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step  98500/100000 | Loss: 3.1402 | Grad Norm: 0.360 | Throughput: 2,455,445 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step  99000/100000 | Loss: 3.0563 | Grad Norm: 0.351 | Throughput: 2,454,194 tok/s | Step time: 13.4ms
+[StandardTransformerLM] Step  99500/100000 | Loss: 3.0696 | Grad Norm: 0.350 | Throughput: 2,459,195 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Step 100000/100000 | Loss: 2.9112 | Grad Norm: 0.362 | Throughput: 2,465,858 tok/s | Step time: 13.3ms
+[StandardTransformerLM] Training Complete in 1323.3s. Evaluating held-out perplexity...
+[StandardTransformerLM] Validation Perplexity: 25.23
 
-The preceding stack trace is the source of the JAX operation that, once transformed by JAX, triggered the following exception.
+==================== Starting Pretraining: AlgebraicTransformerLM (100000 steps) ====================
+[AlgebraicTransformerLM] Step    500/100000 | Loss: 27.9956 | Grad Norm: 1.000 | Throughput: 2,345,177 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step   1000/100000 | Loss: 22.6793 | Grad Norm: 1.000 | Throughput: 2,349,722 tok/s | Step time: 13.9ms
+[AlgebraicTransformerLM] Step   1500/100000 | Loss: 20.3835 | Grad Norm: 1.000 | Throughput: 2,348,753 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step   2000/100000 | Loss: 18.3293 | Grad Norm: 1.000 | Throughput: 2,344,334 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step   2500/100000 | Loss: 16.4153 | Grad Norm: 1.000 | Throughput: 2,345,323 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step   3000/100000 | Loss: 15.8401 | Grad Norm: 1.000 | Throughput: 2,325,980 tok/s | Step time: 14.1ms
+[AlgebraicTransformerLM] Step   3500/100000 | Loss: 15.1223 | Grad Norm: 1.000 | Throughput: 2,338,215 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step   4000/100000 | Loss: 14.6164 | Grad Norm: 1.000 | Throughput: 2,334,558 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step   4500/100000 | Loss: 14.3765 | Grad Norm: 1.000 | Throughput: 2,336,144 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step   5000/100000 | Loss: 13.9180 | Grad Norm: 1.000 | Throughput: 2,338,906 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step   5500/100000 | Loss: 14.1545 | Grad Norm: 1.000 | Throughput: 2,338,907 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step   6000/100000 | Loss: 13.7186 | Grad Norm: 1.000 | Throughput: 2,341,046 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step   6500/100000 | Loss: 13.7446 | Grad Norm: 1.000 | Throughput: 2,331,635 tok/s | Step time: 14.1ms
+[AlgebraicTransformerLM] Step   7000/100000 | Loss: 13.3821 | Grad Norm: 1.000 | Throughput: 2,339,693 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step   7500/100000 | Loss: 12.8856 | Grad Norm: 1.000 | Throughput: 2,342,960 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step   8000/100000 | Loss: 12.9702 | Grad Norm: 1.000 | Throughput: 2,338,276 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step   8500/100000 | Loss: 13.1410 | Grad Norm: 1.000 | Throughput: 2,338,036 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step   9000/100000 | Loss: 12.7365 | Grad Norm: 1.000 | Throughput: 2,339,700 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step   9500/100000 | Loss: 12.8541 | Grad Norm: 1.000 | Throughput: 2,336,288 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  10000/100000 | Loss: 12.7791 | Grad Norm: 1.000 | Throughput: 2,337,581 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  10500/100000 | Loss: 13.2418 | Grad Norm: 1.000 | Throughput: 2,338,186 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  11000/100000 | Loss: 12.5099 | Grad Norm: 1.000 | Throughput: 2,332,658 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  11500/100000 | Loss: 12.6796 | Grad Norm: 1.000 | Throughput: 2,344,238 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  12000/100000 | Loss: 12.4795 | Grad Norm: 1.000 | Throughput: 2,341,154 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  12500/100000 | Loss: 12.7683 | Grad Norm: 1.000 | Throughput: 2,334,797 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  13000/100000 | Loss: 12.7029 | Grad Norm: 1.000 | Throughput: 2,342,205 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  13500/100000 | Loss: 12.4824 | Grad Norm: 1.000 | Throughput: 2,335,146 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  14000/100000 | Loss: 12.2666 | Grad Norm: 1.000 | Throughput: 2,345,778 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  14500/100000 | Loss: 12.3093 | Grad Norm: 1.000 | Throughput: 2,345,762 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  15000/100000 | Loss: 12.5445 | Grad Norm: 1.000 | Throughput: 2,344,960 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  15500/100000 | Loss: 12.1692 | Grad Norm: 1.000 | Throughput: 2,345,556 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  16000/100000 | Loss: 12.3666 | Grad Norm: 1.000 | Throughput: 2,344,359 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  16500/100000 | Loss: 11.7319 | Grad Norm: 1.000 | Throughput: 2,340,600 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  17000/100000 | Loss: 12.4100 | Grad Norm: 1.000 | Throughput: 2,344,607 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  17500/100000 | Loss: 12.4001 | Grad Norm: 1.000 | Throughput: 2,345,064 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  18000/100000 | Loss: 12.0333 | Grad Norm: 1.000 | Throughput: 2,341,549 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  18500/100000 | Loss: 11.9789 | Grad Norm: 1.000 | Throughput: 2,339,692 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  19000/100000 | Loss: 11.9477 | Grad Norm: 1.000 | Throughput: 2,342,385 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  19500/100000 | Loss: 12.4543 | Grad Norm: 1.000 | Throughput: 2,345,505 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  20000/100000 | Loss: 11.8848 | Grad Norm: 1.000 | Throughput: 2,347,941 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  20500/100000 | Loss: 11.9616 | Grad Norm: 1.000 | Throughput: 2,345,182 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  21000/100000 | Loss: 11.9469 | Grad Norm: 1.000 | Throughput: 2,346,147 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  21500/100000 | Loss: 12.0025 | Grad Norm: 1.000 | Throughput: 2,342,579 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  22000/100000 | Loss: 11.8005 | Grad Norm: 1.000 | Throughput: 2,340,350 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  22500/100000 | Loss: 12.4052 | Grad Norm: 1.000 | Throughput: 2,335,535 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  23000/100000 | Loss: 11.9374 | Grad Norm: 1.000 | Throughput: 2,341,420 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  23500/100000 | Loss: 12.1234 | Grad Norm: 1.000 | Throughput: 2,340,164 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  24000/100000 | Loss: 11.8560 | Grad Norm: 1.000 | Throughput: 2,339,412 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  24500/100000 | Loss: 11.7792 | Grad Norm: 1.000 | Throughput: 2,340,972 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  25000/100000 | Loss: 11.9811 | Grad Norm: 1.000 | Throughput: 2,330,406 tok/s | Step time: 14.1ms
+[AlgebraicTransformerLM] Step  25500/100000 | Loss: 11.8518 | Grad Norm: 1.000 | Throughput: 2,328,752 tok/s | Step time: 14.1ms
+[AlgebraicTransformerLM] Step  26000/100000 | Loss: 11.6506 | Grad Norm: 1.000 | Throughput: 2,327,343 tok/s | Step time: 14.1ms
+[AlgebraicTransformerLM] Step  26500/100000 | Loss: 12.3395 | Grad Norm: 1.000 | Throughput: 2,332,618 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  27000/100000 | Loss: 12.0466 | Grad Norm: 1.000 | Throughput: 2,331,884 tok/s | Step time: 14.1ms
+[AlgebraicTransformerLM] Step  27500/100000 | Loss: 11.7467 | Grad Norm: 1.000 | Throughput: 2,339,761 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  28000/100000 | Loss: 11.6756 | Grad Norm: 1.000 | Throughput: 2,341,878 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  28500/100000 | Loss: 12.0429 | Grad Norm: 1.000 | Throughput: 2,342,462 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  29000/100000 | Loss: 11.3298 | Grad Norm: 1.000 | Throughput: 2,335,202 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  29500/100000 | Loss: 12.0170 | Grad Norm: 1.000 | Throughput: 2,340,296 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  30000/100000 | Loss: 11.6138 | Grad Norm: 1.000 | Throughput: 2,332,723 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  30500/100000 | Loss: 11.7949 | Grad Norm: 1.000 | Throughput: 2,343,232 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  31000/100000 | Loss: 11.8074 | Grad Norm: 1.000 | Throughput: 2,345,729 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  31500/100000 | Loss: 11.6569 | Grad Norm: 1.000 | Throughput: 2,342,151 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  32000/100000 | Loss: 12.0246 | Grad Norm: 1.000 | Throughput: 2,336,600 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  32500/100000 | Loss: 11.6160 | Grad Norm: 1.000 | Throughput: 2,342,864 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  33000/100000 | Loss: 11.5211 | Grad Norm: 1.000 | Throughput: 2,341,207 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  33500/100000 | Loss: 11.6914 | Grad Norm: 1.000 | Throughput: 2,340,906 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  34000/100000 | Loss: 11.1311 | Grad Norm: 1.000 | Throughput: 2,337,943 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  34500/100000 | Loss: 11.6526 | Grad Norm: 1.000 | Throughput: 2,337,564 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  35000/100000 | Loss: 11.7193 | Grad Norm: 1.000 | Throughput: 2,340,579 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  35500/100000 | Loss: 11.4180 | Grad Norm: 1.000 | Throughput: 2,347,930 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  36000/100000 | Loss: 11.6397 | Grad Norm: 1.000 | Throughput: 2,344,627 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  36500/100000 | Loss: 11.2523 | Grad Norm: 1.000 | Throughput: 2,336,413 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  37000/100000 | Loss: 11.2606 | Grad Norm: 1.000 | Throughput: 2,338,603 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  37500/100000 | Loss: 11.3031 | Grad Norm: 1.000 | Throughput: 2,337,533 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  38000/100000 | Loss: 11.5192 | Grad Norm: 1.000 | Throughput: 2,340,151 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  38500/100000 | Loss: 11.4155 | Grad Norm: 1.000 | Throughput: 2,339,230 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  39000/100000 | Loss: 11.1980 | Grad Norm: 1.000 | Throughput: 2,343,901 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  39500/100000 | Loss: 11.7859 | Grad Norm: 1.000 | Throughput: 2,342,240 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  40000/100000 | Loss: 11.2997 | Grad Norm: 1.000 | Throughput: 2,344,806 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  40500/100000 | Loss: 11.2562 | Grad Norm: 1.000 | Throughput: 2,339,654 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  41000/100000 | Loss: 11.2842 | Grad Norm: 1.000 | Throughput: 2,349,126 tok/s | Step time: 13.9ms
+[AlgebraicTransformerLM] Step  41500/100000 | Loss: 11.5668 | Grad Norm: 1.000 | Throughput: 2,344,263 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  42000/100000 | Loss: 11.1738 | Grad Norm: 1.000 | Throughput: 2,335,435 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  42500/100000 | Loss: 11.5761 | Grad Norm: 1.000 | Throughput: 2,343,033 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  43000/100000 | Loss: 11.4701 | Grad Norm: 1.000 | Throughput: 2,343,440 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  43500/100000 | Loss: 11.0371 | Grad Norm: 1.000 | Throughput: 2,336,921 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  44000/100000 | Loss: 11.4580 | Grad Norm: 1.000 | Throughput: 2,335,659 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  44500/100000 | Loss: 11.2175 | Grad Norm: 1.000 | Throughput: 2,336,878 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  45000/100000 | Loss: 10.9770 | Grad Norm: 1.000 | Throughput: 2,341,906 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  45500/100000 | Loss: 11.0971 | Grad Norm: 1.000 | Throughput: 2,334,082 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  46000/100000 | Loss: 11.3867 | Grad Norm: 1.000 | Throughput: 2,344,416 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  46500/100000 | Loss: 11.7268 | Grad Norm: 1.000 | Throughput: 2,342,614 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  47000/100000 | Loss: 11.4122 | Grad Norm: 1.000 | Throughput: 2,344,283 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  47500/100000 | Loss: 11.1731 | Grad Norm: 1.000 | Throughput: 2,345,357 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  48000/100000 | Loss: 11.3197 | Grad Norm: 1.000 | Throughput: 2,341,828 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  48500/100000 | Loss: 11.8083 | Grad Norm: 1.000 | Throughput: 2,341,430 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  49000/100000 | Loss: 11.5680 | Grad Norm: 1.000 | Throughput: 2,345,519 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  49500/100000 | Loss: 11.2381 | Grad Norm: 1.000 | Throughput: 2,350,651 tok/s | Step time: 13.9ms
+[AlgebraicTransformerLM] Step  50000/100000 | Loss: 11.1191 | Grad Norm: 1.000 | Throughput: 2,349,171 tok/s | Step time: 13.9ms
+[AlgebraicTransformerLM] Step  50500/100000 | Loss: 11.0630 | Grad Norm: 1.000 | Throughput: 2,349,158 tok/s | Step time: 13.9ms
+[AlgebraicTransformerLM] Step  51000/100000 | Loss: 10.7002 | Grad Norm: 1.000 | Throughput: 2,350,970 tok/s | Step time: 13.9ms
+[AlgebraicTransformerLM] Step  51500/100000 | Loss: 11.2329 | Grad Norm: 1.000 | Throughput: 2,348,539 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  52000/100000 | Loss: 11.2115 | Grad Norm: 1.000 | Throughput: 2,346,189 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  52500/100000 | Loss: 10.9077 | Grad Norm: 1.000 | Throughput: 2,343,553 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  53000/100000 | Loss: 11.4241 | Grad Norm: 1.000 | Throughput: 2,343,401 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  53500/100000 | Loss: 11.3060 | Grad Norm: 1.000 | Throughput: 2,339,634 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  54000/100000 | Loss: 10.8822 | Grad Norm: 1.000 | Throughput: 2,341,707 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  54500/100000 | Loss: 11.4541 | Grad Norm: 1.000 | Throughput: 2,338,447 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  55000/100000 | Loss: 11.2273 | Grad Norm: 1.000 | Throughput: 2,343,722 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  55500/100000 | Loss: 11.1781 | Grad Norm: 1.000 | Throughput: 2,344,315 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  56000/100000 | Loss: 10.7124 | Grad Norm: 1.000 | Throughput: 2,342,645 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  56500/100000 | Loss: 11.2727 | Grad Norm: 1.000 | Throughput: 2,336,016 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  57000/100000 | Loss: 11.1490 | Grad Norm: 1.000 | Throughput: 2,334,796 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  57500/100000 | Loss: 11.1387 | Grad Norm: 1.000 | Throughput: 2,334,827 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  58000/100000 | Loss: 11.1292 | Grad Norm: 1.000 | Throughput: 2,335,050 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  58500/100000 | Loss: 11.1903 | Grad Norm: 1.000 | Throughput: 2,331,672 tok/s | Step time: 14.1ms
+[AlgebraicTransformerLM] Step  59000/100000 | Loss: 11.0675 | Grad Norm: 1.000 | Throughput: 2,331,050 tok/s | Step time: 14.1ms
+[AlgebraicTransformerLM] Step  59500/100000 | Loss: 11.3046 | Grad Norm: 1.000 | Throughput: 2,332,137 tok/s | Step time: 14.1ms
+[AlgebraicTransformerLM] Step  60000/100000 | Loss: 11.0745 | Grad Norm: 1.000 | Throughput: 2,337,280 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  60500/100000 | Loss: 11.1665 | Grad Norm: 1.000 | Throughput: 2,338,063 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  61000/100000 | Loss: 11.2365 | Grad Norm: 1.000 | Throughput: 2,339,520 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  61500/100000 | Loss: 11.0502 | Grad Norm: 1.000 | Throughput: 2,340,360 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  62000/100000 | Loss: 10.8951 | Grad Norm: 1.000 | Throughput: 2,339,951 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  62500/100000 | Loss: 11.2278 | Grad Norm: 1.000 | Throughput: 2,341,628 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  63000/100000 | Loss: 11.2957 | Grad Norm: 1.000 | Throughput: 2,337,257 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  63500/100000 | Loss: 11.1288 | Grad Norm: 1.000 | Throughput: 2,335,691 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  64000/100000 | Loss: 11.3105 | Grad Norm: 1.000 | Throughput: 2,339,289 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  64500/100000 | Loss: 11.0689 | Grad Norm: 1.000 | Throughput: 2,341,640 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  65000/100000 | Loss: 11.2036 | Grad Norm: 1.000 | Throughput: 2,343,951 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  65500/100000 | Loss: 11.3643 | Grad Norm: 1.000 | Throughput: 2,342,777 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  66000/100000 | Loss: 10.9595 | Grad Norm: 1.000 | Throughput: 2,334,892 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  66500/100000 | Loss: 11.1726 | Grad Norm: 1.000 | Throughput: 2,340,601 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  67000/100000 | Loss: 10.4428 | Grad Norm: 1.000 | Throughput: 2,343,694 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  67500/100000 | Loss: 11.0339 | Grad Norm: 1.000 | Throughput: 2,345,097 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  68000/100000 | Loss: 11.0900 | Grad Norm: 1.000 | Throughput: 2,345,518 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  68500/100000 | Loss: 10.8258 | Grad Norm: 1.000 | Throughput: 2,340,913 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  69000/100000 | Loss: 11.1808 | Grad Norm: 1.000 | Throughput: 2,341,263 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  69500/100000 | Loss: 11.0000 | Grad Norm: 1.000 | Throughput: 2,343,804 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  70000/100000 | Loss: 11.0905 | Grad Norm: 1.000 | Throughput: 2,344,466 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  70500/100000 | Loss: 11.2027 | Grad Norm: 1.000 | Throughput: 2,343,531 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  71000/100000 | Loss: 11.0188 | Grad Norm: 1.000 | Throughput: 2,346,088 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  71500/100000 | Loss: 11.2090 | Grad Norm: 1.000 | Throughput: 2,342,804 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  72000/100000 | Loss: 10.8917 | Grad Norm: 1.000 | Throughput: 2,345,696 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  72500/100000 | Loss: 10.8523 | Grad Norm: 1.000 | Throughput: 2,338,380 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  73000/100000 | Loss: 10.8033 | Grad Norm: 1.000 | Throughput: 2,332,679 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  73500/100000 | Loss: 10.4216 | Grad Norm: 1.000 | Throughput: 2,331,751 tok/s | Step time: 14.1ms
+[AlgebraicTransformerLM] Step  74000/100000 | Loss: 10.8145 | Grad Norm: 1.000 | Throughput: 2,333,111 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  74500/100000 | Loss: 11.1536 | Grad Norm: 1.000 | Throughput: 2,330,781 tok/s | Step time: 14.1ms
+[AlgebraicTransformerLM] Step  75000/100000 | Loss: 11.3631 | Grad Norm: 1.000 | Throughput: 2,332,886 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  75500/100000 | Loss: 10.8468 | Grad Norm: 1.000 | Throughput: 2,332,403 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  76000/100000 | Loss: 11.0415 | Grad Norm: 1.000 | Throughput: 2,326,549 tok/s | Step time: 14.1ms
+[AlgebraicTransformerLM] Step  76500/100000 | Loss: 11.0573 | Grad Norm: 1.000 | Throughput: 2,337,750 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  77000/100000 | Loss: 11.2248 | Grad Norm: 1.000 | Throughput: 2,336,483 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  77500/100000 | Loss: 11.2632 | Grad Norm: 1.000 | Throughput: 2,333,535 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  78000/100000 | Loss: 10.8098 | Grad Norm: 1.000 | Throughput: 2,332,651 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  78500/100000 | Loss: 10.7052 | Grad Norm: 1.000 | Throughput: 2,332,739 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  79000/100000 | Loss: 10.7885 | Grad Norm: 1.000 | Throughput: 2,335,402 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  79500/100000 | Loss: 11.2171 | Grad Norm: 1.000 | Throughput: 2,338,434 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  80000/100000 | Loss: 11.3023 | Grad Norm: 1.000 | Throughput: 2,338,310 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  80500/100000 | Loss: 11.2222 | Grad Norm: 1.000 | Throughput: 2,336,334 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  81000/100000 | Loss: 10.7737 | Grad Norm: 1.000 | Throughput: 2,335,312 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  81500/100000 | Loss: 11.5393 | Grad Norm: 1.000 | Throughput: 2,333,060 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  82000/100000 | Loss: 11.4881 | Grad Norm: 1.000 | Throughput: 2,343,752 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  82500/100000 | Loss: 10.5377 | Grad Norm: 1.000 | Throughput: 2,341,153 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  83000/100000 | Loss: 10.9152 | Grad Norm: 1.000 | Throughput: 2,333,744 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  83500/100000 | Loss: 11.5928 | Grad Norm: 1.000 | Throughput: 2,346,010 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  84000/100000 | Loss: 10.7595 | Grad Norm: 1.000 | Throughput: 2,342,525 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  84500/100000 | Loss: 10.6170 | Grad Norm: 1.000 | Throughput: 2,343,983 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  85000/100000 | Loss: 10.9943 | Grad Norm: 1.000 | Throughput: 2,344,192 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  85500/100000 | Loss: 10.9195 | Grad Norm: 1.000 | Throughput: 2,343,805 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  86000/100000 | Loss: 10.9523 | Grad Norm: 1.000 | Throughput: 2,343,365 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  86500/100000 | Loss: 11.3420 | Grad Norm: 1.000 | Throughput: 2,339,722 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  87000/100000 | Loss: 11.0158 | Grad Norm: 1.000 | Throughput: 2,333,868 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  87500/100000 | Loss: 11.0511 | Grad Norm: 1.000 | Throughput: 2,330,894 tok/s | Step time: 14.1ms
+[AlgebraicTransformerLM] Step  88000/100000 | Loss: 10.6960 | Grad Norm: 1.000 | Throughput: 2,337,225 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  88500/100000 | Loss: 10.6197 | Grad Norm: 1.000 | Throughput: 2,334,931 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  89000/100000 | Loss: 11.2816 | Grad Norm: 1.000 | Throughput: 2,328,237 tok/s | Step time: 14.1ms
+[AlgebraicTransformerLM] Step  89500/100000 | Loss: 10.9113 | Grad Norm: 1.000 | Throughput: 2,341,335 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  90000/100000 | Loss: 11.2465 | Grad Norm: 1.000 | Throughput: 2,341,413 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  90500/100000 | Loss: 10.7961 | Grad Norm: 1.000 | Throughput: 2,341,845 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  91000/100000 | Loss: 11.0793 | Grad Norm: 1.000 | Throughput: 2,341,950 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  91500/100000 | Loss: 11.0706 | Grad Norm: 1.000 | Throughput: 2,338,204 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  92000/100000 | Loss: 11.4178 | Grad Norm: 1.000 | Throughput: 2,336,262 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  92500/100000 | Loss: 10.7271 | Grad Norm: 1.000 | Throughput: 2,339,187 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  93000/100000 | Loss: 11.3545 | Grad Norm: 1.000 | Throughput: 2,338,653 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  93500/100000 | Loss: 11.1238 | Grad Norm: 1.000 | Throughput: 2,340,351 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  94000/100000 | Loss: 10.9317 | Grad Norm: 1.000 | Throughput: 2,343,184 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  94500/100000 | Loss: 10.8220 | Grad Norm: 1.000 | Throughput: 2,339,552 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  95000/100000 | Loss: 10.8769 | Grad Norm: 1.000 | Throughput: 2,336,650 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  95500/100000 | Loss: 10.7988 | Grad Norm: 1.000 | Throughput: 2,339,618 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  96000/100000 | Loss: 11.0120 | Grad Norm: 1.000 | Throughput: 2,338,872 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  96500/100000 | Loss: 11.0020 | Grad Norm: 1.000 | Throughput: 2,343,727 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  97000/100000 | Loss: 10.8875 | Grad Norm: 1.000 | Throughput: 2,353,490 tok/s | Step time: 13.9ms
+[AlgebraicTransformerLM] Step  97500/100000 | Loss: 10.5982 | Grad Norm: 1.000 | Throughput: 2,349,124 tok/s | Step time: 13.9ms
+[AlgebraicTransformerLM] Step  98000/100000 | Loss: 10.7819 | Grad Norm: 1.000 | Throughput: 2,348,002 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  98500/100000 | Loss: 11.2522 | Grad Norm: 1.000 | Throughput: 2,341,984 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  99000/100000 | Loss: 10.9623 | Grad Norm: 1.000 | Throughput: 2,342,117 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step  99500/100000 | Loss: 11.0506 | Grad Norm: 1.000 | Throughput: 2,343,953 tok/s | Step time: 14.0ms
+[AlgebraicTransformerLM] Step 100000/100000 | Loss: 10.4975 | Grad Norm: 1.000 | Throughput: 2,349,580 tok/s | Step time: 13.9ms
+[AlgebraicTransformerLM] Training Complete in 1400.6s. Evaluating held-out perplexity...
+[AlgebraicTransformerLM] Validation Perplexity: 26.92
 
---------------------
+==================== Phase 7 Summary ====================
+Gate execution_budget         : PASS | {'steps': 100000, 'required_steps': 100000, 'passed': True}
+Gate perplexity_parity        : PASS | {'algebraic_ppl': 26.91902956837387, 'baseline_ppl': 25.2264039716646, 'ratio': 1.0670973793415226, 'threshold': 1.08, 'passed': True}
+Gate numerical_stability      : PASS | {'nan_or_inf_count': 0, 'threshold': 0, 'passed': True}
+Gate loss_spike_anomaly       : PASS | {'spike_count': 0, 'threshold': 0, 'passed': True}
+Gate peak_gradient_norm       : PASS | {'peak_norm': 1.0000003576278687, 'threshold': 5.0, 'passed': True}
+Gate steady_state_throughput  : PASS | {'algebraic_tok_sec': 2340061.6992424675, 'baseline_tok_sec': 2476769.067578673, 'ratio': 0.9448041522620223, 'threshold': 0.9, 'passed': True}
+Gate ast_audit                : PASS | {'passed': True}
 
-The above exception was the direct cause of the following exception:
-
-jax.errors.SimplifiedTraceback: For simplicity, JAX has removed its internal frames from the traceback of the following exception. Set JAX_TRACEBACK_FILTERING=off to include these.
-
-The above exception was the direct cause of the following exception:
-
-Traceback (most recent call last):
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/scripts/run_pilot_15m.py", line 460, in <module>
-    raise SystemExit(main())
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/scripts/run_pilot_15m.py", line 318, in main
-    base_res = run_training_arm(
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/scripts/run_pilot_15m.py", line 100, in run_training_arm
-    warmup_params, warmup_opt_state, _ = jitted_step(
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/venv/lib/python3.10/site-packages/jax/_src/pallas/pallas_call.py", line 1319, in _pallas_call_lowering
-    return mlir.lower_per_platform(ctx, "pallas_call",
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/venv/lib/python3.10/site-packages/jax/_src/pallas/pallas_call.py", line 1292, in tpu_lowering
-    return mosaic_tpu_backend.pallas_call_tpu_lowering_rule(
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/venv/lib/python3.10/site-packages/jax/_src/pallas/mosaic/pallas_call_registration.py", line 251, in pallas_call_tpu_lowering_rule
-    out_nodes = mosaic.lower_module_to_custom_call(
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/venv/lib/python3.10/site-packages/jax/_src/tpu_custom_call.py", line 634, in lower_module_to_custom_call
-    return _tpu_custom_call_lowering(
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/venv/lib/python3.10/site-packages/jax/_src/tpu_custom_call.py", line 296, in _tpu_custom_call_lowering
-    raise NotImplementedError(
-NotImplementedError: Mosaic kernels cannot be automatically partitioned. Please wrap the call in a shard_map.
-Traceback (most recent call last):
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/scripts/run_pilot_15m.py", line 460, in <module>
-    raise SystemExit(main())
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/scripts/run_pilot_15m.py", line 318, in main
-    base_res = run_training_arm(
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/scripts/run_pilot_15m.py", line 100, in run_training_arm
-    warmup_params, warmup_opt_state, _ = jitted_step(
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/scripts/phase7_experiments.py", line 127, in step_fn
-    (loss, aux), raw_grads = jax.value_and_grad(loss_fn, has_aux=True)(params)
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/scripts/phase7_experiments.py", line 124, in loss_fn
-    loss_val, aux = model.loss(p, tokens, targets, cos_angles=cos_angles, sin_angles=sin_angles)
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/src/baseline.py", line 270, in loss
-    hidden = self._hidden(params, tokens, cos_angles, sin_angles)
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/src/baseline.py", line 204, in _hidden
-    x = layer_fn(x, layer, cos_angles, sin_angles)
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/src/baseline.py", line 108, in _baseline_layer_forward
-    attn_out = standard_flash_attention(
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/src/kernels/pallas_flash_attention.py", line 292, in standard_flash_attention
-    return flash_attention(
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/venv/lib/python3.10/site-packages/jax/experimental/pallas/ops/tpu/flash_attention.py", line 199, in flash_attention
-    return _flash_attention(
-jax._src.source_info_util.JaxStackTraceBeforeTransformation: NotImplementedError: Mosaic kernels cannot be automatically partitioned. Please wrap the call in a shard_map.
-
-The preceding stack trace is the source of the JAX operation that, once transformed by JAX, triggered the following exception.
-
---------------------
-
-The above exception was the direct cause of the following exception:
-
-jax.errors.SimplifiedTraceback: For simplicity, JAX has removed its internal frames from the traceback of the following exception. Set JAX_TRACEBACK_FILTERING=off to include these.
-
-The above exception was the direct cause of the following exception:
-
-Traceback (most recent call last):
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/scripts/run_pilot_15m.py", line 460, in <module>
-    raise SystemExit(main())
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/scripts/run_pilot_15m.py", line 318, in main
-    base_res = run_training_arm(
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/scripts/run_pilot_15m.py", line 100, in run_training_arm
-    warmup_params, warmup_opt_state, _ = jitted_step(
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/venv/lib/python3.10/site-packages/jax/_src/pallas/pallas_call.py", line 1319, in _pallas_call_lowering
-    return mlir.lower_per_platform(ctx, "pallas_call",
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/venv/lib/python3.10/site-packages/jax/_src/pallas/pallas_call.py", line 1292, in tpu_lowering
-    return mosaic_tpu_backend.pallas_call_tpu_lowering_rule(
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/venv/lib/python3.10/site-packages/jax/_src/pallas/mosaic/pallas_call_registration.py", line 251, in pallas_call_tpu_lowering_rule
-    out_nodes = mosaic.lower_module_to_custom_call(
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/venv/lib/python3.10/site-packages/jax/_src/tpu_custom_call.py", line 634, in lower_module_to_custom_call
-    return _tpu_custom_call_lowering(
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/venv/lib/python3.10/site-packages/jax/_src/tpu_custom_call.py", line 296, in _tpu_custom_call_lowering
-Traceback (most recent call last):
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/scripts/run_pilot_15m.py", line 460, in <module>
-    raise SystemExit(main())
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/scripts/run_pilot_15m.py", line 318, in main
-    base_res = run_training_arm(
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/scripts/run_pilot_15m.py", line 100, in run_training_arm
-    warmup_params, warmup_opt_state, _ = jitted_step(
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/scripts/phase7_experiments.py", line 127, in step_fn
-    (loss, aux), raw_grads = jax.value_and_grad(loss_fn, has_aux=True)(params)
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/scripts/phase7_experiments.py", line 124, in loss_fn
-    loss_val, aux = model.loss(p, tokens, targets, cos_angles=cos_angles, sin_angles=sin_angles)
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/src/baseline.py", line 270, in loss
-    hidden = self._hidden(params, tokens, cos_angles, sin_angles)
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/src/baseline.py", line 204, in _hidden
-    x = layer_fn(x, layer, cos_angles, sin_angles)
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/src/baseline.py", line 108, in _baseline_layer_forward
-    attn_out = standard_flash_attention(
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/src/kernels/pallas_flash_attention.py", line 292, in standard_flash_attention
-    return flash_attention(
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/venv/lib/python3.10/site-packages/jax/experimental/pallas/ops/tpu/flash_attention.py", line 199, in flash_attention
-    return _flash_attention(
-jax._src.source_info_util.JaxStackTraceBeforeTransformation: NotImplementedError: Mosaic kernels cannot be automatically partitioned. Please wrap the call in a shard_map.
-
-The preceding stack trace is the source of the JAX operation that, once transformed by JAX, triggered the following exception.
-
---------------------
-
-The above exception was the direct cause of the following exception:
-
-jax.errors.SimplifiedTraceback: For simplicity, JAX has removed its internal frames from the traceback of the following exception. Set JAX_TRACEBACK_FILTERING=off to include these.
-
-The above exception was the direct cause of the following exception:
-
-Traceback (most recent call last):
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/scripts/run_pilot_15m.py", line 460, in <module>
-    raise SystemExit(main())
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/scripts/run_pilot_15m.py", line 318, in main
-    raise NotImplementedError(
-NotImplementedError: Mosaic kernels cannot be automatically partitioned. Please wrap the call in a shard_map.
-    base_res = run_training_arm(
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/scripts/run_pilot_15m.py", line 100, in run_training_arm
-    warmup_params, warmup_opt_state, _ = jitted_step(
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/venv/lib/python3.10/site-packages/jax/_src/pallas/pallas_call.py", line 1319, in _pallas_call_lowering
-    return mlir.lower_per_platform(ctx, "pallas_call",
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/venv/lib/python3.10/site-packages/jax/_src/pallas/pallas_call.py", line 1292, in tpu_lowering
-    return mosaic_tpu_backend.pallas_call_tpu_lowering_rule(
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/venv/lib/python3.10/site-packages/jax/_src/pallas/mosaic/pallas_call_registration.py", line 251, in pallas_call_tpu_lowering_rule
-    out_nodes = mosaic.lower_module_to_custom_call(
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/venv/lib/python3.10/site-packages/jax/_src/tpu_custom_call.py", line 634, in lower_module_to_custom_call
-    return _tpu_custom_call_lowering(
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/venv/lib/python3.10/site-packages/jax/_src/tpu_custom_call.py", line 296, in _tpu_custom_call_lowering
-    raise NotImplementedError(
-NotImplementedError: Mosaic kernels cannot be automatically partitioned. Please wrap the call in a shard_map.
-Traceback (most recent call last):
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/scripts/run_pilot_15m.py", line 460, in <module>
-    raise SystemExit(main())
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/scripts/run_pilot_15m.py", line 318, in main
-    base_res = run_training_arm(
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/scripts/run_pilot_15m.py", line 100, in run_training_arm
-    warmup_params, warmup_opt_state, _ = jitted_step(
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/scripts/phase7_experiments.py", line 127, in step_fn
-    (loss, aux), raw_grads = jax.value_and_grad(loss_fn, has_aux=True)(params)
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/scripts/phase7_experiments.py", line 124, in loss_fn
-    loss_val, aux = model.loss(p, tokens, targets, cos_angles=cos_angles, sin_angles=sin_angles)
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/src/baseline.py", line 270, in loss
-    hidden = self._hidden(params, tokens, cos_angles, sin_angles)
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/src/baseline.py", line 204, in _hidden
-    x = layer_fn(x, layer, cos_angles, sin_angles)
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/src/baseline.py", line 108, in _baseline_layer_forward
-    attn_out = standard_flash_attention(
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/src/kernels/pallas_flash_attention.py", line 292, in standard_flash_attention
-    return flash_attention(
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/venv/lib/python3.10/site-packages/jax/experimental/pallas/ops/tpu/flash_attention.py", line 199, in flash_attention
-    return _flash_attention(
-jax._src.source_info_util.JaxStackTraceBeforeTransformation: NotImplementedError: Mosaic kernels cannot be automatically partitioned. Please wrap the call in a shard_map.
-
-The preceding stack trace is the source of the JAX operation that, once transformed by JAX, triggered the following exception.
-
---------------------
-
-The above exception was the direct cause of the following exception:
-
-jax.errors.SimplifiedTraceback: For simplicity, JAX has removed its internal frames from the traceback of the following exception. Set JAX_TRACEBACK_FILTERING=off to include these.
-
-The above exception was the direct cause of the following exception:
-
-Traceback (most recent call last):
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/scripts/run_pilot_15m.py", line 460, in <module>
-    raise SystemExit(main())
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/scripts/run_pilot_15m.py", line 318, in main
-    base_res = run_training_arm(
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/scripts/run_pilot_15m.py", line 100, in run_training_arm
-    warmup_params, warmup_opt_state, _ = jitted_step(
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/venv/lib/python3.10/site-packages/jax/_src/pallas/pallas_call.py", line 1319, in _pallas_call_lowering
-    return mlir.lower_per_platform(ctx, "pallas_call",
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/venv/lib/python3.10/site-packages/jax/_src/pallas/pallas_call.py", line 1292, in tpu_lowering
-    return mosaic_tpu_backend.pallas_call_tpu_lowering_rule(
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/venv/lib/python3.10/site-packages/jax/_src/pallas/mosaic/pallas_call_registration.py", line 251, in pallas_call_tpu_lowering_rule
-    out_nodes = mosaic.lower_module_to_custom_call(
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/venv/lib/python3.10/site-packages/jax/_src/tpu_custom_call.py", line 634, in lower_module_to_custom_call
-    return _tpu_custom_call_lowering(
-  File "/tmp/algebraic-phase7-6af306ae88aa-20260923T110935Z/venv/lib/python3.10/site-packages/jax/_src/tpu_custom_call.py", line 296, in _tpu_custom_call_lowering
-    raise NotImplementedError(
-NotImplementedError: Mosaic kernels cannot be automatically partitioned. Please wrap the call in a shard_map.
-##### Command execution on worker 3 failed with exit status 1. Continuing.
-##### Command execution on worker 1 failed with exit status 1. Continuing.
-##### Command execution on worker 2 failed with exit status 1. Continuing.
-##### Command execution on worker 0 failed with exit status 1. Continuing.
+Overall Phase 7 Result: TPU PASS

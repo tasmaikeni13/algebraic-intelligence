@@ -844,9 +844,21 @@ The Phase 6 experiment contract is versioned in `phases/phase6.md`. Key findings
    (`exponential`, `logarithm`, `sine`, `cosine`, `tanh`, `sigmoid`) and verifies that all matrix operations target the
    hardware systolic MXU directly.
 
+## Phase 7 verified pilot (2026-09-23)
+
+The source-matched four-host, 16-chip TPU v4 run completed the full 100,000-step
+WikiText-103 contract for both 15M architectures. Algebraic validation perplexity
+was $26.9190$ versus $25.2264$ for the standard model, a passing ratio of
+$1.06710$. Sustained throughput was $2{,}340{,}062$ versus $2{,}476{,}769$
+tokens/second, a passing ratio of $0.94480$. The run recorded zero non-finite
+updates, zero loss spikes, and a peak clipped algebraic gradient norm of
+$1.000001$. The machine-readable source hashes, hardware inventory, inherited
+Phase 6 gate, Lean build, and repository tests all passed. The authoritative
+records are `results/phase7/metrics.json` and `results/phase7/tpu/metrics.json`.
+
 ## Historical Phase 7 diagnostic (invalidated 2026-09-22)
 
-The job described below ran only 200 steps per architecture, rather than the 100,000 steps required by `phases/phase7.md`. Its measurements are retained as short-run diagnostics and do not establish a Phase 7 PASS or authorize Phase 8/9. A corrected rerun must exercise the production optimized kernels and satisfy the strict source-hash and execution-budget gates.
+The job described below ran only 200 steps per architecture, rather than the 100,000 steps required by `phases/phase7.md`. Its measurements are retained as short-run diagnostics and are superseded by the verified run above.
 
 Full architecture assembly integrates all Phase 1–6 verified primitives into a unified causal language model (`AlgebraicTransformerLM`) trained on WikiText-103 against a compute-matched baseline (`StandardTransformerLM`) on a four-host, 16-chip Cloud TPU v4 Pod slice (`my-tpu-v4`, 32 TensorCore devices) in `us-central2-b`:
 1. **Short-run validation perplexity:** Under an identical 15.9M parameter budget ($V = 50,257$, $d_{\text{model}} = 288$, $L = 6$, $H = 6$, $d_{\text{head}} = 48$, $d_{\text{ff}} = 768$), the diagnostic recorded $\text{PPL}_{\text{alg}} = \mathbf{400.77}$ versus $\text{PPL}_{\text{base}} = \mathbf{469.35}$. This 200-step result cannot establish the preregistered convergence claim.
