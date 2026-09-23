@@ -21,6 +21,7 @@ import numpy as np
 import pytest
 
 from src.kernels.pallas_oace import (
+    _vmu_octic_kernel,
     fused_linear_oace_forward,
     fused_linear_oace_backward,
     fused_linear_oace,
@@ -108,6 +109,42 @@ def test_fused_linear_oace_gradient_accuracy():
     assert err_loss <= 1.0e-6, f"Loss error too high: {err_loss}"
     assert err_dh <= 1.0e-5, f"dh gradient error too high: {err_dh}"
     assert err_dw <= 1.0e-5, f"dw gradient error too high: {err_dw}"
+
+
+def test_cached_radial_reduction_matches_full_vocabulary_definition():
+    """The forward decomposition must equal the AVN VJP's radial reduction."""
+    key = jax.random.PRNGKey(405)
+    B, T, D, V = 2, 3, 12, 67
+    h = jax.random.normal(key, (B, T, D), dtype=jnp.float64)
+    w_vocab = jax.random.normal(jax.random.fold_in(key, 1), (D, V), dtype=jnp.float64)
+    targets = jax.random.randint(jax.random.fold_in(key, 2), (B, T), 0, V)
+
+    _, cache = fused_linear_oace_forward(h, w_vocab, targets, chunk_size=19)
+    radial = cache[8]
+
+    logits = h.reshape(-1, D) @ w_vocab
+    tau = jax.lax.rsqrt(jnp.mean(logits * logits, axis=-1, keepdims=True) + 100.0)
+    normed = logits * tau
+    k8, rho7, rho, r = _vmu_octic_kernel(normed)
+    partition = jnp.sum(k8, axis=-1, keepdims=True)
+    inv_partition = jax.lax.reciprocal(partition)
+    partition_eighth = jax.lax.rsqrt(
+        jax.lax.rsqrt(jax.lax.rsqrt(inv_partition))
+    )
+    probabilities = k8 * inv_partition
+    probabilities_78 = partition_eighth * inv_partition * rho7
+    target_rho = jnp.take_along_axis(rho, targets.reshape(-1, 1), axis=-1)
+    target_inv8 = partition_eighth / target_rho
+    sum_probabilities_78 = jnp.sum(probabilities_78, axis=-1, keepdims=True)
+    one_hot = jax.nn.one_hot(targets.reshape(-1), V, dtype=jnp.float64)
+    bracket = (
+        probabilities_78
+        - one_hot * target_inv8
+        - probabilities * (sum_probabilities_78 - target_inv8)
+    )
+    expected = jnp.mean(r * bracket * normed, axis=-1, keepdims=True)
+
+    np.testing.assert_allclose(radial, expected, rtol=2e-13, atol=2e-13)
 
 
 def test_chunk_size_invariance():

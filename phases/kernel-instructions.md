@@ -72,15 +72,19 @@ This forces massive gradient accumulation splits and heavy HBM swapping.
 ### 3.2 Tiled Fused Linear-OACE Algorithm
 Fuse the final hidden state projection $h_t W_{\text{vocab}}$ directly with the OACE loss:
 1. Divide the vocabulary $V$ into chunks of $V_{\text{chunk}} = 4096$ tokens.
-2. For each chunk $c \in [0, V / V_{\text{chunk}})$:
-   - Compute chunk logits: $z_c = h_t W_{\text{vocab}, c} \in \mathbb{R}^{B_r \times V_{\text{chunk}}}$.
-   - Compute local octic powers $k_8$ and local sum $\sum k_8$.
-   - If target token $y_t \in c$, cache $\rho_{y_t}$.
-3. Reduce scalar partition sum $S = \sum_c \text{local\_sum}$ across chunks (pure scalar reduction).
-4. Evaluate scalar 3-rsqrt cascade:
+2. In the first forward pass, compute chunk logits and accumulate their row-wise
+   sum of squares for AVN without retaining the full vocabulary tensor.
+3. In the second forward pass, normalize each chunk and accumulate $\sum k_8$,
+   $\sum \rho^7$, the target $\rho$, and the three compact sums needed by the
+   AVN radial derivative.
+4. Reduce scalar partition sum $S = \sum_c \text{local\_sum}$ and evaluate the
+   scalar 3-rsqrt cascade:
    $$S^{1/8} = \text{rsqrt}(\text{rsqrt}(\text{rsqrt}(1.0 / S)))$$
-5. Evaluate OACE loss and immediately compute backward gradient vector in the same tile, streaming gradient updates directly to $W_{\text{vocab}}$ and back to $h_t$.
-6. **Result**: Zero materialization of the 105 GB logit tensor in HBM. Per-chip memory drops to $< 500\text{ MB}$, and throughput surges.
+5. Form the OACE loss and cached per-token radial scalar from those reductions.
+   Recompute each vocabulary tile once in backward and stream updates directly
+   to $W_{\text{vocab}}$ and $h_t$.
+6. **Result**: three projection sweeps per optimizer update, with no full
+   $(B,T,V)$ logit tensor materialized in HBM.
 
 ---
 

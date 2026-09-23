@@ -16,10 +16,11 @@ directly with the Octic Algebraic Cross-Entropy (OACE / L_1/8) proper scoring lo
 3. Reduces scalar partition sum S = sum_c local_sum across chunks.
 4. Evaluates scalar 3-rsqrt cascade:
        S^{1/8} = rsqrt(rsqrt(rsqrt(1.0 / S)))
-5. Evaluates OACE loss and computes the backward gradient vector in the same tile,
-   streaming gradient updates directly to W_vocab and back to h_t.
-6. Zero materialization of the (B, T, V) logit tensor in HBM. Per-chip memory drops
-   to < 500 MB.
+5. Accumulates the compact radial reduction needed by the AVN derivative while
+   the forward tiles are resident, then streams the backward gradient directly
+   to W_vocab and h_t in one vocabulary pass.
+6. Zero materialization of the (B, T, V) logit tensor in HBM; temporary logit
+   storage is bounded by one vocabulary chunk.
 
 Strictly zero transcendental functions (0 exp, 0 log, 0 trig).
 """
@@ -102,7 +103,10 @@ def fused_linear_oace_forward(
     # Pass 2: Chunked octic partition sum and target rho extraction
     sum_k8 = jnp.zeros((N, 1), dtype=calc_dtype)
     sum_rho7 = jnp.zeros((N, 1), dtype=calc_dtype)
+    sum_r_y_k8 = jnp.zeros((N, 1), dtype=calc_dtype)
+    sum_r_y_rho7 = jnp.zeros((N, 1), dtype=calc_dtype)
     rho_target = jnp.zeros((N, 1), dtype=calc_dtype)
+    target_r_y = jnp.zeros((N, 1), dtype=calc_dtype)
 
     for c in range(num_chunks):
         c_start = c * chunk_size
@@ -111,21 +115,41 @@ def fused_linear_oace_forward(
         z_c = jnp.matmul(h_flat.astype(calc_dtype), w_c)
         normed_c = z_c * tau
 
-        k8_c, rho7_c, rho_c, _ = _vmu_octic_kernel(normed_c)
+        k8_c, rho7_c, rho_c, r_c = _vmu_octic_kernel(normed_c)
+        r_y_c = r_c * normed_c
         sum_k8 = sum_k8 + jnp.sum(k8_c, axis=-1, keepdims=True)
         sum_rho7 = sum_rho7 + jnp.sum(rho7_c, axis=-1, keepdims=True)
+        sum_r_y_k8 = sum_r_y_k8 + jnp.sum(r_y_c * k8_c, axis=-1, keepdims=True)
+        sum_r_y_rho7 = sum_r_y_rho7 + jnp.sum(
+            r_y_c * rho7_c, axis=-1, keepdims=True
+        )
 
         # Target token extraction within active chunk
         in_chunk = (targets_flat >= c_start) & (targets_flat < c_end)
         local_idx = jnp.clip(targets_flat - c_start, 0, (c_end - c_start) - 1)
         local_rho = jnp.take_along_axis(rho_c, local_idx[:, None], axis=-1)
+        local_r_y = jnp.take_along_axis(r_y_c, local_idx[:, None], axis=-1)
         rho_target = jnp.where(in_chunk[:, None], local_rho, rho_target)
+        target_r_y = jnp.where(in_chunk[:, None], local_r_y, target_r_y)
 
     # Scalar 3-rsqrt cascade on partition sum
     inv_S = lax.reciprocal(sum_k8)
     S_eighth = lax.rsqrt(lax.rsqrt(lax.rsqrt(inv_S)))
-    sum_p78 = (S_eighth * inv_S) * sum_rho7
+    partition_scale = S_eighth * inv_S
+    sum_p78 = partition_scale * sum_rho7
     p_c_inv8 = S_eighth * lax.reciprocal(rho_target)
+
+    # The AVN Jacobian subtracts y * mean(g_y * y).  Expanding the OACE
+    # bracket lets us compute that scalar from three forward reductions:
+    #   sum(r*y*p^(7/8)) - r_t*y_t*p_t^(-1/8)
+    #     - (sum(p^(7/8)) - p_t^(-1/8)) * sum(r*y*p).
+    # Caching it here removes a full vocabulary-projection sweep in backward.
+    scalar_diff = sum_p78 - p_c_inv8
+    radial = (
+        partition_scale * sum_r_y_rho7
+        - target_r_y * p_c_inv8
+        - scalar_diff * inv_S * sum_r_y_k8
+    ) * inv_V
 
     # OACE Loss functional
     loss_per_token = gamma * (
@@ -146,6 +170,7 @@ def fused_linear_oace_forward(
         S_eighth,
         sum_p78,
         p_c_inv8,
+        radial,
         gamma,
         chunk_size,
         orig_shape,
@@ -171,6 +196,7 @@ def fused_linear_oace_backward(
         S_eighth,
         sum_p78,
         p_c_inv8,
+        radial,
         gamma,
         chunk_size,
         orig_shape,
@@ -180,35 +206,13 @@ def fused_linear_oace_backward(
     d_model = h_flat.shape[-1]
     vocab_size = w_vocab.shape[-1]
     N = h_flat.shape[0]
-    inv_V = float(1.0 / vocab_size)
     num_chunks = math.ceil(vocab_size / chunk_size)
 
     scalar_diff = sum_p78 - p_c_inv8
     upstream_scale = (8.0 * gamma / float(N)) * g.astype(calc_dtype)
 
-    # Pass 1 of backward: compute radial reduction term
-    radial_total = jnp.zeros((N, 1), dtype=calc_dtype)
-    for c in range(num_chunks):
-        c_start = c * chunk_size
-        c_end = min(c_start + chunk_size, vocab_size)
-        cur_w = c_end - c_start
-        w_c = w_vocab[:, c_start:c_end].astype(calc_dtype)
-        z_c = jnp.matmul(h_flat.astype(calc_dtype), w_c)
-        normed_c = z_c * tau
-
-        k8_c, rho7_c, _, r_c = _vmu_octic_kernel(normed_c)
-        p_c = k8_c * inv_S
-        p_78_c = (S_eighth * inv_S) * rho7_c
-
-        indices = jnp.arange(c_start, c_end)
-        one_hot = (targets_flat[:, None] == indices[None, :]).astype(calc_dtype)
-        bracket = p_78_c - one_hot * p_c_inv8 - p_c * scalar_diff
-        r_bracket = r_c * bracket
-        radial_total = radial_total + jnp.sum(r_bracket * normed_c, axis=-1, keepdims=True)
-
-    radial = radial_total * inv_V
-
-    # Pass 2 of backward: stream gradients into dW_c and dh
+    # Single backward pass: stream gradients into dW_c and dh.  The radial
+    # reduction was accumulated without materializing logits during forward.
     dh_acc = jnp.zeros((N, d_model), dtype=calc_dtype)
     dw_chunks = []
 
