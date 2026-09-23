@@ -13,11 +13,6 @@ import re
 import tokenize
 import pytest
 
-import triton
-from src.kernels.triton_afa import _triton_afa_fwd_kernel, _triton_afa_bwd_kernel
-from src.kernels.triton_oace import _triton_linear_oace_fwd_kernel
-
-
 FORBIDDEN_IDENTIFIERS = {
     "exp", "expm1", "exp2", "log", "log1p", "log2", "log10",
     "sin", "cos", "tan", "tanh", "sinh", "cosh", "sigmoid", "logistic", "erf", "erfc",
@@ -53,6 +48,10 @@ def test_zero_transcendental_ast_audit_triton(filename):
 
 def test_triton_kernels_are_valid_jit_functions():
     """Verify that all Triton kernels are valid JITFunction instances."""
+    triton = pytest.importorskip("triton")
+    from src.kernels.triton_afa import _triton_afa_fwd_kernel, _triton_afa_bwd_kernel
+    from src.kernels.triton_oace import _triton_linear_oace_fwd_kernel
+
     assert isinstance(_triton_afa_fwd_kernel, triton.runtime.JITFunction)
     assert isinstance(_triton_afa_bwd_kernel, triton.runtime.JITFunction)
     assert isinstance(_triton_linear_oace_fwd_kernel, triton.runtime.JITFunction)
