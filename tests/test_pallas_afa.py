@@ -321,6 +321,38 @@ def test_analytical_backward_gradient_accuracy():
     assert err_dv <= 1.0e-5, f"dv gradient error too high: {err_dv}"
 
 
+def test_bfloat16_backward_uses_fp32_accumulation_with_bounded_error():
+    """MXU-friendly BF16 dot inputs must stay close to the FP32 backward path."""
+    key = jax.random.PRNGKey(812)
+    shape = (1, 1, 128, 32)
+    q = jax.random.normal(key, shape, dtype=jnp.bfloat16)
+    k = jax.random.normal(jax.random.fold_in(key, 1), shape, dtype=jnp.bfloat16)
+    v = jax.random.normal(jax.random.fold_in(key, 2), shape, dtype=jnp.bfloat16)
+    g_out = jax.random.normal(jax.random.fold_in(key, 3), shape, dtype=jnp.bfloat16)
+    kwargs = {"causal": True, "block_q": 64, "block_k": 64}
+
+    out, denominator = tiled_afa_forward(
+        q, k, v, return_denominator=True, **kwargs
+    )
+    mixed = tiled_afa_backward(q, k, v, out, denominator, g_out, **kwargs)
+    fp32 = tiled_afa_backward(
+        q.astype(jnp.float32),
+        k.astype(jnp.float32),
+        v.astype(jnp.float32),
+        out.astype(jnp.float32),
+        denominator,
+        g_out.astype(jnp.float32),
+        **kwargs,
+    )
+
+    for actual, expected in zip(mixed, fp32):
+        assert actual.dtype == jnp.bfloat16
+        max_relative_error = np.max(
+            np.abs(np.asarray(actual, dtype=np.float32) - np.asarray(expected))
+        ) / np.max(np.abs(np.asarray(expected)))
+        assert max_relative_error <= 6e-3
+
+
 def test_pallas_afa_custom_vjp():
     """Verify custom VJP pallas_afa runs through jax.value_and_grad cleanly."""
     key = jax.random.PRNGKey(302)

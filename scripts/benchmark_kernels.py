@@ -137,7 +137,7 @@ def benchmark_loss_head_to_head(N: int = 512, d_model: int = 768, vocab_size: in
     # 3. Fused Algebraic Linear + OACE (vocabulary-chunked, zero (N, V) allocation)
     @jax.jit
     def fused_algebraic_oace(h_arr, w_arr, targets_arr):
-        return fused_linear_oace(h_arr, w_arr, targets_arr, chunk_size=4096)
+        return fused_linear_oace(h_arr, w_arr, targets_arr, chunk_size=16384)
 
     # Warmup
     for _ in range(warmup):

@@ -430,6 +430,18 @@ def tiled_afa_backward(
     num_q_blocks = seq_len // block_q
     num_k_blocks = seq_len // block_k
     accum_dtype = jnp.float64 if q.dtype == jnp.float64 else jnp.float32
+    reduced_input = q.dtype in (jnp.bfloat16, jnp.float16)
+    dot_dtype = q.dtype if reduced_input else accum_dtype
+    dot_precision = lax.Precision.DEFAULT if reduced_input else lax.Precision.HIGHEST
+
+    def accum_matmul(lhs, rhs):
+        """Use MXU input precision while retaining FP32 dot accumulation."""
+        return jnp.matmul(
+            lhs.astype(dot_dtype),
+            rhs.astype(dot_dtype),
+            precision=dot_precision,
+            preferred_element_type=accum_dtype,
+        )
 
     # Precompute scalar row contraction E_i = sum_d g_out,id * out_id once
     E = jnp.sum(g_out.astype(accum_dtype) * out.astype(accum_dtype), axis=-1, keepdims=True)
@@ -438,22 +450,29 @@ def tiled_afa_backward(
     dk = jnp.zeros_like(k, dtype=accum_dtype)
     dv = jnp.zeros_like(v, dtype=accum_dtype)
 
-    def query_block(i, gradients):
-        dq, dk, dv = gradients
+    for i in range(num_q_blocks):
         q_i = lax.dynamic_slice_in_dim(q, i * block_q, block_q, axis=2)
         g_out_i = lax.dynamic_slice_in_dim(g_out, i * block_q, block_q, axis=2)
         d_i = lax.dynamic_slice_in_dim(d_total, i * block_q, block_q, axis=2)
         E_i = lax.dynamic_slice_in_dim(E, i * block_q, block_q, axis=2)
 
         dq_i = jnp.zeros_like(q_i, dtype=accum_dtype)
+        max_k = (
+            min(num_k_blocks, ((i + 1) * block_q + block_k - 1) // block_k)
+            if causal
+            else num_k_blocks
+        )
 
-        def key_block(j, key_gradients):
-            dq_i, dk, dv = key_gradients
+        # These are static Python loops so causal attention does not compile or
+        # execute matrix multiplications for key tiles wholly after the query
+        # tile.  The former full rectangular loop masked those tiles only after
+        # the score matmul, wasting 37.5% of backward tiles at T=512/B=128.
+        for j in range(max_k):
             k_j = lax.dynamic_slice_in_dim(k, j * block_k, block_k, axis=2)
             v_j = lax.dynamic_slice_in_dim(v, j * block_k, block_k, axis=2)
 
             # Recompute raw scores and rational kernel in registers
-            s_ij = jnp.matmul(q_i.astype(accum_dtype), jnp.swapaxes(k_j.astype(accum_dtype), -1, -2)) * scale
+            s_ij = accum_matmul(q_i, jnp.swapaxes(k_j, -1, -2)) * scale
             s_sq = s_ij * s_ij
             rad = 1.0 + s_sq
             r = lax.rsqrt(rad)
@@ -474,35 +493,26 @@ def tiled_afa_backward(
                 w_unnorm = jnp.where(cmask[None, None, :, :], w_unnorm, 0.0)
 
             w_ij = w_unnorm / d_i
-            g_w_ij = jnp.matmul(g_out_i.astype(accum_dtype), jnp.swapaxes(v_j.astype(accum_dtype), -1, -2))
+            g_w_ij = accum_matmul(g_out_i, jnp.swapaxes(v_j, -1, -2))
 
             ds_ij = (8.0 * scale) * r * w_ij * (g_w_ij - E_i)
             if causal:
                 ds_ij = jnp.where(cmask[None, None, :, :], ds_ij, 0.0)
 
             # Stream updates into dQ, dK, dV
-            dq_i = dq_i + jnp.matmul(ds_ij, k_j.astype(accum_dtype))
+            dq_i = dq_i + accum_matmul(ds_ij, k_j)
 
-            dk_j = jnp.matmul(jnp.swapaxes(ds_ij, -1, -2), q_i.astype(accum_dtype))
-            dv_j = jnp.matmul(jnp.swapaxes(w_ij, -1, -2), g_out_i.astype(accum_dtype))
+            dk_j = accum_matmul(jnp.swapaxes(ds_ij, -1, -2), q_i)
+            dv_j = accum_matmul(jnp.swapaxes(w_ij, -1, -2), g_out_i)
 
             # Accumulate into dk and dv slices
             curr_dk_j = lax.dynamic_slice_in_dim(dk, j * block_k, block_k, axis=2)
             curr_dv_j = lax.dynamic_slice_in_dim(dv, j * block_k, block_k, axis=2)
             dk = lax.dynamic_update_slice_in_dim(dk, curr_dk_j + dk_j, j * block_k, axis=2)
             dv = lax.dynamic_update_slice_in_dim(dv, curr_dv_j + dv_j, j * block_k, axis=2)
-            return dq_i, dk, dv
 
-        dq_i, dk, dv = lax.fori_loop(
-            0, num_k_blocks, key_block, (dq_i, dk, dv)
-        )
         curr_dq_i = lax.dynamic_slice_in_dim(dq, i * block_q, block_q, axis=2)
         dq = lax.dynamic_update_slice_in_dim(dq, curr_dq_i + dq_i, i * block_q, axis=2)
-        return dq, dk, dv
-
-    dq, dk, dv = lax.fori_loop(
-        0, num_q_blocks, query_block, (dq, dk, dv)
-    )
 
     return dq.astype(q.dtype), dk.astype(k.dtype), dv.astype(v.dtype)
 

@@ -87,6 +87,9 @@ graph TD
 Instruct the creation and verification of the following files targeting the Cloud TPU v4-32 Pod slice:
 1. **`src/model.py`**:
    - `AlgebraicTransformerLM`: Flax / JAX full model integrating `alu_glu`, parameter-free `avn`, `a_softmax` with `pallas_afa`, `apply_ago_rotations`, `oace_loss`, and `algebraic_adamw`.
+   - The fused Linear-OACE head computes vocabulary normalization through the
+     exact $h(WW^\mathsf{T})h^\mathsf{T}$ Gram identity and uses profiled
+     16,384-token vocabulary tiles, while retaining a single-tile memory bound.
    - `StandardTransformerLM`: Baseline model implementing SwiGLU, RMSNorm with learnable $\boldsymbol{\gamma}$, exponential Softmax, RoPE, cross-entropy, and AdamW.
 2. **`src/mesh.py`**:
    - SPMD distributed sharding topology defining 16 TPU v4 devices (Cloud TPU v4-32 across 4 hosts) in a 3D Torus mesh via `jax.sharding.Mesh` with axes `('data', 'fsdp', 'model')`.

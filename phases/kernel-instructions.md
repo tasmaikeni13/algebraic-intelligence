@@ -71,10 +71,13 @@ This forces massive gradient accumulation splits and heavy HBM swapping.
 
 ### 3.2 Tiled Fused Linear-OACE Algorithm
 Fuse the final hidden state projection $h_t W_{\text{vocab}}$ directly with the OACE loss:
-1. Divide the vocabulary $V$ into chunks of $V_{\text{chunk}} = 4096$ tokens.
-2. In the first forward pass, compute chunk logits and accumulate their row-wise
-   sum of squares for AVN without retaining the full vocabulary tensor.
-3. In the second forward pass, normalize each chunk and accumulate $\sum k_8$,
+1. Divide the vocabulary $V$ into chunks. The profiled TPU production default is
+   $V_{\text{chunk}} = 16{,}384$; smaller test and memory-constrained runs may
+   override it.
+2. Compute every row's exact vocabulary sum of squares through the compact Gram
+   identity $\|hW\|_2^2 = h(WW^\mathsf{T})h^\mathsf{T}$, avoiding a first
+   vocabulary projection pass.
+3. In one forward vocabulary pass, normalize each chunk and accumulate $\sum k_8$,
    $\sum \rho^7$, the target $\rho$, and the three compact sums needed by the
    AVN radial derivative.
 4. Reduce scalar partition sum $S = \sum_c \text{local\_sum}$ and evaluate the
@@ -83,8 +86,9 @@ Fuse the final hidden state projection $h_t W_{\text{vocab}}$ directly with the 
 5. Form the OACE loss and cached per-token radial scalar from those reductions.
    Recompute each vocabulary tile once in backward and stream updates directly
    to $W_{\text{vocab}}$ and $h_t$.
-6. **Result**: three projection sweeps per optimizer update, with no full
-   $(B,T,V)$ logit tensor materialized in HBM.
+6. **Result**: two vocabulary projection sweeps plus one compact
+   $d_{\text{model}}\times d_{\text{model}}$ Gram product per optimizer update,
+   with no full $(B,T,V)$ logit tensor materialized in HBM.
 
 ---
 

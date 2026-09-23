@@ -8,18 +8,20 @@ This forces massive gradient accumulation splits and heavy HBM swapping.
 The Fused Linear + OACE Projection Head fuses the final hidden state projection
     z = h_t @ W_vocab
 directly with the Octic Algebraic Cross-Entropy (OACE / L_1/8) proper scoring loss:
-1. Divides the vocabulary V into chunks of V_chunk = 4096 tokens (or user-defined).
-2. For each chunk c:
+1. Computes the exact vocabulary second moment through the compact Gram matrix
+   W_vocab @ W_vocab.T, avoiding a vocabulary-wide normalization pass.
+2. Divides the vocabulary V into chunks (16,384 tokens in the production model).
+3. For each chunk c:
    - Computes chunk logits z_c = h_t @ W_vocab,c in SRAM registers.
-   - Computes local sum-of-squares and local octic powers k_8, rho^7.
+   - Computes local octic powers k_8, rho^7 and radial reductions.
    - If target token y_t in c, caches rho_y_t.
-3. Reduces scalar partition sum S = sum_c local_sum across chunks.
-4. Evaluates scalar 3-rsqrt cascade:
+4. Reduces scalar partition sum S = sum_c local_sum across chunks.
+5. Evaluates scalar 3-rsqrt cascade:
        S^{1/8} = rsqrt(rsqrt(rsqrt(1.0 / S)))
-5. Accumulates the compact radial reduction needed by the AVN derivative while
+6. Accumulates the compact radial reduction needed by the AVN derivative while
    the forward tiles are resident, then streams the backward gradient directly
    to W_vocab and h_t in one vocabulary pass.
-6. Zero materialization of the (B, T, V) logit tensor in HBM; temporary logit
+7. Zero materialization of the (B, T, V) logit tensor in HBM; temporary logit
    storage is bounded by one vocabulary chunk.
 
 Strictly zero transcendental functions (0 exp, 0 log, 0 trig).
@@ -89,18 +91,28 @@ def fused_linear_oace_forward(
     inv_V = float(1.0 / vocab_size)
     num_chunks = math.ceil(vocab_size / chunk_size)
 
-    # Pass 1: Chunked sum of squares for AVN normalization
-    ss_total = jnp.zeros((N, 1), dtype=calc_dtype)
-    for c in range(num_chunks):
-        c_start = c * chunk_size
-        c_end = min(c_start + chunk_size, vocab_size)
-        w_c = w_vocab[:, c_start:c_end].astype(calc_dtype)
-        z_c = jnp.matmul(h_flat.astype(calc_dtype), w_c)
-        ss_total = ss_total + jnp.sum(z_c * z_c, axis=-1, keepdims=True)
+    # Exact Gram factorization of ||h W||² = h (W Wᵀ) hᵀ.  Since d_model is
+    # far smaller than the number of tokens in a training batch, this replaces
+    # one N-by-V projection sweep with a compact d_model-by-d_model product.
+    # The custom VJP below still streams the exact logit-space derivative.
+    h_calc = h_flat.astype(calc_dtype)
+    reduced_weights = w_vocab.dtype in (jnp.bfloat16, jnp.float16)
+    gram_input = w_vocab if reduced_weights else w_vocab.astype(calc_dtype)
+    vocab_gram = jnp.matmul(
+        gram_input,
+        gram_input.T,
+        precision=lax.Precision.DEFAULT if reduced_weights else lax.Precision.HIGHEST,
+        preferred_element_type=calc_dtype,
+    )
+    ss_total = jnp.sum(
+        jnp.matmul(h_calc, vocab_gram) * h_calc,
+        axis=-1,
+        keepdims=True,
+    )
 
     tau = lax.rsqrt(ss_total * inv_V + eps_vocab)
 
-    # Pass 2: Chunked octic partition sum and target rho extraction
+    # Vocabulary pass: octic partition sums, target rho, and radial reductions
     sum_k8 = jnp.zeros((N, 1), dtype=calc_dtype)
     sum_rho7 = jnp.zeros((N, 1), dtype=calc_dtype)
     sum_r_y_k8 = jnp.zeros((N, 1), dtype=calc_dtype)

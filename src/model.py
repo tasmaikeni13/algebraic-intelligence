@@ -62,7 +62,9 @@ class ModelConfig:
     param_dtype: Any = jnp.float32
     remat: bool = False
     attention_block_size: int = 128
-    vocab_chunk_size: int = 4096
+    # TPU profiling at the production vocabulary width favors four 16K tiles.
+    # This remains well below V, so the fused head never materializes N x V.
+    vocab_chunk_size: int = 16384
 
 
 def count_parameters(params: Any) -> int:
