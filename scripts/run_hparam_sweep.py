@@ -43,7 +43,7 @@ from src.baseline import StandardTransformerLM, _build_standard_rope
 from src.optimizer import algebraic_adamw, ards_schedule
 from src.attention import build_cayley_rotary_matrix
 from src.dataset import ShardedTokenLoader
-from src.mesh import create_tpu_mesh, ModelSharding
+from src.mesh import compile_data_parallel_step, create_tpu_mesh, ModelSharding
 from scripts.phase8_records import environment, source_hashes, write_json
 from scripts.phase8_experiments import (
     HparamConfig,
@@ -199,6 +199,7 @@ def run_sweep_arm(
             rotary_params=rotary_dev,
             max_grad_norm=hparams.max_grad_norm,
             accum_steps=accum_steps,
+            data_axis_names=mesh.axis_names,
         )
     else:
         model_cfg = get_125m_baseline_config()
@@ -226,6 +227,7 @@ def run_sweep_arm(
             sin_angles=sin_dev,
             max_grad_norm=hparams.max_grad_norm,
             accum_steps=accum_steps,
+            data_axis_names=mesh.axis_names,
         )
 
     # Initialize weights
@@ -270,11 +272,12 @@ def run_sweep_arm(
     params = jax.device_put(params, sharding.replicated)
     opt_state = jax.device_put(opt_state, sharding.replicated)
 
-    # Compile step function
-    jitted_step = jax.jit(
+    # Keep Mosaic/Pallas calls inside a per-device program and explicitly
+    # average gradients in the step function before optimizer updates.
+    jitted_step = compile_data_parallel_step(
         step_fn,
-        in_shardings=(sharding.replicated, sharding.replicated, data_sharding, data_sharding),
-        out_shardings=(sharding.replicated, sharding.replicated, sharding.replicated),
+        mesh,
+        P(None, ("data", "fsdp", "model"), None),
     )
 
     # Compile with step 0

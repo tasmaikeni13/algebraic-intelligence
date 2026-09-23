@@ -89,6 +89,7 @@ def train_step_algebraic_fn(
     optimizer_tx,
     rotary_params,
     max_grad_norm: float = 1.0,
+    data_axis_names: Optional[Tuple[str, ...]] = None,
 ):
     """Factory returning a JIT-compilable single training step for AlgebraicTransformerLM."""
     def step_fn(params, opt_state, tokens, targets):
@@ -97,6 +98,12 @@ def train_step_algebraic_fn(
             return loss_val, aux
 
         (loss, aux), raw_grads = jax.value_and_grad(loss_fn, has_aux=True)(params)
+        if data_axis_names:
+            loss = lax.pmean(loss, axis_name=data_axis_names)
+            raw_grads = jax.tree_util.tree_map(
+                lambda grad: lax.pmean(grad, axis_name=data_axis_names),
+                raw_grads,
+            )
         clipped_grads, grad_norm = _clip_grad_norm_algebraic(raw_grads, max_grad_norm)
         updates, new_opt_state = optimizer_tx.update(clipped_grads, opt_state, params)
         new_params = jax.tree_util.tree_map(lambda p, u: (p + u).astype(p.dtype), params, updates)
@@ -117,6 +124,7 @@ def train_step_baseline_fn(
     cos_angles,
     sin_angles,
     max_grad_norm: float = 1.0,
+    data_axis_names: Optional[Tuple[str, ...]] = None,
 ):
     """Factory returning a JIT-compilable single training step for StandardTransformerLM."""
     def step_fn(params, opt_state, tokens, targets):
@@ -125,6 +133,12 @@ def train_step_baseline_fn(
             return loss_val, aux
 
         (loss, aux), raw_grads = jax.value_and_grad(loss_fn, has_aux=True)(params)
+        if data_axis_names:
+            loss = lax.pmean(loss, axis_name=data_axis_names)
+            raw_grads = jax.tree_util.tree_map(
+                lambda grad: lax.pmean(grad, axis_name=data_axis_names),
+                raw_grads,
+            )
         clipped_grads, grad_norm = _clip_grad_norm_algebraic(raw_grads, max_grad_norm)
         updates, new_opt_state = optimizer_tx.update(clipped_grads, opt_state, params)
         new_params = jax.tree_util.tree_map(lambda p, u: (p + u).astype(p.dtype), params, updates)

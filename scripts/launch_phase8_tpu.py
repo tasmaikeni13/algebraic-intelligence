@@ -102,6 +102,7 @@ def main():
 
     print("Running host unit tests across workers...", flush=True)
     ssh(f"cd {quote(remote)} && JAX_PLATFORMS=cpu JAX_ENABLE_X64=1 venv/bin/python -m pytest -q tests/test_hparam_contracts.py", "host-tests.log")
+    ssh(f"mkdir -p {quote(remote+'/measurements')}", "mkdir-measurements.log")
     (out / "snapshot.txt").write_text(f"commit={commit}\nremote_directory={remote}\n")
 
     seeds_str = " ".join(str(s) for s in args.seeds)
@@ -115,6 +116,7 @@ def main():
         f"--log-every {args.log_every}"
     )
 
+    run_error = None
     try:
         print("Launching distributed hyperparameter sweep across all 16 TPU v4 chips...", flush=True)
         ssh(cmd, "run.log")
@@ -125,31 +127,36 @@ def main():
             f"--output-dir {quote(remote+'/measurements')}"
         )
         ssh(verify, "verify.log", worker="0")
-    finally:
-        print("Downloading sweep results from workers...", flush=True)
-        download = out / "download" / label
-        download.mkdir(parents=True, exist_ok=True)
-        for worker in range(4):
-            try:
-                run([
-                    "gcloud", "compute", "tpus", "tpu-vm", "scp", "--recurse",
-                    f"{args.name}:{remote}/measurements", str(download / f"worker-{worker}"),
-                    "--zone", args.zone, "--worker", str(worker), "--quiet"
-                ], f"download-{worker}.log")
-            except Exception as e:
-                print(f"Warning downloading from worker {worker}: {e}", flush=True)
+    except Exception as exc:
+        run_error = exc
 
-        candidates = list(download.rglob("metrics.json"))
-        if len(candidates) != 1:
-            raise RuntimeError(f"Expected exactly one coordinator metrics.json, found {len(candidates)}")
-        if candidates:
-            coord_dir = candidates[0].parent
-            for file in coord_dir.iterdir():
-                if file.is_file():
-                    shutil.copy2(file, out / file.name)
-                    # Also copy to results/phase8/
-                    shutil.copy2(file, (ROOT / "results/phase8") / file.name)
-            print(f"Successfully retrieved Phase 8 artifacts to {out} and results/phase8/", flush=True)
+    print("Downloading sweep results from workers...", flush=True)
+    download = out / "download" / label
+    download.mkdir(parents=True, exist_ok=True)
+    download_errors = []
+    for worker in range(4):
+        try:
+            run([
+                "gcloud", "compute", "tpus", "tpu-vm", "scp", "--recurse",
+                f"{args.name}:{remote}/measurements", str(download / f"worker-{worker}"),
+                "--zone", args.zone, "--worker", str(worker), "--quiet"
+            ], f"download-{worker}.log")
+        except Exception as exc:
+            download_errors.append((worker, exc))
+    if run_error is not None:
+        raise run_error
+    if download_errors:
+        raise RuntimeError(f"Failed to download Phase 8 results: {download_errors}")
+    candidates = list(download.rglob("metrics.json"))
+    if len(candidates) != 1:
+        raise RuntimeError(f"Expected exactly one coordinator metrics.json, found {len(candidates)}")
+    coord_dir = candidates[0].parent
+    for file in coord_dir.iterdir():
+        if file.is_file():
+            shutil.copy2(file, out / file.name)
+            # Also copy to results/phase8/
+            shutil.copy2(file, (ROOT / "results/phase8") / file.name)
+    print(f"Successfully retrieved Phase 8 artifacts to {out} and results/phase8/", flush=True)
     return 0
 
 

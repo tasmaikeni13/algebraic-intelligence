@@ -820,7 +820,7 @@ The Phase 5 experiment contract is versioned in `phases/phase5.md`. Key findings
    $\hat v\operatorname{rsqrt}(\hat v)$ with an explicit zero branch. Compiled
    FP32 and BF16 ARDS steps contain two `rsqrt` operations and zero raw `sqrt`.
 
-## Phase 6 implementation audit (2026-09-18)
+## Phase 6 implementation audit (2026-09-23)
 
 The Phase 6 experiment contract is versioned in `phases/phase6.md`. Key findings:
 1. **Pure Additive Tiling in Vector Memory (VMEM):** Algebraic FlashAttention (AFA) completely replaces running-max
@@ -829,7 +829,7 @@ The Phase 6 experiment contract is versioned in `phases/phase6.md`. Key findings
    in VMU registers with strictly zero transcendental library calls.
 2. **Implementation identity and baseline:** Numerical parity, HLO auditing, and
    timing all exercise the real `pallas_afa_forward` kernel. At $L=2048$ and
-   $L=4096$, it reaches throughput ratios $1.0177$ and $1.0266$ against
+   $L=4096$, it reaches throughput ratios $0.9883$ and $0.9986$ against
    `jax.experimental.pallas.ops.tpu.flash_attention`.
 3. **Storage rather than invented bandwidth:** The conservative live tile set
    is 288 KiB within the 16 MiB VMEM budget. Physical HBM utilization is not

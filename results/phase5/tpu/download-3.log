@@ -1,2 +1,2 @@
-Using scp batch size of 1.Attempting to SCP into 1 nodes with a total of 1 workers.
+SSH key found in project metadata; not updating instance.
 SCP: Attempting to connect to worker 3...

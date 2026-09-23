@@ -222,6 +222,7 @@ def train_step_algebraic_fn(
     rotary_params,
     max_grad_norm: float = 1.0,
     accum_steps: int = 16,
+    data_axis_names: Optional[Tuple[str, ...]] = None,
 ):
     """Factory returning a JIT-compilable single training step for AlgebraicTransformerLM with gradient accumulation."""
     def step_fn(params, opt_state, tokens, targets):
@@ -246,6 +247,12 @@ def train_step_algebraic_fn(
             micro_step, (jnp.array(0.0, dtype=jnp.float32), init_grads), (tokens, targets)
         )
 
+        if data_axis_names:
+            total_loss = lax.pmean(total_loss, axis_name=data_axis_names)
+            accum_grads = jax.tree_util.tree_map(
+                lambda grad: lax.pmean(grad, axis_name=data_axis_names),
+                accum_grads,
+            )
         clipped_grads, grad_norm = _clip_grad_norm_algebraic(accum_grads, max_grad_norm)
         updates, new_opt_state = optimizer_tx.update(clipped_grads, opt_state, params)
         new_params = jax.tree_util.tree_map(lambda p, u: (p + u).astype(p.dtype), params, updates)
@@ -267,6 +274,7 @@ def train_step_baseline_fn(
     sin_angles,
     max_grad_norm: float = 1.0,
     accum_steps: int = 16,
+    data_axis_names: Optional[Tuple[str, ...]] = None,
 ):
     """Factory returning a JIT-compilable single training step for StandardTransformerLM with gradient accumulation."""
     def step_fn(params, opt_state, tokens, targets):
@@ -291,6 +299,12 @@ def train_step_baseline_fn(
             micro_step, (jnp.array(0.0, dtype=jnp.float32), init_grads), (tokens, targets)
         )
 
+        if data_axis_names:
+            total_loss = lax.pmean(total_loss, axis_name=data_axis_names)
+            accum_grads = jax.tree_util.tree_map(
+                lambda grad: lax.pmean(grad, axis_name=data_axis_names),
+                accum_grads,
+            )
         clipped_grads, grad_norm = _clip_grad_norm_algebraic(accum_grads, max_grad_norm)
         updates, new_opt_state = optimizer_tx.update(clipped_grads, opt_state, params)
         new_params = jax.tree_util.tree_map(lambda p, u: (p + u).astype(p.dtype), params, updates)

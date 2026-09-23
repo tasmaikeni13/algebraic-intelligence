@@ -1,16 +1,16 @@
 {
   "status": "PASS",
   "passed": true,
-  "elapsed_seconds": 79.39779710769653,
+  "elapsed_seconds": 153.10896492004395,
   "environment": {
     "python": "3.10.12 (main, Aug 31 2026, 10:18:17) [GCC 11.4.0]",
     "platform": "Linux-5.19.0-1022-gcp-x86_64-with-glibc2.35",
-    "hostname": "t1v-n-49ba2866-w-0",
+    "hostname": "t1v-n-0974eafe-w-0",
     "jax": "0.6.2",
     "jaxlib": "0.6.2",
     "numpy": "2.2.6",
     "scipy": "1.15.3",
-    "git_commit": "a79de941f108066baac6a6abb3a30563da1f29ac",
+    "git_commit": "6af306ae88aa38590e14abcd0647f673d708ac5e",
     "git_dirty": true,
     "source_sha256": {
       "formal/AlgebraicTheory/Gate.lean": "1372e78d076a59a436da23b48bc81f2e7540f2448aaa98e9b73db8eeb95f61e9",
@@ -83,9 +83,9 @@
       "scripts/phase6_records.py": "b905cca250db53732ce99cdc730552e0fa762c53bb4d51672ef7ede6530732f5",
       "scripts/run_phase6_tpu.py": "632867c5603fb3acca724bede9642bc406aba3d26176febf382ff89148c4b907",
       "scripts/run_verify_pallas.py": "f386d798519b0b241d804a4ea58317e9c47f8dee375d55dcb87a29a1dc018514",
-      "src/kernels/__init__.py": "7df1c4256c7e99c85cefcbff3d4d93a4c86244b5965864ea96297c715371f3db",
-      "src/kernels/pallas_afa.py": "728b5c60fb29d5df1fd1ac4b6d0e466262edb75097ecf0209246f2bb49da03fa",
-      "tests/test_pallas_afa.py": "9de96feb287efcb4a3826341c13d6e18aa7803e53f9931282e5e346772685048"
+      "src/kernels/__init__.py": "71184fb739caef55d87eff80a401a1475ad8e684b48ddc035dbd7a665d1d7245",
+      "src/kernels/pallas_afa.py": "621dfaab208687e52e6e7b3253769843d8c77eb4599db6b4da596f799ebcf3a8",
+      "tests/test_pallas_afa.py": "139b5dd2b3f64aad21a7f5407a752fbc76afa7f08637239959c0be72a5511a0f"
     }
   },
   "purity": {
@@ -332,7 +332,7 @@
     "passed": true,
     "source_matches": true,
     "inventory_matches": true,
-    "path": "/home/tas_ken_rt25/algebraic-intelligence/results/phase6/tpu/metrics.json"
+    "path": "/home/tasma/algebraic-intelligence/results/phase6/tpu/metrics.json"
   },
   "local_cpu": {
     "passed": true

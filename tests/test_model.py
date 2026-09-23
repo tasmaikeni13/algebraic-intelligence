@@ -16,8 +16,10 @@ import jax.numpy as jnp
 import numpy as np
 
 from src.model import AlgebraicTransformerLM, ModelConfig, count_parameters
-from src.baseline import StandardTransformerLM, BaselineConfig
-from src.mesh import create_tpu_mesh, ModelSharding
+from src.baseline import StandardTransformerLM, BaselineConfig, _build_standard_rope
+from src.mesh import compile_data_parallel_step, create_tpu_mesh, ModelSharding
+from src.optimizer import algebraic_adamw
+from scripts.phase7_experiments import train_step_baseline_fn
 from scripts.audit_primitives import source_audit, FORBIDDEN
 
 
@@ -145,3 +147,49 @@ def test_mesh_creation():
     sharding = ModelSharding(mesh)
     assert sharding.replicated is not None
     assert sharding.data_parallel is not None
+
+
+def test_standard_training_step_runs_inside_explicit_shard_map():
+    """Regression: Mosaic attention must sit inside a data-parallel shard map."""
+    from jax.sharding import NamedSharding, PartitionSpec as P
+
+    mesh = create_tpu_mesh()
+    shardings = ModelSharding(mesh)
+    data_spec = P(("data", "fsdp", "model"), None)
+    data_sharding = NamedSharding(mesh, data_spec)
+    config = BaselineConfig(
+        vocab_size=32,
+        d_model=16,
+        num_layers=1,
+        num_heads=2,
+        d_ff=32,
+        max_seq_len=8,
+        dtype=jnp.float32,
+        attention_block_size=8,
+        vocab_chunk_size=16,
+    )
+    model = StandardTransformerLM(config)
+    optimizer = algebraic_adamw(learning_rate=1e-3)
+    params = jax.device_put(
+        model.init_params(jax.random.PRNGKey(17)), shardings.replicated
+    )
+    opt_state = jax.device_put(optimizer.init(params), shardings.replicated)
+    cos_angles, sin_angles = _build_standard_rope(model.head_dim, 8)
+    step = train_step_baseline_fn(
+        model,
+        optimizer,
+        jax.device_put(cos_angles, shardings.replicated),
+        jax.device_put(sin_angles, shardings.replicated),
+        data_axis_names=mesh.axis_names,
+    )
+    compiled = compile_data_parallel_step(step, mesh, data_spec)
+    tokens = jax.device_put(
+        jnp.arange(16, dtype=jnp.int32).reshape(2, 8) % config.vocab_size,
+        data_sharding,
+    )
+    targets = jax.device_put((tokens + 1) % config.vocab_size, data_sharding)
+
+    new_params, _, metrics = compiled(params, opt_state, tokens, targets)
+    jax.block_until_ready(new_params)
+    assert bool(jax.device_get(metrics["is_finite"]))
+    assert float(jax.device_get(metrics["loss"])) > 0.0

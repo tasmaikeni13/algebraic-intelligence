@@ -34,7 +34,7 @@ from src.optimizer import algebraic_adamw, ards_schedule
 from src.attention import build_cayley_rotary_matrix
 from src.baseline import _build_standard_rope
 from src.dataset import ensure_wikitext103_ready, ShardedTokenLoader, evaluate_perplexity
-from src.mesh import create_tpu_mesh, ModelSharding
+from src.mesh import compile_data_parallel_step, create_tpu_mesh, ModelSharding
 from scripts.phase7_records import REQUIRED_PILOT_STEPS, environment, source_hashes, write_json
 from scripts.phase7_experiments import (
     audit_phase7_ast,
@@ -73,11 +73,12 @@ def run_training_arm(
     params = jax.device_put(params, sharding.replicated)
     opt_state = jax.device_put(opt_state, sharding.replicated)
 
-    # JIT-compile the step function with SPMD sharding annotations
-    jitted_step = jax.jit(
+    # Explicit shard_map is required for Mosaic/Pallas kernels nested in the
+    # model; an outer SPMD jit cannot partition those custom calls itself.
+    jitted_step = compile_data_parallel_step(
         train_step_fn,
-        in_shardings=(sharding.replicated, sharding.replicated, data_sharding, data_sharding),
-        out_shardings=(sharding.replicated, sharding.replicated, sharding.replicated),
+        mesh,
+        P(("data", "fsdp", "model"), None),
     )
 
     # Metrics trackers
@@ -310,8 +311,21 @@ def main():
     opt_alg = algebraic_adamw(learning_rate=alg_schedule, weight_decay=1e-2)
     opt_base = algebraic_adamw(learning_rate=base_schedule, weight_decay=1e-2)
 
-    step_fn_alg = train_step_algebraic_fn(alg_model, opt_alg, rotary_params, max_grad_norm=1.0)
-    step_fn_base = train_step_baseline_fn(base_model, opt_base, cos_angles, sin_angles, max_grad_norm=1.0)
+    step_fn_alg = train_step_algebraic_fn(
+        alg_model,
+        opt_alg,
+        rotary_params,
+        max_grad_norm=1.0,
+        data_axis_names=mesh.axis_names,
+    )
+    step_fn_base = train_step_baseline_fn(
+        base_model,
+        opt_base,
+        cos_angles,
+        sin_angles,
+        max_grad_norm=1.0,
+        data_axis_names=mesh.axis_names,
+    )
 
     # 7. Run Head-to-Head Training
     # Run Baseline first

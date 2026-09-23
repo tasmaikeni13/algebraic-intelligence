@@ -90,6 +90,7 @@ Instruct the creation and verification of the following files targeting the Clou
    - `StandardTransformerLM`: Baseline model implementing SwiGLU, RMSNorm with learnable $\boldsymbol{\gamma}$, exponential Softmax, RoPE, cross-entropy, and AdamW.
 2. **`src/mesh.py`**:
    - SPMD distributed sharding topology defining 16 TPU v4 devices (Cloud TPU v4-32 across 4 hosts) in a 3D Torus mesh via `jax.sharding.Mesh` with axes `('data', 'fsdp', 'model')`.
+   - Compile each full training step inside an explicit `shard_map`, because Mosaic/Pallas calls cannot be automatically partitioned by an outer SPMD `jit`. Average loss and gradients across all three data-parallel mesh axes before clipping and applying the replicated optimizer update.
 3. **`scripts/run_pilot_15m.py`**:
    - End-to-end distributed pretraining script for 15M models across $10^5$ steps on the Cloud TPU v4-32 Pod slice, logging validation perplexity, gradient norms, and HBM memory.
 

@@ -4,7 +4,7 @@ Defines the physical 3D Torus mesh across the 16 TPU v4 chips (Cloud TPU v4-32)
 with axes ('data', 'fsdp', 'model') and NamedSharding specifications.
 """
 
-from typing import Optional, Sequence, Tuple
+from typing import Any, Callable, Optional, Sequence, Tuple
 
 import jax
 from jax.experimental import mesh_utils
@@ -79,3 +79,38 @@ class ModelSharding:
         self.full_data_parallel = NamedSharding(mesh, P(("data", "fsdp", "model")))
         # Sequence parallel sharding
         self.seq_parallel = NamedSharding(mesh, P(None, "model"))
+
+
+def compile_data_parallel_step(
+    step_fn: Callable[..., Any],
+    mesh: Mesh,
+    data_spec: P,
+) -> Callable[..., Any]:
+    """Compile a replicated-state training step inside an explicit shard map.
+
+    Mosaic/Pallas kernels cannot be automatically partitioned by a surrounding
+    SPMD ``jit``.  The shard-map boundary gives each device its local batch while
+    keeping parameters, optimizer state, and scalar metrics replicated.  The
+    step function must average its gradients over ``mesh.axis_names`` before it
+    applies optimizer updates.
+    """
+    from jax.experimental.shard_map import shard_map
+
+    replicated_spec = P()
+    replicated = NamedSharding(mesh, replicated_spec)
+    data = NamedSharding(mesh, data_spec)
+    mapped_step = shard_map(
+        step_fn,
+        mesh=mesh,
+        in_specs=(replicated_spec, replicated_spec, data_spec, data_spec),
+        out_specs=(replicated_spec, replicated_spec, replicated_spec),
+        # JAX requires this checker to be disabled when the mapped function
+        # contains a Pallas kernel. Replication is established explicitly by
+        # the gradient pmean in each training-step factory.
+        check_rep=False,
+    )
+    return jax.jit(
+        mapped_step,
+        in_shardings=(replicated, replicated, data, data),
+        out_shardings=(replicated, replicated, replicated),
+    )

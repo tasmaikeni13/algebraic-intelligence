@@ -1,6 +1,6 @@
 # Phase 6 PASS — Pallas Algebraic FlashAttention on 16 TPU v4 Chips
 
-Verified 2026-09-18 on CPU and the four-host, 16-chip Cloud TPU v4 Pod slice
+Verified 2026-09-23 on CPU and the four-host, 16-chip Cloud TPU v4 Pod slice
 `my-tpu-v4` in `us-central2-b`. TPU parity, benchmarking, and compiler auditing
 all exercise the real `pallas_afa_forward` implementation. The throughput
 baseline is JAX's Pallas TPU FlashAttention kernel, not dense attention.
@@ -9,13 +9,13 @@ baseline is JAX's Pallas TPU FlashAttention kernel, not dense attention.
 
 | Gate | Verified outcome | Evidence |
 | :--- | :--- | :--- |
-| Lean certificates | 1526 jobs; no errors, `sorry`, `admit`, or added axioms | [`lean-build.log`](lean-build.log), [`Kernel.lean`](../../formal/AlgebraicTheory/Kernel.lean), [`Gate.lean`](../../formal/AlgebraicTheory/Gate.lean) |
+| Lean certificates | 1527 jobs; no errors, `sorry`, `admit`, or added axioms | [`lean-build.log`](lean-build.log), [`Kernel.lean`](../../formal/AlgebraicTheory/Kernel.lean), [`Gate.lean`](../../formal/AlgebraicTheory/Gate.lean) |
 | Zero-transcendental source audit | No source, token, or traced-graph violations | [`metrics.json`](metrics.json) |
 | CPU tiled accuracy | Maximum float64 relative error $1.50\times10^{-15}$ over 12 configurations | [`metrics.json`](metrics.json) |
 | Additive invariants | Maximum block-size drift $4.44\times10^{-15}$; scale-invariance drift $4.44\times10^{-16}$ | [`metrics.json`](metrics.json) |
 | Real Pallas identity | Parity, benchmark, and HLO rows identify `pallas_afa_forward`; source hashes match the current implementation | [`tpu/metrics.json`](tpu/metrics.json) |
 | TPU numerical parity | 8/8 causal/non-causal FP32/BF16 configurations passed; all finite | [`tpu/metrics.json`](tpu/metrics.json) |
-| Pallas throughput | Ratios $1.0177$ at $L=2048$ and $1.0266$ at $L=4096$ versus `jax.experimental.pallas.ops.tpu.flash_attention` | [`tpu/metrics.json`](tpu/metrics.json), [`tpu/latencies.json`](tpu/latencies.json) |
+| Pallas throughput | Ratios $0.9883$ at $L=2048$ and $0.9986$ at $L=4096$ versus `jax.experimental.pallas.ops.tpu.flash_attention` | [`tpu/metrics.json`](tpu/metrics.json), [`tpu/latencies.json`](tpu/latencies.json) |
 | Bounded streaming storage | Conservative tile working set 294,912 bytes (288 KiB), within the 16 MiB VMEM budget; no $L\times L$ materialization | [`tpu/metrics.json`](tpu/metrics.json) |
 | Distributed ring parity | Relative error $4.15\times10^{-7}$ across 16 chips; maximum absolute difference $9.54\times10^{-7}$ | [`tpu/metrics.json`](tpu/metrics.json) |
 | TPU compiler audit | 0 forbidden transcendental opcodes; `tpu_custom_call` Pallas lowering marker present | [`tpu/metrics.json`](tpu/metrics.json), [`tpu/afa_step.mlir`](tpu/afa_step.mlir) |
@@ -46,8 +46,8 @@ Each row used 10 warmups and 50 synchronized repetitions across all 16 chips.
 
 | Sequence | AFA latency (ms) | Baseline latency (ms) | AFA TFLOPS/chip | Baseline TFLOPS/chip | Ratio |
 | ---: | ---: | ---: | ---: | ---: | ---: |
-| 2048 | 1.033945 | 1.052259 | 16.6158 | 16.3266 | 1.017713 |
-| 4096 | 3.104090 | 3.186685 | 22.1384 | 21.5646 | 1.026608 |
+| 2048 | 1.072545 | 1.059955 | 16.0179 | 16.2081 | 0.988262 |
+| 4096 | 3.204489 | 3.199845 | 21.4448 | 21.4759 | 0.998551 |
 
 The baseline is `jax.experimental.pallas.ops.tpu.flash_attention`. Both rows
 clear the $\ge85\%$ throughput gate.

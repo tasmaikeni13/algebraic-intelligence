@@ -24,6 +24,17 @@ def main():
     parser.add_argument("--steps", type=int, default=100_000, help="Total pretraining steps")
     parser.add_argument("--log-every", type=int, default=500)
     args = parser.parse_args()
+
+    dirty = subprocess.check_output(
+        ["git", "status", "--porcelain", "--untracked-files=all"],
+        cwd=ROOT,
+        text=True,
+    ).strip()
+    if dirty:
+        raise RuntimeError(
+            "Refusing to launch Phase 7 from a dirty worktree; commit the exact snapshot first"
+        )
+
     out = args.output.resolve()
     out.mkdir(parents=True, exist_ok=True)
 
@@ -85,6 +96,7 @@ def main():
 
     # Separate CPU environments on every host do not initialize the TPU runtime.
     ssh(f"cd {quote(remote)} && JAX_PLATFORMS=cpu JAX_ENABLE_X64=1 venv/bin/python -m pytest -q", "host-tests.log")
+    ssh(f"mkdir -p {quote(remote+'/measurements')}", "mkdir-measurements.log")
     (out / "snapshot.txt").write_text(f"commit={commit}\nremote_directory={remote}\n")
 
     cmd = (
@@ -93,22 +105,33 @@ def main():
         f"--log-every {args.log_every}"
     )
 
+    run_error = None
     try:
         ssh(cmd, "run.log")
-    finally:
-        download = out / "download" / label
-        download.mkdir(parents=True)
-        for worker in range(4):
+    except Exception as exc:
+        run_error = exc
+
+    download = out / "download" / label
+    download.mkdir(parents=True)
+    download_errors = []
+    for worker in range(4):
+        try:
             run(["gcloud", "compute", "tpus", "tpu-vm", "scp", "--recurse",
                  f"{args.name}:{remote}/measurements", str(download / f"worker-{worker}"),
                  "--zone", args.zone, "--worker", str(worker), "--quiet"], f"download-{worker}.log")
-        candidates = list(download.rglob("metrics.json"))
-        if len(candidates) != 1:
-            raise RuntimeError(f"Expected exactly one coordinator record; found {len(candidates)} in {download}")
-        import shutil
-        for file in candidates[0].parent.iterdir():
-            if file.is_file():
-                shutil.copy2(file, out / file.name)
+        except Exception as exc:
+            download_errors.append((worker, exc))
+    if run_error is not None:
+        raise run_error
+    if download_errors:
+        raise RuntimeError(f"Failed to download Phase 7 results: {download_errors}")
+    candidates = list(download.rglob("metrics.json"))
+    if len(candidates) != 1:
+        raise RuntimeError(f"Expected exactly one coordinator record; found {len(candidates)} in {download}")
+    import shutil
+    for file in candidates[0].parent.iterdir():
+        if file.is_file():
+            shutil.copy2(file, out / file.name)
     return 0
 
 

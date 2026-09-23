@@ -1,2 +1,2 @@
-commit=a79de941f108066baac6a6abb3a30563da1f29ac
-remote_directory=/tmp/algebraic-phase6-a79de941f108-20260918T052601Z
+commit=6af306ae88aa38590e14abcd0647f673d708ac5e
+remote_directory=/tmp/algebraic-phase6-6af306ae88aa-20260923T110126Z

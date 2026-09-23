@@ -74,7 +74,7 @@ Instruct the creation and verification of the following files targeting the 16 T
 1. **`scripts/run_pretrain_125m.py`**:
    - Multi-device distributed pretraining script for 125M parameter models across 2.5B FineWeb-Edu tokens on 16 TPU v4 chips.
    - Automatically loads hyperparameters from `results/phase8/`.
-   - SPMD mesh sharding via `src/mesh.py` (`data`, `fsdp` axes).
+   - SPMD mesh sharding via `src/mesh.py` (`data`, `fsdp`, and `model` axes), with an explicit `shard_map` around each full training step and cross-axis gradient averaging before replicated optimizer updates.
    - Memory-mapped deterministic data loading through `src/dataset.py`.
    - CLI flags: `--architecture {algebraic,standard} --seed {42,43,44} --total-tokens 2500000000`.
    - Rolling atomic checkpoints include model parameters, optimizer state, safety counters, elapsed time, and exact source metadata for fail-closed resume.

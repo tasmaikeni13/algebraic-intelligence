@@ -82,6 +82,7 @@ The committed candidate matrix samples the following bounded dimensions. Phase 8
 Instruct the creation and verification of the following files targeting the 16 TPU v4 Pod slice (v4-32):
 1. **`scripts/run_hparam_sweep.py`**:
    - Automated sweep and multi-seed runner leveraging JAX SPMD sharding across 16 TPU v4 chips (`my-tpu-v4` v4-32).
+   - Places the full training step inside the explicit `src.mesh.compile_data_parallel_step` `shard_map` boundary and averages accumulated gradients across `data`, `fsdp`, and `model` before each replicated optimizer update.
    - Executes every preregistered candidate for both architectures across seeds 42, 43, and 44, with at least 600M tokens per run.
    - Logs intermediate loss curves, gradient norms, and records validation perplexity.
    - Emits structured artifacts:

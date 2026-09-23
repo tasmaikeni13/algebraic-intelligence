@@ -20,6 +20,9 @@ ENV/
 # Datasets and large caches
 data/
 results/phase9/**/checkpoints/
+# Launchers promote authoritative coordinator artifacts to the phase directory;
+# per-worker download trees are redundant local recovery copies.
+results/phase*/tpu/download/
 
 # System files
 .DS_Store

@@ -118,6 +118,7 @@ def main() -> int:
     (output / "snapshot.txt").write_text(
         f"commit={commit}\nremote_directory={remote}\n"
     )
+    ssh(f"mkdir -p {quote(remote + '/measurements')}", "mkdir-measurements.log")
 
     runs = [(architecture, seed) for architecture in ("algebraic", "standard") for seed in (42, 43, 44)]
     if args.resume_from is not None:
@@ -133,6 +134,7 @@ def main() -> int:
                     "--worker", "all", "--quiet",
                 ], f"resume-copy-{run_name}.log")
 
+    run_error = None
     try:
         for architecture, seed in runs:
             run_name = f"{architecture}-{seed}"
@@ -166,20 +168,33 @@ def main() -> int:
             f"--output-dir {quote(remote + '/measurements')}"
         )
         ssh(verify, "verify.log", worker="0")
-    finally:
-        download = output / "download" / label
-        download.mkdir(parents=True, exist_ok=True)
+    except Exception as exc:
+        run_error = exc
+
+    download = output / "download" / label
+    download.mkdir(parents=True, exist_ok=True)
+    download_error = None
+    try:
         run([
             "gcloud", "compute", "tpus", "tpu-vm", "scp", "--recurse",
             f"{args.name}:{remote}/measurements", str(download),
             "--zone", args.zone, "--worker", "0", "--quiet",
         ], "download.log")
-        measurement_dirs = list(download.rglob("pretraining_ledger.json"))
-        if measurement_dirs:
-            source_dir = measurement_dirs[0].parent
-            for path in source_dir.iterdir():
-                if path.is_file():
-                    shutil.copy2(path, ROOT / "results/phase9" / path.name)
+    except Exception as exc:
+        download_error = exc
+    if run_error is not None:
+        raise run_error
+    if download_error is not None:
+        raise download_error
+    measurement_dirs = list(download.rglob("pretraining_ledger.json"))
+    if len(measurement_dirs) != 1:
+        raise RuntimeError(
+            f"Expected exactly one Phase 9 pretraining ledger, found {len(measurement_dirs)}"
+        )
+    source_dir = measurement_dirs[0].parent
+    for path in source_dir.iterdir():
+        if path.is_file():
+            shutil.copy2(path, ROOT / "results/phase9" / path.name)
     return 0
 
 
