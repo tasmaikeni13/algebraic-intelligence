@@ -15,7 +15,7 @@ baseline is JAX's Pallas TPU FlashAttention kernel, not dense attention.
 | Additive invariants | Maximum block-size drift $4.44\times10^{-15}$; scale-invariance drift $4.44\times10^{-16}$ | [`metrics.json`](metrics.json) |
 | Real Pallas identity | Parity, benchmark, and HLO rows identify `pallas_afa_forward`; source hashes match the current implementation | [`tpu/metrics.json`](tpu/metrics.json) |
 | TPU numerical parity | 8/8 causal/non-causal FP32/BF16 configurations passed; all finite | [`tpu/metrics.json`](tpu/metrics.json) |
-| Pallas throughput | Ratios $0.9883$ at $L=2048$ and $0.9986$ at $L=4096$ versus `jax.experimental.pallas.ops.tpu.flash_attention` | [`tpu/metrics.json`](tpu/metrics.json), [`tpu/latencies.json`](tpu/latencies.json) |
+| Pallas throughput | Ratios $0.9841$ at $L=2048$ and $0.9967$ at $L=4096$ versus `jax.experimental.pallas.ops.tpu.flash_attention` | [`tpu/metrics.json`](tpu/metrics.json), [`tpu/latencies.json`](tpu/latencies.json) |
 | Bounded streaming storage | Conservative tile working set 294,912 bytes (288 KiB), within the 16 MiB VMEM budget; no $L\times L$ materialization | [`tpu/metrics.json`](tpu/metrics.json) |
 | Distributed ring parity | Relative error $4.15\times10^{-7}$ across 16 chips; maximum absolute difference $9.54\times10^{-7}$ | [`tpu/metrics.json`](tpu/metrics.json) |
 | TPU compiler audit | 0 forbidden transcendental opcodes; `tpu_custom_call` Pallas lowering marker present | [`tpu/metrics.json`](tpu/metrics.json), [`tpu/afa_step.mlir`](tpu/afa_step.mlir) |
@@ -46,8 +46,8 @@ Each row used 10 warmups and 50 synchronized repetitions across all 16 chips.
 
 | Sequence | AFA latency (ms) | Baseline latency (ms) | AFA TFLOPS/chip | Baseline TFLOPS/chip | Ratio |
 | ---: | ---: | ---: | ---: | ---: | ---: |
-| 2048 | 1.072545 | 1.059955 | 16.0179 | 16.2081 | 0.988262 |
-| 4096 | 3.204489 | 3.199845 | 21.4448 | 21.4759 | 0.998551 |
+| 2048 | 1.062859 | 1.046009 | 16.1638 | 16.4242 | 0.984147 |
+| 4096 | 3.194225 | 3.183835 | 21.5137 | 21.5839 | 0.996747 |
 
 The baseline is `jax.experimental.pallas.ops.tpu.flash_attention`. Both rows
 clear the $\ge85\%$ throughput gate.
@@ -56,7 +56,7 @@ clear the $\ge85\%$ throughput gate.
 
 The conservative live tile set (Q, K, V, score, numerator, and replicated
 denominator scratch) is 288 KiB, well below the 16 MiB VMEM budget. The
-$10.785\,\mathrm{GB/s}$ figure in the machine-readable record is only a minimum
+$10.511\,\mathrm{GB/s}$ figure in the machine-readable record is only a minimum
 logical external-I/O rate derived from tensor sizes and latency. It is not a
 physical HBM-utilization claim. No bandwidth percentage is inferred without
 hardware profiler counters.
