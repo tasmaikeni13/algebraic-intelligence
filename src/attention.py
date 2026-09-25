@@ -145,8 +145,10 @@ def _rotate_tensor(x, c, s):
     x_pairs = x.reshape(x.shape[:-1] + (num_pairs, 2))
     x0 = x_pairs[..., 0]
     x1 = x_pairs[..., 1]
-    x0_rot = c * x0 - s * x1
-    x1_rot = s * x0 + c * x1
+    c_cast = c.astype(x.dtype)
+    s_cast = s.astype(x.dtype)
+    x0_rot = c_cast * x0 - s_cast * x1
+    x1_rot = s_cast * x0 + c_cast * x1
     return jnp.stack([x0_rot, x1_rot], axis=-1).reshape(x.shape)
 
 

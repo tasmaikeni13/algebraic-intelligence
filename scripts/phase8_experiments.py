@@ -332,7 +332,7 @@ def evaluate_perplexity_fast(
     """Fast bounded-memory validation perplexity on FineWeb-Edu."""
     if rotary_or_angles is None:
         rotary_or_angles = (
-            build_cayley_rotary_matrix(model.head_dim, seq_len)
+            build_cayley_rotary_matrix(model.head_dim, seq_len, dtype=model.config.dtype)
             if is_algebraic
             else _build_standard_rope(model.head_dim, seq_len)
         )

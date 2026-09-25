@@ -124,10 +124,15 @@ def afa_kernel(
             p_bc = jnp.where(causal_mask, p_bc, 0.0)
 
         # 2e. Pure Additive Tile Accumulation:
+        v_matmul_prec = (
+            lax.Precision.DEFAULT
+            if v_tile.dtype in (jnp.bfloat16, jnp.float16)
+            else matmul_precision
+        )
         o_acc_ref[...] = o_acc_ref[...] + lax.dot(
             p_bc.astype(v_tile.dtype),
             v_tile,
-            precision=matmul_precision,
+            precision=v_matmul_prec,
             preferred_element_type=jnp.float32,
         )
 

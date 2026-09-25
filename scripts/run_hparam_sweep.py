@@ -179,7 +179,7 @@ def run_sweep_arm(
     if is_alg:
         model_cfg = get_125m_algebraic_config(sink_omega=hparams.sink_omega, gamma=hparams.gamma)
         model = AlgebraicTransformerLM(model_cfg)
-        rotary = build_cayley_rotary_matrix(model.head_dim, seq_len)
+        rotary = build_cayley_rotary_matrix(model.head_dim, seq_len, dtype=model_cfg.dtype)
         rotary_dev = jax.device_put(rotary, sharding.replicated)
 
         schedule_fn = ards_schedule(
