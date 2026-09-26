@@ -1,12 +1,10 @@
 {
-  "phase": "phase8",
-  "gate_version": 1,
-  "status": "PASS",
-  "passed": true,
+  "phase": 8,
+  "gate_version": 2,
   "environment": {
     "python": "3.10.12 (main, Aug 31 2026, 10:18:17) [GCC 11.4.0]",
     "platform": "Linux-5.19.0-1022-gcp-x86_64-with-glibc2.35",
-    "hostname": "t1v-n-0974eafe-w-2",
+    "hostname": "t1v-n-0974eafe-w-0",
     "jax": "0.6.2",
     "jaxlib": "0.6.2",
     "numpy": "2.2.6",
@@ -117,59 +115,40 @@
     }
   },
   "hardware": {
-    "platform": "tpu",
-    "device_count": 16,
-    "process_count": 4
-  },
-  "sweep_summary": {
+    "passed": true,
+    "matched_hashes": true,
     "completed_runs": 18,
     "expected_runs": 18,
-    "candidates_evaluated": 6,
-    "algebraic_candidates_evaluated": 3,
-    "baseline_candidates_evaluated": 3,
+    "candidate_count": 6,
+    "algebraic_candidates": 3,
+    "baseline_candidates": 3,
     "seed_count": 3,
     "requested_tokens_per_run": 600000000,
     "minimum_actual_tokens_per_run": 600834048,
-    "maximum_actual_tokens_per_run": 600834048,
     "maximum_token_overrun": 834048,
-    "tokens_per_step": 1048576,
-    "token_budget_satisfied": true,
-    "selected_algebraic_candidate": "alg_high_lr",
-    "selected_baseline_candidate": "base_lower_lr",
-    "algebraic_mean_val_loss": 3.85002023379008,
-    "algebraic_seed_std_pct": 0.16373759539572888,
-    "algebraic_mean_ppl": 46.9949490776184,
-    "baseline_mean_val_loss": 4.842073647181192,
-    "baseline_seed_std_pct": 0.456491563197498,
-    "baseline_mean_ppl": 126.76298336923516,
-    "mean_perplexity_ratio": 0.37073085398070454,
+    "platform": "tpu",
+    "device_count": 16,
+    "process_count": 4,
+    "perplexity_ratio": 0.37073085398070454,
+    "nan_count": 0,
+    "spike_count": 0,
     "peak_gradient_norm": 1.000000238418579,
-    "nan_or_inf_count": 0,
-    "loss_spike_count": 0,
-    "all_candidate_nan_or_inf_count": 0,
-    "all_candidate_loss_spike_count": 4,
-    "algebraic_normalization_second_moment_min": 0.9999839663505554,
-    "algebraic_normalization_second_moment_max": 1.0000014305114746,
+    "algebraic_seed_std_pct": 0.16373759539572888,
+    "baseline_seed_std_pct": 0.456491563197498,
     "normalization_second_moment_passed": true,
-    "peak_hbm_bytes": 435140096
+    "artifact_files_match": true,
+    "ledger_consistent": true
   },
-  "ast_audit": {
-    "audited_files": [
-      "src/model.py",
-      "src/primitives.py",
-      "src/attention.py",
-      "src/loss.py",
-      "src/optimizer.py",
-      "src/mesh.py",
-      "src/kernels/pallas_afa.py",
-      "src/kernels/pallas_oace.py"
-    ],
-    "violations": {},
-    "passed": true
+  "inherited_phase7": {
+    "metrics_exist": true,
+    "pass_record_exists": true,
+    "aggregate_status_pass": false,
+    "hardware_passed": false,
+    "passed": false
   },
-  "artifacts": {
-    "sweep_ledger.json": "02a685ecc8ef4e8b14508c0e785b6c98de7883cd16e8221c159e7495959ff410",
-    "algebraic_optimal.json": "cecb290502687908c5c94b96e80c253a56ce11a927ecda160848b0c16bfb4a62",
-    "baseline_optimal.json": "b288e9a55cd6832950549883cd774e877465c06a86f483bf204385752f783008"
-  }
+  "tests_passed": true,
+  "formal_passed": true,
+  "proof_scan_violations": [],
+  "passed": false,
+  "status": "FAIL"
 }
