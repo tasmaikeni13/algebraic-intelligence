@@ -187,11 +187,13 @@ def run_sweep_arm(
             warmup_steps=hparams.warmup_steps,
             decay_steps=int(total_steps * 0.8),
         )
+        decay_mask = lambda p: jax.tree_util.tree_map(lambda x: x.ndim >= 2, p)
         optimizer_tx = algebraic_adamw(
             learning_rate=schedule_fn,
             beta1=hparams.beta1,
             beta2=hparams.beta2,
             weight_decay=hparams.weight_decay,
+            mask=decay_mask,
         )
         step_fn = train_step_algebraic_fn(
             model=model,
@@ -214,11 +216,13 @@ def run_sweep_arm(
             total_steps=total_steps,
             min_lr=hparams.min_lr,
         )
+        decay_mask = lambda p: jax.tree_util.tree_map(lambda x: x.ndim >= 2, p)
         optimizer_tx = algebraic_adamw(
             learning_rate=schedule_fn,
             beta1=hparams.beta1,
             beta2=hparams.beta2,
             weight_decay=hparams.weight_decay,
+            mask=decay_mask,
         )
         step_fn = train_step_baseline_fn(
             model=model,
@@ -324,8 +328,9 @@ def run_sweep_arm(
         if not (math.isfinite(loss_val) and math.isfinite(grad_norm_val)):
             nan_or_inf_count += 1
 
-        # Monitor steady-state loss spikes (step >= 10, excluding initial warmup)
-        if step >= 10 and prev_loss is not None and (loss_val - prev_loss) > 1.5:
+        # Monitor steady-state loss spikes (step >= warmup, excluding initial warmup)
+        warmup_cutoff = max(10, hparams.warmup_steps)
+        if step >= warmup_cutoff and prev_loss is not None and (loss_val - prev_loss) > 1.5:
             loss_spike_count += 1
         prev_loss = loss_val
 

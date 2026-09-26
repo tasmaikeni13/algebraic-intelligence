@@ -142,13 +142,15 @@ class StandardTransformerLM:
 
     def init_params(self, key: jax.Array) -> Dict[str, Any]:
         cfg = self.config
-        keys = jax.random.split(key, 20)
+        total_keys = 2 + cfg.num_layers * 7
+        keys = jax.random.split(key, total_keys)
         k_idx = 0
 
         def normal(shape, std=0.02):
             nonlocal k_idx
+            k = keys[k_idx]
             k_idx += 1
-            return (jax.random.normal(keys[k_idx % len(keys)], shape) * std).astype(cfg.param_dtype)
+            return (jax.random.normal(k, shape) * std).astype(cfg.param_dtype)
 
         params: Dict[str, Any] = {
             "token_embed": normal((cfg.vocab_size, cfg.d_model)),
