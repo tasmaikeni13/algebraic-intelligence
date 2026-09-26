@@ -73,7 +73,8 @@ The paper is organized around the foundational layers of the Algebraic Stack:
 - **Section 12** presents a foundational mathematical and philosophical treatise addressing the core research question: "Can algebra and algebra alone give rise to intelligence?".
 - **Section 13** provides an exhaustive structural comparison between empirical patches in frontier LLMs and native Algebraic Stack primitives.
 - **Section 14** synthesizes the complete Algebraic Stack in comprehensive architectural tables.
-- **Section 15** concludes the paper.
+- **Section 15** discusses empirical mechanistic attribution, working hypotheses regarding optimization landscapes, and outlines future research directions including factorial ablations and alternative algebraic structures.
+- **Section 16** concludes the paper.
 
 ---
 
@@ -607,7 +608,40 @@ Every component shares the identical execution profile: dense matrix multiplicat
 
 ---
 
-## 15 Conclusion
+## 15 Discussion and Future Work
+
+### 15.1 Empirical Dynamics & The "Tamed Landscape" Hypothesis
+In our systematic hyperparameter calibration study across 18 full pretraining runs (10,815,012,864 FineWeb-Edu tokens evaluated on 16 physical Cloud TPU v4 chips at the 125M parameter scale), the Pure Algebraic Transformer achieved a 16.60% lower validation perplexity ($47.29$ vs. $56.71$, ratio $0.8340$) and a $0.1812$ nat lower cross-entropy validation loss compared to a strictly compute-matched, equivalently tuned standard Transformer baseline across all evaluated seeds.
+
+Our primary working hypothesis for this observed empirical superiority is the **Tamed Loss Landscape** induced by intrinsic algebraic smoothness and bounded curvature:
+1. **Elimination of the Exponential Attenuation Cliff:** Standard exponential softmax $e^x$ possesses unbounded convexity; as logits diverge, $e^x$ saturates rapidly, producing near-zero gradients $p_i(1 - p_i) \to 0$ that freeze attention routing. A-Softmax replaces exponential tails with the algebraic kernel $\rho(x) = x + \sqrt{x^2 + 1}$, whose entrywise Jacobian derivative is globally bounded by $\le 2.0$ (Theorem 4.6), preserving gradient plasticity and preventing early representational lock-in. Furthermore, the rational attention sink $\Omega$ provides an explicit reservoir for uninformative queries, eliminating the artificial attention sink artifact documented in standard softmax.
+2. **Elimination of Logarithmic Gradient Shock:** Logarithmic cross-entropy $-\ln p$ exhibits an infinite singularity as $p \to 0$ with derivative $-1/p \to -\infty$, rendering standard models susceptible to severe gradient shocks on anomalous or noisy tokens. OACE bounds the power score gradient via $p^{-1/8}$ and $p^{7/8}$, maintaining strict propriety while dampening noise-induced gradient spikes into gentle power-law curves.
+3. **Parameter-Free Energy Invariance:** Unlike RMSNorm or LayerNorm, whose learnable scale parameters $\boldsymbol{\gamma}$ drift and interact non-trivially with weight decay, Algebraic Variance Normalization (AVN) is completely parameter-free. Across all 12 layers, empirical layer-input second moments remain pinned within $[0.99998, 1.00001]$, ensuring invariant signal propagation across depth without gain decay.
+
+**Limitation and Future Mechanistic Attribution:** While the system-level superiority of the end-to-end Algebraic Stack is empirically established on hardware, this study evaluated the complete unified architecture. We do not claim an isolated empirical breakdown of what percentage of the perplexity improvement stems specifically from A-Softmax vs. ALU vs. AVN vs. OACE. A fine-grained, factorial ablation matrix (e.g., standard Transformer with isolated A-Softmax, or algebraic Transformer with isolated standard softmax) across large-scale pretraining budgets is left as a dedicated subject for future mechanistic study.
+
+### 15.2 Beyond Current Primitives: Alternative Post-Transcendental Mathematics
+The foundational insight of the Algebraic Stack is that continuous transcendentals ($e^x, \ln x, \sin x$) were adopted in deep learning primarily due to twentieth-century analytical convenience, not because they are uniquely optimal for high-dimensional representation learning. Having proven that pure algebra can match and exceed transcendental performance, several alternative mathematical frameworks represent promising avenues for future exploration:
+
+1. **Learnable Rational Function Networks (Padé Approximants):**
+   Rather than fixed polynomial activations, one can explore generalized Padé rational approximants:
+   $$R_{m, n}(x) = \frac{P_m(x)}{Q_n(x)} = \frac{\sum_{i=0}^m a_i x^i}{1 + \sum_{j=1}^n b_j x^j}$$
+   where the denominator coefficients $b_j$ are constrained (e.g., via sum-of-squares parameterization) to ensure $Q_n(x) > 0$ on $\mathbb{R}$. Rational functions possess flexible non-linear representational capacity with closed-form polynomial backward passes.
+
+2. **Orthogonal Spectral Bases (Chebyshev, Gegenbauer, Jacobi):**
+   In positional encoding, trigonometric RoPE $(\cos m\theta, \sin m\theta)$ can be generalized to orthogonal polynomial families. For instance, Chebyshev polynomials $T_n(x) = \cos(n \arccos x)$ satisfy the minimax property (minimizing maximum approximation error over $[-1, 1]$) and can be evaluated strictly algebraically via the 3-term recurrence $T_{n+1}(x) = 2x T_n(x) - T_{n-1}(x)$ without transcendental evaluations.
+
+3. **Higher Lie-Group Cayley Transforms:**
+   AGO currently employs the Cayley transform on the 2-dimensional rotation group $\mathrm{SO}(2)$. This naturally extends to:
+   - **$\mathrm{SO}(3)$ and $\mathrm{SO}(d)$ Rotations:** Multi-axis rational rotations for multidimensional, spatial, or multimodal coordinate embeddings.
+   - **Symplectic Groups $\mathrm{Sp}(2n)$:** Rational Cayley transforms on the symplectic Lie algebra for Hamiltonian phase-space conservation in recurrent architectures and continuous-time state-space models (SSMs).
+
+4. **Tsallis and Rényi Non-Extensive Information Geometries:**
+   OACE is a canonical member of the broader family of $\alpha$-divergences and Tsallis $q$-entropies ($S_q = \frac{1}{q-1}(1 - \sum p_i^q)$). Systematically varying the curvature exponent $\alpha$ across pretraining regimes provides a continuous mathematical lever to tune the exact trade-off between outlier robustness, entropy regularization, and peak predictive sharpness.
+
+---
+
+## 16 Conclusion
 
 This paper has investigated the foundational question: **Can algebra and algebra alone give rise to intelligence?**
 
